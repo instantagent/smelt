@@ -107,7 +107,10 @@ public enum SmeltGPTQ {
             if h[i * n + i] <= 0 { h[i * n + i] = lambda > 0 ? lambda : 1 }   // dead/negative channel guard
         }
         var uplo: CChar = 0x55   // 'U'
-        var nn = __LAPACK_int(n), lda = __LAPACK_int(n), info = __LAPACK_int(0)
+        // Smelt intentionally uses the LP64 Accelerate ABI. Spell the LAPACK
+        // integer width directly so this public package also compiles for
+        // consumers that cannot inherit unsafe Clang importer flags.
+        var nn = Int32(n), lda = Int32(n), info = Int32(0)
         h.withUnsafeMutableBufferPointer { p in
             spotrf_(&uplo, &nn, p.baseAddress!, &lda, &info)          // H = UᵀU
             if info == 0 { spotri_(&uplo, &nn, p.baseAddress!, &lda, &info) }  // → H⁻¹ (symmetric)

@@ -70,14 +70,7 @@ let package = Package(
         .target(
             name: "SmeltCompiler",
             dependencies: ["SmeltSchema", "SmeltRuntime"],
-            path: "Sources/SmeltCompiler",
-            swiftSettings: [
-                // SmeltGPTQ uses Accelerate LAPACK (spotrf/spotri); the CLAPACK headers were
-                // deprecated in macOS 13.3 and gate the modern interface on this Clang macro
-                // (-Xcc so it reaches the Accelerate module importer). Matches SmeltRuntime; no
-                // ILP64, so __LAPACK_int stays Int-width.
-                .unsafeFlags(["-Xcc", "-DACCELERATE_NEW_LAPACK=1"]),
-            ]
+            path: "Sources/SmeltCompiler"
         ),
         // Swift module authoring: a thin sugar layer over the module IR member
         // structs in SmeltSchema. Depends ONLY on SmeltSchema — physically
@@ -106,18 +99,7 @@ let package = Package(
         .target(
             name: "SmeltRuntime",
             dependencies: ["SmeltSchema", "CLLGuidance"],
-            path: "Sources/SmeltRuntime",
-            swiftSettings: [
-                // cblas_sgemm (and the rest of CLAPACK) was deprecated in
-                // macOS 13.3; the new headers gate on the ACCELERATE_NEW_LAPACK
-                // Clang macro. This is a pure-Swift target, so the define must
-                // reach the Clang module importer that processes Accelerate —
-                // hence -Xcc, not cxxSettings (which only covers C/C++ sources).
-                // Deliberately NOT defining ACCELERATE_LAPACK_ILP64: that would
-                // widen __LAPACK_int from int to long and break the Int32(...)
-                // call sites in the TTS/GPTQ cblas callers.
-                .unsafeFlags(["-Xcc", "-DACCELERATE_NEW_LAPACK=1"]),
-            ]
+            path: "Sources/SmeltRuntime"
         ),
         .target(
             name: "SmeltServe",
