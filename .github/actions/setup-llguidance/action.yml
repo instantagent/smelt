@@ -1,0 +1,16 @@
+name: Set up llguidance
+description: Cache and build the llguidance static library used by SmeltRuntime.
+
+runs:
+  using: composite
+  steps:
+    - name: Cache llguidance static library
+      uses: actions/cache@v4
+      with:
+        path: |
+          third_party/llguidance/lib
+          third_party/llguidance/CLLGuidance.xcframework
+        key: llguidance-${{ runner.os }}-${{ hashFiles('tools/build-llguidance.sh', 'tools/llguidance-serialize.patch', 'Sources/CLLGuidance/include/**') }}
+    - name: Build llguidance
+      shell: bash
+      run: bash tools/build-llguidance.sh

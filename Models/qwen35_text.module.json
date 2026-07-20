@@ -1,0 +1,755 @@
+{
+  "artifacts" : [
+
+  ],
+  "backendConstraints" : [
+    {
+      "key" : "target",
+      "value" : "metal"
+    }
+  ],
+  "blocks" : [
+    {
+      "annotations" : [
+
+      ],
+      "id" : "trunk",
+      "operatorName" : "transformer",
+      "shape" : {
+        "requirements" : [
+
+        ],
+        "transformer" : {
+          "attention" : {
+            "headDim" : 256,
+            "kvHeads" : 2,
+            "qHeads" : 8,
+            "qkNorm" : "rms",
+            "rope" : {
+              "kind" : "neox",
+              "theta" : 10000000
+            }
+          },
+          "delta" : {
+            "convKernel" : 4,
+            "headDim" : 128,
+            "heads" : 16,
+            "projections" : {
+              "a" : 16,
+              "b" : 16,
+              "qkv" : 6144,
+              "z" : 2048
+            }
+          },
+          "ffn" : {
+            "activation" : "swiglu",
+            "dim" : 6144
+          },
+          "hiddenSize" : 2048,
+          "layers" : {
+            "repeatCount" : 6,
+            "roles" : [
+              "delta",
+              "delta",
+              "delta",
+              "attention"
+            ]
+          },
+          "norm" : {
+            "eps" : "1e-6",
+            "kind" : "rms",
+            "mode" : "one-plus-weight"
+          },
+          "projectionBanks" : [
+            {
+              "id" : "attention-input",
+              "outputs" : [
+                "attentionQ",
+                "attentionK",
+                "attentionV"
+              ],
+              "source" : "attentionInput"
+            },
+            {
+              "id" : "attention-output",
+              "outputs" : [
+                "attentionOut"
+              ],
+              "source" : "attentionOutput"
+            },
+            {
+              "id" : "delta-input",
+              "outputs" : [
+                "deltaQKV",
+                "deltaZ",
+                "deltaA",
+                "deltaB"
+              ],
+              "source" : "deltaInput"
+            },
+            {
+              "id" : "delta-output",
+              "outputs" : [
+                "deltaOut"
+              ],
+              "source" : "deltaOutput"
+            },
+            {
+              "id" : "ffn-input",
+              "outputs" : [
+                "ffnGate",
+                "ffnUp"
+              ],
+              "source" : "ffnInput"
+            },
+            {
+              "id" : "ffn-intermediate",
+              "outputs" : [
+                "ffnDown"
+              ],
+              "source" : "ffnIntermediate"
+            }
+          ],
+          "vocab" : {
+            "size" : 248320,
+            "tiedHead" : true
+          }
+        }
+      }
+    }
+  ],
+  "capabilities" : [
+    "bake.prompt-prefix",
+    "run.generate"
+  ],
+  "compile" : [
+    {
+      "key" : "layout",
+      "value" : "memory-neutral"
+    },
+    {
+      "key" : "prefill",
+      "value" : "metal batch 256"
+    },
+    {
+      "key" : "target",
+      "value" : "metal"
+    }
+  ],
+  "exportBindings" : [
+    {
+      "export" : "generate",
+      "flow" : "generate"
+    }
+  ],
+  "exports" : [
+    {
+      "capabilities" : [
+        "bake.prompt-prefix",
+        "run.generate"
+      ],
+      "gates" : [
+        "startup"
+      ],
+      "id" : "generate",
+      "inputs" : [
+        {
+          "name" : "prompt",
+          "optional" : false,
+          "type" : {
+            "attributes" : {
+              "encoding" : "utf8"
+            },
+            "name" : "text"
+          }
+        }
+      ],
+      "outputs" : [
+        {
+          "name" : "text",
+          "optional" : false,
+          "type" : {
+            "attributes" : {
+              "encoding" : "utf8"
+            },
+            "name" : "text"
+          }
+        }
+      ]
+    }
+  ],
+  "feedbackEdges" : [
+    {
+      "from" : {
+        "kind" : "nodePort",
+        "node" : "sampler",
+        "port" : "tokens"
+      },
+      "to" : {
+        "kind" : "nodePort",
+        "node" : "trunk",
+        "port" : "tokens"
+      }
+    }
+  ],
+  "flows" : [
+    {
+      "emit" : [
+        {
+          "kind" : "nodePort",
+          "node" : "detokenizer",
+          "port" : "text"
+        }
+      ],
+      "id" : "generate",
+      "phases" : [
+        {
+          "calls" : [
+            {
+              "kind" : "node",
+              "node" : "tokenizer"
+            }
+          ],
+          "role" : "setup"
+        },
+        {
+          "calls" : [
+            {
+              "kind" : "node",
+              "node" : "trunk"
+            },
+            {
+              "kind" : "node",
+              "node" : "sampler"
+            }
+          ],
+          "label" : "decode",
+          "role" : "step"
+        }
+      ],
+      "stop" : [
+        {
+          "kind" : "eos-token",
+          "value" : 248044
+        },
+        {
+          "kind" : "eos-token",
+          "value" : 248046
+        },
+        {
+          "kind" : "host-cancel"
+        },
+        {
+          "kind" : "max-steps",
+          "value" : 512
+        }
+      ]
+    }
+  ],
+  "gates" : [
+    {
+      "evidence" : [
+
+      ],
+      "id" : "decode",
+      "measurements" : [
+
+      ],
+      "requirements" : [
+        {
+          "relation" : ">=",
+          "subject" : "decode-output.tokens",
+          "value" : "1"
+        }
+      ]
+    },
+    {
+      "evidence" : [
+
+      ],
+      "id" : "inventory",
+      "measurements" : [
+
+      ],
+      "requirements" : [
+        {
+          "relation" : "include",
+          "subject" : "package-files",
+          "value" : "manifest.json,weights.bin,model.metallib,SmeltGenerated.swift,dispatches.bin,prefill_dispatches.bin,tokenizer.json,tokenizer.bin,module.json"
+        },
+        {
+          "relation" : "include",
+          "subject" : "release-surface-ids",
+          "value" : "gate.startup,gate.prefill,gate.decode,release.verify"
+        }
+      ]
+    },
+    {
+      "evidence" : [
+
+      ],
+      "id" : "prefill",
+      "measurements" : [
+
+      ],
+      "requirements" : [
+        {
+          "relation" : "<=",
+          "subject" : "prefill-batch",
+          "value" : "256"
+        }
+      ]
+    },
+    {
+      "evidence" : [
+
+      ],
+      "from" : {
+        "flow" : "generate",
+        "kind" : "flow.accepted",
+        "predicates" : [
+
+        ]
+      },
+      "id" : "startup",
+      "measurements" : [
+        {
+          "cacheState" : "cold",
+          "occurrence" : "first",
+          "processMode" : "cold",
+          "subject" : "elapsed"
+        }
+      ],
+      "requirements" : [
+        {
+          "relation" : "<=",
+          "subject" : "elapsed",
+          "unit" : "ms",
+          "value" : "115"
+        }
+      ],
+      "to" : {
+        "endpoint" : {
+          "kind" : "moduleOutput",
+          "name" : "text"
+        },
+        "flow" : "generate",
+        "kind" : "emit",
+        "predicates" : [
+          {
+            "relation" : ">=",
+            "subject" : "tokens",
+            "value" : "1"
+          }
+        ]
+      }
+    }
+  ],
+  "graphEdges" : [
+    {
+      "from" : {
+        "kind" : "graphValue",
+        "name" : "hidden"
+      },
+      "to" : {
+        "kind" : "nodePort",
+        "node" : "sampler",
+        "port" : "hidden"
+      },
+      "type" : {
+        "attributes" : {
+
+        },
+        "name" : "hidden"
+      }
+    },
+    {
+      "from" : {
+        "kind" : "graphValue",
+        "name" : "tokens"
+      },
+      "to" : {
+        "kind" : "nodePort",
+        "node" : "trunk",
+        "port" : "tokens"
+      },
+      "type" : {
+        "attributes" : {
+
+        },
+        "name" : "tokens"
+      }
+    },
+    {
+      "from" : {
+        "kind" : "graphValue",
+        "name" : "tokens_2"
+      },
+      "to" : {
+        "kind" : "nodePort",
+        "node" : "detokenizer",
+        "port" : "tokens"
+      },
+      "type" : {
+        "attributes" : {
+
+        },
+        "name" : "tokens"
+      }
+    },
+    {
+      "from" : {
+        "kind" : "moduleInput",
+        "name" : "prompt"
+      },
+      "to" : {
+        "kind" : "nodePort",
+        "node" : "tokenizer",
+        "port" : "prompt"
+      },
+      "type" : {
+        "attributes" : {
+          "encoding" : "utf8"
+        },
+        "name" : "text"
+      }
+    },
+    {
+      "from" : {
+        "kind" : "nodePort",
+        "node" : "detokenizer",
+        "port" : "text"
+      },
+      "to" : {
+        "kind" : "moduleOutput",
+        "name" : "text"
+      },
+      "type" : {
+        "attributes" : {
+          "encoding" : "utf8"
+        },
+        "name" : "text"
+      }
+    },
+    {
+      "from" : {
+        "kind" : "nodePort",
+        "node" : "sampler",
+        "port" : "tokens"
+      },
+      "to" : {
+        "kind" : "graphValue",
+        "name" : "tokens_2"
+      },
+      "type" : {
+        "attributes" : {
+
+        },
+        "name" : "tokens"
+      }
+    },
+    {
+      "from" : {
+        "kind" : "nodePort",
+        "node" : "tokenizer",
+        "port" : "tokens"
+      },
+      "to" : {
+        "kind" : "graphValue",
+        "name" : "tokens"
+      },
+      "type" : {
+        "attributes" : {
+
+        },
+        "name" : "tokens"
+      }
+    },
+    {
+      "from" : {
+        "kind" : "nodePort",
+        "node" : "trunk",
+        "port" : "hidden"
+      },
+      "to" : {
+        "kind" : "graphValue",
+        "name" : "hidden"
+      },
+      "type" : {
+        "attributes" : {
+
+        },
+        "name" : "hidden"
+      }
+    }
+  ],
+  "graphNodes" : [
+    {
+      "annotations" : [
+        {
+          "key" : "tag",
+          "value" : "text-detokenizer"
+        }
+      ],
+      "id" : "detokenizer",
+      "implementation" : "native",
+      "inputs" : [
+        {
+          "name" : "tokens",
+          "optional" : false,
+          "type" : {
+            "attributes" : {
+
+            },
+            "name" : "tokens"
+          }
+        }
+      ],
+      "outputs" : [
+        {
+          "name" : "text",
+          "optional" : false,
+          "type" : {
+            "attributes" : {
+              "encoding" : "utf8"
+            },
+            "name" : "text"
+          }
+        }
+      ]
+    },
+    {
+      "annotations" : [
+        {
+          "key" : "state",
+          "value" : "sampler"
+        },
+        {
+          "key" : "tag",
+          "value" : "sampler"
+        }
+      ],
+      "id" : "sampler",
+      "implementation" : "native",
+      "inputs" : [
+        {
+          "name" : "hidden",
+          "optional" : false,
+          "type" : {
+            "attributes" : {
+
+            },
+            "name" : "hidden"
+          }
+        }
+      ],
+      "outputs" : [
+        {
+          "name" : "tokens",
+          "optional" : false,
+          "type" : {
+            "attributes" : {
+
+            },
+            "name" : "tokens"
+          }
+        }
+      ]
+    },
+    {
+      "annotations" : [
+        {
+          "key" : "assistant-prelude",
+          "value" : "preclosed-think"
+        },
+        {
+          "key" : "prompt-format",
+          "value" : "chatml"
+        },
+        {
+          "key" : "tag",
+          "value" : "text-tokenizer"
+        },
+        {
+          "key" : "thinking-policy",
+          "value" : "disabled"
+        },
+        {
+          "key" : "tool-format",
+          "value" : "xml-function-parameters"
+        }
+      ],
+      "id" : "tokenizer",
+      "implementation" : "native",
+      "inputs" : [
+        {
+          "name" : "prompt",
+          "optional" : false,
+          "type" : {
+            "attributes" : {
+              "encoding" : "utf8"
+            },
+            "name" : "text"
+          }
+        }
+      ],
+      "outputs" : [
+        {
+          "name" : "tokens",
+          "optional" : false,
+          "type" : {
+            "attributes" : {
+
+            },
+            "name" : "tokens"
+          }
+        }
+      ]
+    },
+    {
+      "annotations" : [
+        {
+          "key" : "artifact",
+          "value" : "baked-inline"
+        },
+        {
+          "key" : "feedback",
+          "value" : "tokens"
+        },
+        {
+          "key" : "state",
+          "value" : "kv-cache,conv-state,rec-state"
+        }
+      ],
+      "block" : "trunk",
+      "id" : "trunk",
+      "implementation" : "compiled",
+      "inputs" : [
+        {
+          "name" : "tokens",
+          "optional" : false,
+          "type" : {
+            "attributes" : {
+
+            },
+            "name" : "tokens"
+          }
+        }
+      ],
+      "outputs" : [
+        {
+          "name" : "hidden",
+          "optional" : false,
+          "type" : {
+            "attributes" : {
+
+            },
+            "name" : "hidden"
+          }
+        }
+      ]
+    }
+  ],
+  "imports" : [
+
+  ],
+  "module" : {
+    "id" : "qwen35_text"
+  },
+  "quantization" : [
+    {
+      "action" : "quantize",
+      "priority" : 10,
+      "resolution" : "source-deferred",
+      "selector" : {
+        "pattern" : "embeddings",
+        "source" : "weights"
+      },
+      "source" : "weights"
+    },
+    {
+      "action" : "preserve",
+      "priority" : 12,
+      "resolution" : "source-deferred",
+      "selector" : {
+        "pattern" : "*_norm_weight",
+        "source" : "weights"
+      },
+      "source" : "weights"
+    },
+    {
+      "action" : "preserve",
+      "priority" : 13,
+      "resolution" : "source-deferred",
+      "selector" : {
+        "pattern" : "conv1d_weight",
+        "source" : "weights"
+      },
+      "source" : "weights"
+    },
+    {
+      "action" : "preserve",
+      "priority" : 5,
+      "resolution" : "source-deferred",
+      "selector" : {
+        "pattern" : "A_log",
+        "source" : "weights"
+      },
+      "source" : "weights"
+    },
+    {
+      "action" : "preserve",
+      "priority" : 7,
+      "resolution" : "source-deferred",
+      "selector" : {
+        "pattern" : "dt_bias",
+        "source" : "weights"
+      },
+      "source" : "weights"
+    },
+    {
+      "action" : "default",
+      "resolution" : "declared-tensor",
+      "selector" : {
+        "pattern" : "*",
+        "source" : "weights"
+      },
+      "storage" : {
+        "format" : "affine-u4",
+        "groupSize" : 64
+      }
+    }
+  ],
+  "schemaVersion" : 4,
+  "sourceQuantization" : [
+
+  ],
+  "sources" : [
+    {
+      "id" : "tokenizer",
+      "kind" : "hf-file",
+      "locator" : "Qwen/Qwen3.5-2B/tokenizer.json"
+    },
+    {
+      "checkpointMap" : "hf.qwen",
+      "id" : "weights",
+      "kind" : "hf",
+      "locator" : "Qwen/Qwen3.5-2B",
+      "revision" : "main"
+    }
+  ],
+  "tensors" : [
+    {
+      "owner" : "trunk",
+      "selector" : {
+        "pattern" : "*",
+        "source" : "weights"
+      },
+      "source" : "weights",
+      "target" : {
+        "block" : "trunk",
+        "selector" : "*"
+      }
+    }
+  ]
+}

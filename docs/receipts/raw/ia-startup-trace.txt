@@ -1,0 +1,46 @@
+# ia AGENT_STARTUP_TRACE, cold (page cache evicted), Qwen3.5-0.8B u4, Sat Jul 11 22:57:40 CDT 2026
+=== cold sample 1 ===
+startup:    +5.2ms  exec -> main (dyld)
+startup:    +2.6ms  tokenizer load
+startup:    +0.1ms  (total     0.1ms)  manifest decode
+startup:    +0.1ms  (total     0.2ms)  bake honesty
+startup:    +0.0ms  (total     0.2ms)  mmap region
+startup:   +49.5ms  (total    49.7ms)  Metal device + queue (overlapped)
+startup:    +1.6ms  (total    51.3ms)  metallib load
+startup:    +0.6ms  (total    51.9ms)  dispatch tables
+startup:    +0.2ms  (total    52.1ms)  pipeline states (0/416, 25 async)
+startup:    +1.3ms  (total    53.4ms)  buffer alloc
+startup:  +152.9ms  (total   206.3ms)  weights join + residency
+startup:  +206.7ms  AgentModel init (total)
+startup:    +0.0ms  pipeline materialization wait
+startup: command done; remaining wall time is teardown
+=== cold sample 2 ===
+startup:    +4.0ms  exec -> main (dyld)
+startup:    +2.1ms  tokenizer load
+startup:    +0.1ms  (total     0.1ms)  manifest decode
+startup:    +0.1ms  (total     0.2ms)  bake honesty
+startup:    +0.1ms  (total     0.3ms)  mmap region
+startup:   +47.6ms  (total    47.8ms)  Metal device + queue (overlapped)
+startup:    +2.3ms  (total    50.2ms)  metallib load
+startup:    +0.8ms  (total    51.0ms)  dispatch tables
+startup:    +0.2ms  (total    51.2ms)  pipeline states (0/416, 25 async)
+startup:    +1.4ms  (total    52.5ms)  buffer alloc
+startup:  +146.5ms  (total   199.0ms)  weights join + residency
+startup:  +199.3ms  AgentModel init (total)
+startup:    +0.0ms  pipeline materialization wait
+startup: command done; remaining wall time is teardown
+=== cold sample 3 ===
+startup:    +4.5ms  exec -> main (dyld)
+startup:    +2.0ms  tokenizer load
+startup:    +0.1ms  (total     0.1ms)  manifest decode
+startup:    +0.1ms  (total     0.2ms)  bake honesty
+startup:    +0.0ms  (total     0.2ms)  mmap region
+startup:   +48.1ms  (total    48.3ms)  Metal device + queue (overlapped)
+startup:    +2.2ms  (total    50.5ms)  metallib load
+startup:    +0.6ms  (total    51.1ms)  dispatch tables
+startup:    +0.2ms  (total    51.3ms)  pipeline states (0/416, 25 async)
+startup:    +1.5ms  (total    52.8ms)  buffer alloc
+startup:  +146.6ms  (total   199.4ms)  weights join + residency
+startup:  +199.6ms  AgentModel init (total)
+startup:    +0.0ms  pipeline materialization wait
+startup: command done; remaining wall time is teardown

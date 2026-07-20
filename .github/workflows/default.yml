@@ -1,0 +1,27 @@
+name: default
+
+on:
+  pull_request:
+    paths-ignore:
+      - "**/*.md"
+  push:
+    branches:
+      - main
+      - master
+    paths-ignore:
+      - "**/*.md"
+
+concurrency:
+  group: default-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Lint scripts and data files
+        run: bash tools/ci-lint.sh

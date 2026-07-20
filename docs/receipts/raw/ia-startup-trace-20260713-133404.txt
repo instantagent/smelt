@@ -1,0 +1,70 @@
+# ia AGENT_STARTUP_TRACE, cold (page cache evicted + verified per sample), full stderr, Mon Jul 13 13:37:04 CDT 2026
+=== cold sample 1 ===
+startup:    +4.9ms  exec -> main (dyld)
+startup:    +2.7ms  tokenizer load
+startup:    +0.1ms  (total     0.1ms)  manifest decode
+startup:    +0.1ms  (total     0.2ms)  bake honesty
+startup:    +0.1ms  (total     0.2ms)  mmap region
+startup:   +41.5ms  (total    41.8ms)  Metal device + queue (overlapped)
+startup:    +1.8ms  (total    43.6ms)  metallib load
+startup:    +0.6ms  (total    44.2ms)  dispatch tables
+startup:    +0.2ms  (total    44.4ms)  pipeline states (0/416, 25 async)
+startup:    +1.4ms  (total    45.8ms)  buffer alloc
+startup:  +149.0ms  (total   194.8ms)  weights join + residency
+startup:  +195.3ms  AgentModel init (total)
+startup:    +0.0ms  pipeline materialization wait
+Loaded: <repo>/bench-packages/Qwen_Qwen3.5-0.8B.agent
+Prompt: Explain gravity in one short sentence.
+Prompt tokens: 20
+Prefill mode: metal-prefill
+Selection: argmax
+Completion:
+Generated token IDs: [37134]
+Timing: prefill 33.8ms, generate 0.0ms, 1048576.0 tok/s
+startup: command done; remaining wall time is teardown
+=== cold sample 2 ===
+startup:    +4.8ms  exec -> main (dyld)
+startup:    +2.1ms  tokenizer load
+startup:    +0.1ms  (total     0.1ms)  manifest decode
+startup:    +0.1ms  (total     0.2ms)  bake honesty
+startup:    +0.0ms  (total     0.2ms)  mmap region
+startup:   +51.6ms  (total    51.8ms)  Metal device + queue (overlapped)
+startup:    +1.6ms  (total    53.4ms)  metallib load
+startup:    +0.6ms  (total    54.0ms)  dispatch tables
+startup:    +0.2ms  (total    54.2ms)  pipeline states (0/416, 25 async)
+startup:    +1.4ms  (total    55.6ms)  buffer alloc
+startup:  +149.1ms  (total   204.7ms)  weights join + residency
+startup:  +205.0ms  AgentModel init (total)
+startup:    +0.0ms  pipeline materialization wait
+Loaded: <repo>/bench-packages/Qwen_Qwen3.5-0.8B.agent
+Prompt: Explain gravity in one short sentence.
+Prompt tokens: 20
+Prefill mode: metal-prefill
+Selection: argmax
+Completion:
+Generated token IDs: [37134]
+Timing: prefill 30.2ms, generate 0.0ms, 1048576.0 tok/s
+startup: command done; remaining wall time is teardown
+=== cold sample 3 ===
+startup:    +4.7ms  exec -> main (dyld)
+startup:    +2.0ms  tokenizer load
+startup:    +0.1ms  (total     0.1ms)  manifest decode
+startup:    +0.1ms  (total     0.2ms)  bake honesty
+startup:    +0.0ms  (total     0.2ms)  mmap region
+startup:   +47.6ms  (total    47.8ms)  Metal device + queue (overlapped)
+startup:    +1.6ms  (total    49.4ms)  metallib load
+startup:    +0.6ms  (total    50.0ms)  dispatch tables
+startup:    +0.2ms  (total    50.2ms)  pipeline states (0/416, 25 async)
+startup:    +1.4ms  (total    51.5ms)  buffer alloc
+startup:  +148.4ms  (total   199.9ms)  weights join + residency
+startup:  +200.2ms  AgentModel init (total)
+startup:    +0.0ms  pipeline materialization wait
+Loaded: <repo>/bench-packages/Qwen_Qwen3.5-0.8B.agent
+Prompt: Explain gravity in one short sentence.
+Prompt tokens: 20
+Prefill mode: metal-prefill
+Selection: argmax
+Completion:
+Generated token IDs: [37134]
+Timing: prefill 31.6ms, generate 0.0ms, 1048576.0 tok/s
+startup: command done; remaining wall time is teardown

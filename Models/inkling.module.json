@@ -1,0 +1,1985 @@
+{
+  "artifacts" : [
+    {
+      "id" : "audio-embedding-component",
+      "required" : true,
+      "role" : "compiled-component"
+    },
+    {
+      "id" : "image-patch-component",
+      "required" : true,
+      "role" : "compiled-component"
+    }
+  ],
+  "backendConstraints" : [
+    {
+      "key" : "target",
+      "value" : "metal"
+    }
+  ],
+  "blocks" : [
+    {
+      "annotations" : [
+
+      ],
+      "id" : "audio-encoder",
+      "operatorName" : "discrete-audio-encoder",
+      "shape" : {
+        "requirements" : [
+          {
+            "key" : "embedding-shape",
+            "optional" : false,
+            "value" : "1280x6144"
+          },
+          {
+            "key" : "encoding",
+            "optional" : false,
+            "value" : "dMel"
+          },
+          {
+            "key" : "fft-size",
+            "optional" : false,
+            "value" : "1600"
+          },
+          {
+            "key" : "hidden-size",
+            "optional" : false,
+            "value" : "6144"
+          },
+          {
+            "key" : "hop-size",
+            "optional" : false,
+            "value" : "800"
+          },
+          {
+            "key" : "mel-bins",
+            "optional" : false,
+            "value" : "80"
+          },
+          {
+            "key" : "sample-rate",
+            "optional" : false,
+            "value" : "16000"
+          },
+          {
+            "key" : "token-duration-ms",
+            "optional" : false,
+            "value" : "50"
+          },
+          {
+            "key" : "values-per-token",
+            "optional" : false,
+            "value" : "16"
+          },
+          {
+            "key" : "window-size",
+            "optional" : false,
+            "value" : "1600"
+          }
+        ]
+      }
+    },
+    {
+      "annotations" : [
+
+      ],
+      "id" : "image-patch-encoder",
+      "operatorName" : "patch-encoder",
+      "shape" : {
+        "requirements" : [
+          {
+            "key" : "channels",
+            "optional" : false,
+            "value" : "3"
+          },
+          {
+            "key" : "fold-plan",
+            "optional" : false,
+            "value" : "1x5x5,1x2x2,1x4x4,2x1x1"
+          },
+          {
+            "key" : "hidden-size",
+            "optional" : false,
+            "value" : "6144"
+          },
+          {
+            "key" : "layer-0",
+            "optional" : false,
+            "value" : "75x128+rmsnorm128"
+          },
+          {
+            "key" : "layer-1",
+            "optional" : false,
+            "value" : "512x320+rmsnorm320"
+          },
+          {
+            "key" : "layer-2",
+            "optional" : false,
+            "value" : "5120x4800+rmsnorm4800"
+          },
+          {
+            "key" : "layer-3",
+            "optional" : false,
+            "value" : "9600x6144+rmsnorm6144"
+          },
+          {
+            "key" : "layers",
+            "optional" : false,
+            "value" : "4"
+          },
+          {
+            "key" : "patch-size",
+            "optional" : false,
+            "value" : "40"
+          },
+          {
+            "key" : "temporal-patch-size",
+            "optional" : false,
+            "value" : "2"
+          }
+        ]
+      }
+    },
+    {
+      "annotations" : [
+
+      ],
+      "id" : "trunk",
+      "operatorName" : "transformer",
+      "shape" : {
+        "requirements" : [
+          {
+            "key" : "active-parameters",
+            "optional" : false,
+            "value" : "41B"
+          },
+          {
+            "key" : "attention-log-scaling-compute",
+            "optional" : false,
+            "value" : "f32"
+          },
+          {
+            "key" : "attention-relative-bias-compute",
+            "optional" : false,
+            "value" : "f32"
+          },
+          {
+            "key" : "embedding-norm",
+            "optional" : false,
+            "value" : "rms"
+          },
+          {
+            "key" : "max-context",
+            "optional" : false,
+            "value" : "1048576"
+          },
+          {
+            "key" : "moe-shared-output-accumulation",
+            "optional" : false,
+            "value" : "f32"
+          },
+          {
+            "key" : "padded-vocab",
+            "optional" : false,
+            "value" : "201024"
+          },
+          {
+            "key" : "short-convolution-compute",
+            "optional" : false,
+            "value" : "f32"
+          },
+          {
+            "key" : "total-parameters",
+            "optional" : false,
+            "value" : "975B"
+          },
+          {
+            "key" : "unpadded-output-vocab",
+            "optional" : false,
+            "value" : "200058"
+          }
+        ],
+        "transformer" : {
+          "attentionByRole" : [
+            {
+              "attention" : {
+                "headDim" : 128,
+                "kvHeads" : 8,
+                "qHeads" : 64,
+                "qkNorm" : "rms",
+                "relativePosition" : {
+                  "contentConditioned" : true,
+                  "extent" : 1024,
+                  "logScalingAlpha" : "0.1",
+                  "logScalingFloor" : 128000,
+                  "projectionDim" : 16
+                },
+                "scaling" : "inverse-head-dim"
+              },
+              "role" : "global"
+            },
+            {
+              "attention" : {
+                "headDim" : 128,
+                "kvHeads" : 16,
+                "qHeads" : 64,
+                "qkNorm" : "rms",
+                "relativePosition" : {
+                  "contentConditioned" : true,
+                  "extent" : 512,
+                  "projectionDim" : 16
+                },
+                "scaling" : "inverse-head-dim",
+                "window" : 512
+              },
+              "role" : "sliding"
+            }
+          ],
+          "denseLayerCount" : 2,
+          "expert" : {
+            "ffn" : {
+              "activation" : "swiglu",
+              "dim" : 3072
+            }
+          },
+          "ffn" : {
+            "activation" : "swiglu",
+            "dim" : 24576
+          },
+          "hiddenSize" : 6144,
+          "layers" : {
+            "repeatCount" : 11,
+            "roles" : [
+              "sliding",
+              "sliding",
+              "sliding",
+              "sliding",
+              "sliding",
+              "global"
+            ]
+          },
+          "norm" : {
+            "eps" : "1e-6",
+            "kind" : "rms",
+            "mode" : "weight"
+          },
+          "projectionBanks" : [
+            {
+              "id" : "attention-input",
+              "outputs" : [
+                "attentionQ",
+                "attentionK",
+                "attentionV",
+                "attentionRelative"
+              ],
+              "source" : "attentionInput"
+            },
+            {
+              "id" : "attention-output",
+              "outputs" : [
+                "attentionOut"
+              ],
+              "source" : "attentionOutput"
+            },
+            {
+              "id" : "ffn-input",
+              "outputs" : [
+                "ffnGate",
+                "ffnUp"
+              ],
+              "source" : "ffnInput"
+            },
+            {
+              "id" : "ffn-intermediate",
+              "outputs" : [
+                "ffnDown"
+              ],
+              "source" : "ffnIntermediate"
+            },
+            {
+              "id" : "lm-head-input",
+              "outputs" : [
+                "lmHead"
+              ],
+              "source" : "lmHeadInput"
+            }
+          ],
+          "router" : {
+            "activation" : "sigmoid",
+            "experts" : 256,
+            "globalScale" : true,
+            "normalization" : "selected-and-shared",
+            "routeScale" : "8",
+            "scoreCorrectionBias" : true,
+            "sharedExpertSink" : true,
+            "sharedExperts" : 2,
+            "topK" : 6
+          },
+          "shortConvolutions" : [
+            {
+              "kernelSize" : 4,
+              "residual" : "add-input",
+              "site" : "attention-branch-output"
+            },
+            {
+              "kernelSize" : 4,
+              "residual" : "add-input",
+              "site" : "attention-key"
+            },
+            {
+              "kernelSize" : 4,
+              "residual" : "add-input",
+              "site" : "attention-value"
+            },
+            {
+              "kernelSize" : 4,
+              "residual" : "add-input",
+              "site" : "ffn-branch-output"
+            }
+          ],
+          "vocab" : {
+            "size" : 201024,
+            "tiedHead" : false
+          }
+        }
+      }
+    }
+  ],
+  "capabilities" : [
+    "run.generate",
+    "run.generate.audio-input",
+    "run.generate.image-input",
+    "run.generate.multimodal",
+    "run.generate.tools"
+  ],
+  "compile" : [
+    {
+      "key" : "frozen-ir",
+      "value" : "required"
+    },
+    {
+      "key" : "layout",
+      "value" : "model-agnostic multi-buffer"
+    },
+    {
+      "key" : "prefill",
+      "value" : "metal tiled full-attention"
+    },
+    {
+      "key" : "target",
+      "value" : "metal"
+    }
+  ],
+  "exportBindings" : [
+    {
+      "export" : "generate",
+      "flow" : "generate"
+    },
+    {
+      "export" : "generate_multimodal",
+      "flow" : "generate_multimodal"
+    }
+  ],
+  "exports" : [
+    {
+      "capabilities" : [
+        "run.generate",
+        "run.generate.tools"
+      ],
+      "gates" : [
+
+      ],
+      "id" : "generate",
+      "inputs" : [
+        {
+          "name" : "prompt",
+          "optional" : false,
+          "type" : {
+            "attributes" : {
+              "encoding" : "utf8"
+            },
+            "name" : "text"
+          }
+        },
+        {
+          "name" : "reasoning_effort",
+          "optional" : true,
+          "type" : {
+            "attributes" : {
+              "default" : "0.9",
+              "max" : "0.99",
+              "min" : "0",
+              "named" : "none,minimal,low,medium,high,max"
+            },
+            "name" : "reasoning-effort"
+          }
+        },
+        {
+          "name" : "tools",
+          "optional" : true,
+          "type" : {
+            "attributes" : {
+
+            },
+            "name" : "tools"
+          }
+        }
+      ],
+      "outputs" : [
+        {
+          "name" : "text",
+          "optional" : false,
+          "type" : {
+            "attributes" : {
+              "encoding" : "utf8"
+            },
+            "name" : "text"
+          }
+        }
+      ]
+    },
+    {
+      "capabilities" : [
+        "run.generate",
+        "run.generate.audio-input",
+        "run.generate.image-input",
+        "run.generate.multimodal",
+        "run.generate.tools"
+      ],
+      "gates" : [
+
+      ],
+      "id" : "generate_multimodal",
+      "inputs" : [
+        {
+          "name" : "media",
+          "optional" : false,
+          "type" : {
+            "attributes" : {
+              "kinds" : "audio,image"
+            },
+            "name" : "media"
+          }
+        },
+        {
+          "name" : "prompt",
+          "optional" : false,
+          "type" : {
+            "attributes" : {
+              "encoding" : "utf8"
+            },
+            "name" : "text"
+          }
+        },
+        {
+          "name" : "reasoning_effort",
+          "optional" : true,
+          "type" : {
+            "attributes" : {
+              "default" : "0.9",
+              "max" : "0.99",
+              "min" : "0",
+              "named" : "none,minimal,low,medium,high,max"
+            },
+            "name" : "reasoning-effort"
+          }
+        },
+        {
+          "name" : "tools",
+          "optional" : true,
+          "type" : {
+            "attributes" : {
+
+            },
+            "name" : "tools"
+          }
+        }
+      ],
+      "outputs" : [
+        {
+          "name" : "text",
+          "optional" : false,
+          "type" : {
+            "attributes" : {
+              "encoding" : "utf8"
+            },
+            "name" : "text"
+          }
+        }
+      ]
+    }
+  ],
+  "feedbackEdges" : [
+    {
+      "from" : {
+        "kind" : "nodePort",
+        "node" : "multimodal-sampler",
+        "port" : "tokens"
+      },
+      "to" : {
+        "kind" : "nodePort",
+        "node" : "multimodal-trunk",
+        "port" : "tokens"
+      }
+    },
+    {
+      "from" : {
+        "kind" : "nodePort",
+        "node" : "sampler",
+        "port" : "tokens"
+      },
+      "to" : {
+        "kind" : "nodePort",
+        "node" : "trunk",
+        "port" : "tokens"
+      }
+    }
+  ],
+  "flows" : [
+    {
+      "emit" : [
+        {
+          "kind" : "nodePort",
+          "node" : "detokenizer",
+          "port" : "text"
+        }
+      ],
+      "id" : "generate",
+      "phases" : [
+        {
+          "calls" : [
+            {
+              "kind" : "node",
+              "node" : "renderer"
+            },
+            {
+              "kind" : "node",
+              "node" : "tokenizer"
+            }
+          ],
+          "role" : "setup"
+        },
+        {
+          "calls" : [
+            {
+              "kind" : "node",
+              "node" : "trunk"
+            },
+            {
+              "kind" : "node",
+              "node" : "sampler"
+            }
+          ],
+          "label" : "decode",
+          "role" : "step"
+        }
+      ],
+      "stop" : [
+        {
+          "kind" : "eos-token",
+          "value" : 200006
+        },
+        {
+          "kind" : "host-cancel"
+        },
+        {
+          "kind" : "max-steps",
+          "value" : 4096
+        }
+      ]
+    },
+    {
+      "emit" : [
+        {
+          "kind" : "nodePort",
+          "node" : "multimodal-detokenizer",
+          "port" : "text"
+        }
+      ],
+      "id" : "generate_multimodal",
+      "phases" : [
+        {
+          "calls" : [
+            {
+              "kind" : "node",
+              "node" : "multimodal-renderer"
+            },
+            {
+              "kind" : "node",
+              "node" : "multimodal-tokenizer"
+            },
+            {
+              "kind" : "node",
+              "node" : "media-preprocessor"
+            },
+            {
+              "kind" : "node",
+              "node" : "image-patch-encoder"
+            },
+            {
+              "kind" : "node",
+              "node" : "audio-encoder"
+            },
+            {
+              "kind" : "node",
+              "node" : "multimodal-token-fusion"
+            }
+          ],
+          "role" : "setup"
+        },
+        {
+          "calls" : [
+            {
+              "kind" : "node",
+              "node" : "multimodal-trunk"
+            },
+            {
+              "kind" : "node",
+              "node" : "multimodal-sampler"
+            }
+          ],
+          "label" : "decode",
+          "role" : "step"
+        }
+      ],
+      "stop" : [
+        {
+          "kind" : "eos-token",
+          "value" : 200006
+        },
+        {
+          "kind" : "host-cancel"
+        },
+        {
+          "kind" : "max-steps",
+          "value" : 4096
+        }
+      ]
+    }
+  ],
+  "gates" : [
+
+  ],
+  "graphEdges" : [
+    {
+      "from" : {
+        "kind" : "moduleInput",
+        "name" : "media"
+      },
+      "to" : {
+        "kind" : "nodePort",
+        "node" : "media-preprocessor",
+        "port" : "media"
+      },
+      "type" : {
+        "attributes" : {
+          "kinds" : "audio,image"
+        },
+        "name" : "media"
+      }
+    },
+    {
+      "from" : {
+        "kind" : "moduleInput",
+        "name" : "prompt"
+      },
+      "to" : {
+        "kind" : "nodePort",
+        "node" : "multimodal-renderer",
+        "port" : "prompt"
+      },
+      "type" : {
+        "attributes" : {
+          "encoding" : "utf8"
+        },
+        "name" : "text"
+      }
+    },
+    {
+      "from" : {
+        "kind" : "moduleInput",
+        "name" : "prompt"
+      },
+      "to" : {
+        "kind" : "nodePort",
+        "node" : "renderer",
+        "port" : "prompt"
+      },
+      "type" : {
+        "attributes" : {
+          "encoding" : "utf8"
+        },
+        "name" : "text"
+      }
+    },
+    {
+      "from" : {
+        "kind" : "moduleInput",
+        "name" : "reasoning_effort"
+      },
+      "to" : {
+        "kind" : "nodePort",
+        "node" : "multimodal-renderer",
+        "port" : "reasoning_effort"
+      },
+      "type" : {
+        "attributes" : {
+          "default" : "0.9",
+          "max" : "0.99",
+          "min" : "0",
+          "named" : "none,minimal,low,medium,high,max"
+        },
+        "name" : "reasoning-effort"
+      }
+    },
+    {
+      "from" : {
+        "kind" : "moduleInput",
+        "name" : "reasoning_effort"
+      },
+      "to" : {
+        "kind" : "nodePort",
+        "node" : "renderer",
+        "port" : "reasoning_effort"
+      },
+      "type" : {
+        "attributes" : {
+          "default" : "0.9",
+          "max" : "0.99",
+          "min" : "0",
+          "named" : "none,minimal,low,medium,high,max"
+        },
+        "name" : "reasoning-effort"
+      }
+    },
+    {
+      "from" : {
+        "kind" : "moduleInput",
+        "name" : "tools"
+      },
+      "to" : {
+        "kind" : "nodePort",
+        "node" : "multimodal-renderer",
+        "port" : "tools"
+      },
+      "type" : {
+        "attributes" : {
+
+        },
+        "name" : "tools"
+      }
+    },
+    {
+      "from" : {
+        "kind" : "moduleInput",
+        "name" : "tools"
+      },
+      "to" : {
+        "kind" : "nodePort",
+        "node" : "renderer",
+        "port" : "tools"
+      },
+      "type" : {
+        "attributes" : {
+
+        },
+        "name" : "tools"
+      }
+    },
+    {
+      "from" : {
+        "kind" : "nodePort",
+        "node" : "audio-encoder",
+        "port" : "audio_embeddings"
+      },
+      "to" : {
+        "kind" : "nodePort",
+        "node" : "multimodal-token-fusion",
+        "port" : "audio_embeddings"
+      },
+      "type" : {
+        "attributes" : {
+          "dim" : "6144",
+          "optional" : "true"
+        },
+        "name" : "embeddings"
+      }
+    },
+    {
+      "from" : {
+        "kind" : "nodePort",
+        "node" : "detokenizer",
+        "port" : "text"
+      },
+      "to" : {
+        "kind" : "moduleOutput",
+        "name" : "text"
+      },
+      "type" : {
+        "attributes" : {
+          "encoding" : "utf8"
+        },
+        "name" : "text"
+      }
+    },
+    {
+      "from" : {
+        "kind" : "nodePort",
+        "node" : "image-patch-encoder",
+        "port" : "image_embeddings"
+      },
+      "to" : {
+        "kind" : "nodePort",
+        "node" : "multimodal-token-fusion",
+        "port" : "image_embeddings"
+      },
+      "type" : {
+        "attributes" : {
+          "dim" : "6144",
+          "optional" : "true"
+        },
+        "name" : "embeddings"
+      }
+    },
+    {
+      "from" : {
+        "kind" : "nodePort",
+        "node" : "media-preprocessor",
+        "port" : "audio_tokens"
+      },
+      "to" : {
+        "kind" : "nodePort",
+        "node" : "audio-encoder",
+        "port" : "audio_tokens"
+      },
+      "type" : {
+        "attributes" : {
+          "dtype" : "u16",
+          "encoding" : "dMel"
+        },
+        "name" : "tensor"
+      }
+    },
+    {
+      "from" : {
+        "kind" : "nodePort",
+        "node" : "media-preprocessor",
+        "port" : "image_patches"
+      },
+      "to" : {
+        "kind" : "nodePort",
+        "node" : "image-patch-encoder",
+        "port" : "image_patches"
+      },
+      "type" : {
+        "attributes" : {
+          "dtype" : "f32",
+          "layout" : "patch-major"
+        },
+        "name" : "tensor"
+      }
+    },
+    {
+      "from" : {
+        "kind" : "nodePort",
+        "node" : "multimodal-detokenizer",
+        "port" : "text"
+      },
+      "to" : {
+        "kind" : "moduleOutput",
+        "name" : "text"
+      },
+      "type" : {
+        "attributes" : {
+          "encoding" : "utf8"
+        },
+        "name" : "text"
+      }
+    },
+    {
+      "from" : {
+        "kind" : "nodePort",
+        "node" : "multimodal-renderer",
+        "port" : "rendered_prompt"
+      },
+      "to" : {
+        "kind" : "nodePort",
+        "node" : "multimodal-tokenizer",
+        "port" : "rendered_prompt"
+      },
+      "type" : {
+        "attributes" : {
+
+        },
+        "name" : "rendered-prompt"
+      }
+    },
+    {
+      "from" : {
+        "kind" : "nodePort",
+        "node" : "multimodal-sampler",
+        "port" : "tokens"
+      },
+      "to" : {
+        "kind" : "nodePort",
+        "node" : "multimodal-detokenizer",
+        "port" : "tokens"
+      },
+      "type" : {
+        "attributes" : {
+
+        },
+        "name" : "tokens"
+      }
+    },
+    {
+      "from" : {
+        "kind" : "nodePort",
+        "node" : "multimodal-token-fusion",
+        "port" : "prefill_state"
+      },
+      "to" : {
+        "kind" : "nodePort",
+        "node" : "multimodal-trunk",
+        "port" : "prefill_state"
+      },
+      "type" : {
+        "attributes" : {
+
+        },
+        "name" : "state"
+      }
+    },
+    {
+      "from" : {
+        "kind" : "nodePort",
+        "node" : "multimodal-tokenizer",
+        "port" : "tokens"
+      },
+      "to" : {
+        "kind" : "nodePort",
+        "node" : "multimodal-token-fusion",
+        "port" : "tokens"
+      },
+      "type" : {
+        "attributes" : {
+
+        },
+        "name" : "tokens"
+      }
+    },
+    {
+      "from" : {
+        "kind" : "nodePort",
+        "node" : "multimodal-trunk",
+        "port" : "hidden"
+      },
+      "to" : {
+        "kind" : "nodePort",
+        "node" : "multimodal-sampler",
+        "port" : "hidden"
+      },
+      "type" : {
+        "attributes" : {
+          "dim" : "6144",
+          "dtype" : "bf16"
+        },
+        "name" : "hidden"
+      }
+    },
+    {
+      "from" : {
+        "kind" : "nodePort",
+        "node" : "renderer",
+        "port" : "rendered_prompt"
+      },
+      "to" : {
+        "kind" : "nodePort",
+        "node" : "tokenizer",
+        "port" : "rendered_prompt"
+      },
+      "type" : {
+        "attributes" : {
+
+        },
+        "name" : "rendered-prompt"
+      }
+    },
+    {
+      "from" : {
+        "kind" : "nodePort",
+        "node" : "sampler",
+        "port" : "tokens"
+      },
+      "to" : {
+        "kind" : "nodePort",
+        "node" : "detokenizer",
+        "port" : "tokens"
+      },
+      "type" : {
+        "attributes" : {
+
+        },
+        "name" : "tokens"
+      }
+    },
+    {
+      "from" : {
+        "kind" : "nodePort",
+        "node" : "tokenizer",
+        "port" : "tokens"
+      },
+      "to" : {
+        "kind" : "nodePort",
+        "node" : "trunk",
+        "port" : "tokens"
+      },
+      "type" : {
+        "attributes" : {
+
+        },
+        "name" : "tokens"
+      }
+    },
+    {
+      "from" : {
+        "kind" : "nodePort",
+        "node" : "trunk",
+        "port" : "hidden"
+      },
+      "to" : {
+        "kind" : "nodePort",
+        "node" : "sampler",
+        "port" : "hidden"
+      },
+      "type" : {
+        "attributes" : {
+          "dim" : "6144",
+          "dtype" : "bf16"
+        },
+        "name" : "hidden"
+      }
+    }
+  ],
+  "graphNodes" : [
+    {
+      "annotations" : [
+        {
+          "key" : "artifact",
+          "value" : "audio-embedding-component"
+        },
+        {
+          "key" : "tag",
+          "value" : "discrete-audio-encoder"
+        }
+      ],
+      "block" : "audio-encoder",
+      "id" : "audio-encoder",
+      "implementation" : "compiled",
+      "inputs" : [
+        {
+          "name" : "audio_tokens",
+          "optional" : true,
+          "type" : {
+            "attributes" : {
+              "dtype" : "u16",
+              "encoding" : "dMel"
+            },
+            "name" : "tensor"
+          }
+        }
+      ],
+      "outputs" : [
+        {
+          "name" : "audio_embeddings",
+          "optional" : true,
+          "type" : {
+            "attributes" : {
+              "dim" : "6144",
+              "optional" : "true"
+            },
+            "name" : "embeddings"
+          }
+        }
+      ]
+    },
+    {
+      "annotations" : [
+        {
+          "key" : "tag",
+          "value" : "text-detokenizer"
+        }
+      ],
+      "id" : "detokenizer",
+      "implementation" : "native",
+      "inputs" : [
+        {
+          "name" : "tokens",
+          "optional" : false,
+          "type" : {
+            "attributes" : {
+
+            },
+            "name" : "tokens"
+          }
+        }
+      ],
+      "outputs" : [
+        {
+          "name" : "text",
+          "optional" : false,
+          "type" : {
+            "attributes" : {
+              "encoding" : "utf8"
+            },
+            "name" : "text"
+          }
+        }
+      ]
+    },
+    {
+      "annotations" : [
+        {
+          "key" : "artifact",
+          "value" : "image-patch-component"
+        },
+        {
+          "key" : "tag",
+          "value" : "patch-encoder"
+        }
+      ],
+      "block" : "image-patch-encoder",
+      "id" : "image-patch-encoder",
+      "implementation" : "compiled",
+      "inputs" : [
+        {
+          "name" : "image_patches",
+          "optional" : true,
+          "type" : {
+            "attributes" : {
+              "dtype" : "f32",
+              "layout" : "patch-major"
+            },
+            "name" : "tensor"
+          }
+        }
+      ],
+      "outputs" : [
+        {
+          "name" : "image_embeddings",
+          "optional" : true,
+          "type" : {
+            "attributes" : {
+              "dim" : "6144",
+              "optional" : "true"
+            },
+            "name" : "embeddings"
+          }
+        }
+      ]
+    },
+    {
+      "annotations" : [
+        {
+          "key" : "audio-hop-size",
+          "value" : "800"
+        },
+        {
+          "key" : "audio-mel-bins",
+          "value" : "80"
+        },
+        {
+          "key" : "audio-sample-rate",
+          "value" : "16000"
+        },
+        {
+          "key" : "image-mean",
+          "value" : "0.48145466,0.4578275,0.40821073"
+        },
+        {
+          "key" : "image-patch-size",
+          "value" : "40"
+        },
+        {
+          "key" : "image-resample",
+          "value" : "bicubic"
+        },
+        {
+          "key" : "image-std",
+          "value" : "0.26862954,0.26130258,0.27577711"
+        },
+        {
+          "key" : "tag",
+          "value" : "media-preprocessor"
+        }
+      ],
+      "id" : "media-preprocessor",
+      "implementation" : "native",
+      "inputs" : [
+        {
+          "name" : "media",
+          "optional" : false,
+          "type" : {
+            "attributes" : {
+              "kinds" : "audio,image"
+            },
+            "name" : "media"
+          }
+        }
+      ],
+      "outputs" : [
+        {
+          "name" : "audio_tokens",
+          "optional" : true,
+          "type" : {
+            "attributes" : {
+              "dtype" : "u16",
+              "encoding" : "dMel"
+            },
+            "name" : "tensor"
+          }
+        },
+        {
+          "name" : "image_patches",
+          "optional" : true,
+          "type" : {
+            "attributes" : {
+              "dtype" : "f32",
+              "layout" : "patch-major"
+            },
+            "name" : "tensor"
+          }
+        }
+      ]
+    },
+    {
+      "annotations" : [
+        {
+          "key" : "tag",
+          "value" : "text-detokenizer"
+        }
+      ],
+      "id" : "multimodal-detokenizer",
+      "implementation" : "native",
+      "inputs" : [
+        {
+          "name" : "tokens",
+          "optional" : false,
+          "type" : {
+            "attributes" : {
+
+            },
+            "name" : "tokens"
+          }
+        }
+      ],
+      "outputs" : [
+        {
+          "name" : "text",
+          "optional" : false,
+          "type" : {
+            "attributes" : {
+              "encoding" : "utf8"
+            },
+            "name" : "text"
+          }
+        }
+      ]
+    },
+    {
+      "annotations" : [
+        {
+          "key" : "assistant-prelude",
+          "value" : "thinking"
+        },
+        {
+          "key" : "default-reasoning-effort",
+          "value" : "0.9"
+        },
+        {
+          "key" : "prompt-format",
+          "value" : "inkling-renderer"
+        },
+        {
+          "key" : "reasoning-effort-map",
+          "value" : "none=0,minimal=0.1,low=0.2,medium=0.7,high=0.9,max=0.99"
+        },
+        {
+          "key" : "reasoning-effort-range",
+          "value" : "0...0.99"
+        },
+        {
+          "key" : "tag",
+          "value" : "prompt-renderer"
+        },
+        {
+          "key" : "tool-format",
+          "value" : "inkling"
+        }
+      ],
+      "id" : "multimodal-renderer",
+      "implementation" : "native",
+      "inputs" : [
+        {
+          "name" : "prompt",
+          "optional" : false,
+          "type" : {
+            "attributes" : {
+              "encoding" : "utf8"
+            },
+            "name" : "text"
+          }
+        },
+        {
+          "name" : "reasoning_effort",
+          "optional" : true,
+          "type" : {
+            "attributes" : {
+              "default" : "0.9",
+              "max" : "0.99",
+              "min" : "0",
+              "named" : "none,minimal,low,medium,high,max"
+            },
+            "name" : "reasoning-effort"
+          }
+        },
+        {
+          "name" : "tools",
+          "optional" : true,
+          "type" : {
+            "attributes" : {
+
+            },
+            "name" : "tools"
+          }
+        }
+      ],
+      "outputs" : [
+        {
+          "name" : "rendered_prompt",
+          "optional" : false,
+          "type" : {
+            "attributes" : {
+
+            },
+            "name" : "rendered-prompt"
+          }
+        }
+      ]
+    },
+    {
+      "annotations" : [
+        {
+          "key" : "output-vocab",
+          "value" : "200058"
+        },
+        {
+          "key" : "state",
+          "value" : "sampler"
+        },
+        {
+          "key" : "tag",
+          "value" : "sampler"
+        }
+      ],
+      "id" : "multimodal-sampler",
+      "implementation" : "native",
+      "inputs" : [
+        {
+          "name" : "hidden",
+          "optional" : false,
+          "type" : {
+            "attributes" : {
+              "dim" : "6144",
+              "dtype" : "bf16"
+            },
+            "name" : "hidden"
+          }
+        }
+      ],
+      "outputs" : [
+        {
+          "name" : "tokens",
+          "optional" : false,
+          "type" : {
+            "attributes" : {
+
+            },
+            "name" : "tokens"
+          }
+        }
+      ]
+    },
+    {
+      "annotations" : [
+        {
+          "key" : "audio-token-id",
+          "value" : "200053"
+        },
+        {
+          "key" : "image-token-id",
+          "value" : "200054"
+        },
+        {
+          "key" : "tag",
+          "value" : "multimodal-token-fusion"
+        }
+      ],
+      "id" : "multimodal-token-fusion",
+      "implementation" : "native",
+      "inputs" : [
+        {
+          "name" : "audio_embeddings",
+          "optional" : true,
+          "type" : {
+            "attributes" : {
+              "dim" : "6144",
+              "optional" : "true"
+            },
+            "name" : "embeddings"
+          }
+        },
+        {
+          "name" : "image_embeddings",
+          "optional" : true,
+          "type" : {
+            "attributes" : {
+              "dim" : "6144",
+              "optional" : "true"
+            },
+            "name" : "embeddings"
+          }
+        },
+        {
+          "name" : "tokens",
+          "optional" : false,
+          "type" : {
+            "attributes" : {
+
+            },
+            "name" : "tokens"
+          }
+        }
+      ],
+      "outputs" : [
+        {
+          "name" : "prefill_state",
+          "optional" : false,
+          "type" : {
+            "attributes" : {
+
+            },
+            "name" : "state"
+          }
+        }
+      ]
+    },
+    {
+      "annotations" : [
+        {
+          "key" : "tag",
+          "value" : "text-tokenizer"
+        }
+      ],
+      "id" : "multimodal-tokenizer",
+      "implementation" : "native",
+      "inputs" : [
+        {
+          "name" : "rendered_prompt",
+          "optional" : false,
+          "type" : {
+            "attributes" : {
+
+            },
+            "name" : "rendered-prompt"
+          }
+        }
+      ],
+      "outputs" : [
+        {
+          "name" : "tokens",
+          "optional" : false,
+          "type" : {
+            "attributes" : {
+
+            },
+            "name" : "tokens"
+          }
+        }
+      ]
+    },
+    {
+      "annotations" : [
+        {
+          "key" : "artifact",
+          "value" : "baked-inline"
+        },
+        {
+          "key" : "feedback",
+          "value" : "tokens"
+        },
+        {
+          "key" : "state",
+          "value" : "kv-cache,short-convolution-state"
+        },
+        {
+          "key" : "tag",
+          "value" : "decode-core"
+        }
+      ],
+      "block" : "trunk",
+      "id" : "multimodal-trunk",
+      "implementation" : "compiled",
+      "inputs" : [
+        {
+          "name" : "prefill_state",
+          "optional" : false,
+          "type" : {
+            "attributes" : {
+
+            },
+            "name" : "state"
+          }
+        },
+        {
+          "name" : "tokens",
+          "optional" : false,
+          "type" : {
+            "attributes" : {
+
+            },
+            "name" : "tokens"
+          }
+        }
+      ],
+      "outputs" : [
+        {
+          "name" : "hidden",
+          "optional" : false,
+          "type" : {
+            "attributes" : {
+              "dim" : "6144",
+              "dtype" : "bf16"
+            },
+            "name" : "hidden"
+          }
+        }
+      ]
+    },
+    {
+      "annotations" : [
+        {
+          "key" : "assistant-prelude",
+          "value" : "thinking"
+        },
+        {
+          "key" : "default-reasoning-effort",
+          "value" : "0.9"
+        },
+        {
+          "key" : "prompt-format",
+          "value" : "inkling-renderer"
+        },
+        {
+          "key" : "reasoning-effort-map",
+          "value" : "none=0,minimal=0.1,low=0.2,medium=0.7,high=0.9,max=0.99"
+        },
+        {
+          "key" : "reasoning-effort-range",
+          "value" : "0...0.99"
+        },
+        {
+          "key" : "tag",
+          "value" : "prompt-renderer"
+        },
+        {
+          "key" : "tool-format",
+          "value" : "inkling"
+        }
+      ],
+      "id" : "renderer",
+      "implementation" : "native",
+      "inputs" : [
+        {
+          "name" : "prompt",
+          "optional" : false,
+          "type" : {
+            "attributes" : {
+              "encoding" : "utf8"
+            },
+            "name" : "text"
+          }
+        },
+        {
+          "name" : "reasoning_effort",
+          "optional" : true,
+          "type" : {
+            "attributes" : {
+              "default" : "0.9",
+              "max" : "0.99",
+              "min" : "0",
+              "named" : "none,minimal,low,medium,high,max"
+            },
+            "name" : "reasoning-effort"
+          }
+        },
+        {
+          "name" : "tools",
+          "optional" : true,
+          "type" : {
+            "attributes" : {
+
+            },
+            "name" : "tools"
+          }
+        }
+      ],
+      "outputs" : [
+        {
+          "name" : "rendered_prompt",
+          "optional" : false,
+          "type" : {
+            "attributes" : {
+
+            },
+            "name" : "rendered-prompt"
+          }
+        }
+      ]
+    },
+    {
+      "annotations" : [
+        {
+          "key" : "output-vocab",
+          "value" : "200058"
+        },
+        {
+          "key" : "state",
+          "value" : "sampler"
+        },
+        {
+          "key" : "tag",
+          "value" : "sampler"
+        }
+      ],
+      "id" : "sampler",
+      "implementation" : "native",
+      "inputs" : [
+        {
+          "name" : "hidden",
+          "optional" : false,
+          "type" : {
+            "attributes" : {
+              "dim" : "6144",
+              "dtype" : "bf16"
+            },
+            "name" : "hidden"
+          }
+        }
+      ],
+      "outputs" : [
+        {
+          "name" : "tokens",
+          "optional" : false,
+          "type" : {
+            "attributes" : {
+
+            },
+            "name" : "tokens"
+          }
+        }
+      ]
+    },
+    {
+      "annotations" : [
+        {
+          "key" : "tag",
+          "value" : "text-tokenizer"
+        }
+      ],
+      "id" : "tokenizer",
+      "implementation" : "native",
+      "inputs" : [
+        {
+          "name" : "rendered_prompt",
+          "optional" : false,
+          "type" : {
+            "attributes" : {
+
+            },
+            "name" : "rendered-prompt"
+          }
+        }
+      ],
+      "outputs" : [
+        {
+          "name" : "tokens",
+          "optional" : false,
+          "type" : {
+            "attributes" : {
+
+            },
+            "name" : "tokens"
+          }
+        }
+      ]
+    },
+    {
+      "annotations" : [
+        {
+          "key" : "artifact",
+          "value" : "baked-inline"
+        },
+        {
+          "key" : "feedback",
+          "value" : "tokens"
+        },
+        {
+          "key" : "state",
+          "value" : "kv-cache,short-convolution-state"
+        },
+        {
+          "key" : "tag",
+          "value" : "decode-core"
+        }
+      ],
+      "block" : "trunk",
+      "id" : "trunk",
+      "implementation" : "compiled",
+      "inputs" : [
+        {
+          "name" : "tokens",
+          "optional" : false,
+          "type" : {
+            "attributes" : {
+
+            },
+            "name" : "tokens"
+          }
+        }
+      ],
+      "outputs" : [
+        {
+          "name" : "hidden",
+          "optional" : false,
+          "type" : {
+            "attributes" : {
+              "dim" : "6144",
+              "dtype" : "bf16"
+            },
+            "name" : "hidden"
+          }
+        }
+      ]
+    }
+  ],
+  "imports" : [
+
+  ],
+  "module" : {
+    "id" : "inkling"
+  },
+  "quantization" : [
+    {
+      "action" : "preserve",
+      "priority" : 20,
+      "resolution" : "source-deferred",
+      "selector" : {
+        "pattern" : "*norm*",
+        "source" : "weights"
+      },
+      "source" : "weights"
+    },
+    {
+      "action" : "preserve",
+      "priority" : 20,
+      "resolution" : "source-deferred",
+      "selector" : {
+        "pattern" : "*relative*",
+        "source" : "weights"
+      },
+      "source" : "weights"
+    },
+    {
+      "action" : "preserve",
+      "priority" : 20,
+      "resolution" : "source-deferred",
+      "selector" : {
+        "pattern" : "*sconv*",
+        "source" : "weights"
+      },
+      "source" : "weights"
+    },
+    {
+      "action" : "default",
+      "resolution" : "declared-tensor",
+      "selector" : {
+        "pattern" : "*",
+        "source" : "weights"
+      },
+      "storage" : {
+        "format" : "affine-u4",
+        "groupSize" : 64
+      }
+    }
+  ],
+  "schemaVersion" : 4,
+  "sourceQuantization" : [
+
+  ],
+  "sources" : [
+    {
+      "byteCount" : 128600,
+      "id" : "checkpoint-index",
+      "kind" : "hf-file",
+      "locator" : "thinkingmachines/Inkling/model.safetensors.index.json",
+      "revision" : "e4aa5ee880fbb0d2c1a93b1e4a39f2d4b97eb28a",
+      "sha256" : "6bdebc2a928b1be96e1666b40704a4222ee0c764c2611247bb8ad4d485ea9a97"
+    },
+    {
+      "id" : "checkpoint-index-nvfp4",
+      "kind" : "hf-file",
+      "locator" : "thinkingmachines/Inkling/model.safetensors.index.json",
+      "revision" : "1fa46988f638221367b5fdeee4e86d5c9882ae23",
+      "sha256" : "23e5784d569500563c2603920d0d2e7240caab5daa627bb5928e3d092fc6e560"
+    },
+    {
+      "byteCount" : 2415,
+      "id" : "config",
+      "kind" : "hf-file",
+      "locator" : "thinkingmachines/Inkling/config.json",
+      "revision" : "e4aa5ee880fbb0d2c1a93b1e4a39f2d4b97eb28a",
+      "sha256" : "58720f145bcecef9a7ab2b419ab346e7c634af8d2f3e7362e900d00f789ea46c"
+    },
+    {
+      "byteCount" : 1110,
+      "id" : "processor",
+      "kind" : "hf-file",
+      "locator" : "thinkingmachines/Inkling/processor_config.json",
+      "revision" : "e4aa5ee880fbb0d2c1a93b1e4a39f2d4b97eb28a",
+      "sha256" : "b4a3962ea5f7ec39f40b5cf14e57ce99776c3dcce4756a110f7a169809e3a04c"
+    },
+    {
+      "id" : "reference",
+      "kind" : "git",
+      "locator" : "huggingface/transformers/src/transformers/models/inkling",
+      "revision" : "28596623762cb409bb1c9234f04bfb1269b1ece1"
+    },
+    {
+      "byteCount" : 6294,
+      "id" : "renderer",
+      "kind" : "hf-file",
+      "locator" : "thinkingmachines/Inkling/chat_template.jinja",
+      "revision" : "e4aa5ee880fbb0d2c1a93b1e4a39f2d4b97eb28a",
+      "sha256" : "0aa1aa0c729d90176dcaa00c440c8faffca2957ffb2cc4b79456ee6d02bcf43b"
+    },
+    {
+      "byteCount" : 517,
+      "id" : "special-tokens",
+      "kind" : "hf-file",
+      "locator" : "thinkingmachines/Inkling/special_tokens_map.json",
+      "revision" : "e4aa5ee880fbb0d2c1a93b1e4a39f2d4b97eb28a",
+      "sha256" : "abc97715b4b3b30eb65ea6895afd7b529c32bd10c28901f9ddae7edc39723b0f"
+    },
+    {
+      "id" : "tokenizer",
+      "kind" : "hf-file",
+      "locator" : "thinkingmachines/Inkling/tokenizer.json",
+      "revision" : "e4aa5ee880fbb0d2c1a93b1e4a39f2d4b97eb28a"
+    },
+    {
+      "byteCount" : 12111,
+      "id" : "tokenizer-config",
+      "kind" : "hf-file",
+      "locator" : "thinkingmachines/Inkling/tokenizer_config.json",
+      "revision" : "e4aa5ee880fbb0d2c1a93b1e4a39f2d4b97eb28a",
+      "sha256" : "2e36c9748a2081abb935b2e745ee22e82efa32589c2500df7e5bc0f93145cd77"
+    },
+    {
+      "id" : "weights",
+      "kind" : "hf",
+      "locator" : "thinkingmachines/Inkling",
+      "revision" : "e4aa5ee880fbb0d2c1a93b1e4a39f2d4b97eb28a"
+    },
+    {
+      "id" : "weights-nvfp4",
+      "kind" : "hf",
+      "locator" : "thinkingmachines/Inkling",
+      "revision" : "1fa46988f638221367b5fdeee4e86d5c9882ae23"
+    }
+  ],
+  "tensors" : [
+    {
+      "owner" : "audio-encoder",
+      "selector" : {
+        "pattern" : "model.audio.*",
+        "source" : "weights"
+      },
+      "source" : "weights",
+      "target" : {
+        "block" : "audio-encoder",
+        "selector" : "*"
+      }
+    },
+    {
+      "owner" : "image-patch-encoder",
+      "selector" : {
+        "pattern" : "model.visual.*",
+        "source" : "weights"
+      },
+      "source" : "weights",
+      "target" : {
+        "block" : "image-patch-encoder",
+        "selector" : "*"
+      }
+    },
+    {
+      "owner" : "trunk",
+      "selector" : {
+        "pattern" : "model.llm.*",
+        "source" : "weights"
+      },
+      "source" : "weights",
+      "target" : {
+        "block" : "trunk",
+        "selector" : "*"
+      }
+    },
+    {
+      "owner" : "trunk",
+      "selector" : {
+        "pattern" : "model.embed*",
+        "source" : "weights"
+      },
+      "source" : "weights",
+      "target" : {
+        "block" : "trunk",
+        "selector" : "embedding.*"
+      }
+    },
+    {
+      "owner" : "trunk",
+      "selector" : {
+        "pattern" : "model.unembed.*",
+        "source" : "weights"
+      },
+      "source" : "weights",
+      "target" : {
+        "block" : "trunk",
+        "selector" : "lm_head.*"
+      }
+    },
+    {
+      "owner" : "trunk",
+      "selector" : {
+        "pattern" : "model.norm.*",
+        "source" : "weights"
+      },
+      "source" : "weights",
+      "target" : {
+        "block" : "trunk",
+        "selector" : "norm.*"
+      }
+    }
+  ]
+}

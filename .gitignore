@@ -1,0 +1,36 @@
+.build/
+.build-*/
+.swiftpm/
+.smelt/
+*.xcodeproj/
+DerivedData/
+models/
+# Source-controlled model authoring artifacts live in Models/ (capital M); the
+# lowercase weights-ignore above swallows it under core.ignorecase, so re-include
+# the directory and its authored IR JSON. Weight ignores below still win inside.
+!Models/
+!Models/*.module.json
+*.agent
+*.safetensors
+*.npy
+!Tests/SmeltCompilerTests/Fixtures/**/*.npy
+*.pyc
+__pycache__/
+tools/whisper_ref/dumps/
+tools/whisper_ref/tokenizer.json
+third_party/llguidance/src/
+third_party/llguidance/lib/
+third_party/llguidance
+tools/venv-gemma4-ref/
+.venv-bench/
+bench-results/
+artifacts/
+.context/
+# Stray clang module-build artifact dropped by SwiftPM during
+# CSmeltAne ObjC compilation.
+SmeltAneBridge.plist
+.gstack/
+# Agent/session detritus
+.claude/
+.home/
+.codex-tmp/

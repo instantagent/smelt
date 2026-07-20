@@ -1,0 +1,68 @@
+{
+  "command": [
+    ".build/release/ia",
+    "bench",
+    "artifacts/qwen35-0.8b-qmm16x128/Qwen_Qwen3.5-0.8B.agent",
+    "--iterations",
+    "20",
+    "--warmup",
+    "5"
+  ],
+  "decode": {
+    "iterations": 20,
+    "median_ms_per_token": 2.71,
+    "p95_ms_per_token": 3.34,
+    "position": "varying sequential (wrap at 200)",
+    "tokens_per_second": 368.5,
+    "warmup": 5
+  },
+  "gate": "text.decode-prefill-startup",
+  "gate_failures": [],
+  "observed_metrics": [
+    "decode_median_ms_per_token",
+    "decode_tokens_per_second",
+    "decode_p95_ms_per_token",
+    "prefill64_wall_ms",
+    "prefill64_tokens_per_second",
+    "prefill64_p95_ms",
+    "prefill256_wall_ms",
+    "prefill256_tokens_per_second",
+    "prefill256_p95_ms"
+  ],
+  "package": "./artifacts/qwen35-0.8b-qmm16x128/Qwen_Qwen3.5-0.8B.agent",
+  "package_profile": true,
+  "prefill": {
+    "iterations": 5,
+    "metrics": {
+      "256": {
+        "p95_ms": 72.7,
+        "tokens_per_second": 3549.2,
+        "wall_ms": 72.1
+      },
+      "64": {
+        "p95_ms": 21.2,
+        "tokens_per_second": 3049.1,
+        "wall_ms": 21.0
+      }
+    },
+    "warmup": 2
+  },
+  "profile_deferred_bounds": [
+    "trace_first_token_ms 100ms"
+  ],
+  "profile_max_bounds": [],
+  "profile_min_bounds": [],
+  "required_output_metrics": [
+    "decode_median_ms_per_token",
+    "decode_tokens_per_second",
+    "decode_p95_ms_per_token",
+    "prefill64_wall_ms",
+    "prefill64_tokens_per_second",
+    "prefill64_p95_ms",
+    "prefill256_wall_ms",
+    "prefill256_tokens_per_second",
+    "prefill256_p95_ms",
+    "trace_first_token_ms"
+  ],
+  "schema": 1
+}

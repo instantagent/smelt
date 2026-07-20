@@ -1,0 +1,12 @@
+PRE-LOCK-LOAD: 22:12  up 31 days, 12:54, 8 users, load averages: 4.99 5.92 6.73
+INSIDE-LOCK-LOAD: 22:12  up 31 days, 12:54, 8 users, load averages: 4.99 5.92 6.73
+ia decode        5.33ms/tok  187.5 tok/s
+ia decode p95    5.46ms/tok
+ia decode gpu    4.96ms/tok
+ia prefill-256     283.0ms/prefill  904.7 tok/s
+ia prefill-256 p95 284.6ms/prefill
+mlx generation      168.925 tok/s
+mlx prompt-256        1108.035 tok/s
+mlx peak memory     1.522 GB
+POST-RUN-LOAD: 22:12  up 31 days, 12:54, 8 users, load averages: 5.55 5.99 6.74
+COMPARE-EXIT: 0

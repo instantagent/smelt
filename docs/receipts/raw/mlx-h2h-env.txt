@@ -1,0 +1,21 @@
+=== mlx-h2h aligned re-run V2 env 20260713-130355 ===
+python: Python 3.14.6
+mlx: 0.31.1
+mlx-lm: 0.31.1
+ia: <repo>/.build/release/ia sha256=ed302be72d01f36f99d8e77bd73b16293c58d183f15407669d2edd403587f277
+ia worktree HEAD: 08faf23d (+ uncommitted Bench.swift window-line addition)
+hf snapshot 0.8B: da28692b5f139cb0ec58a356b437486b7dac7462
+hf snapshot 2B:   674aaa7240b91e8012fcad5d791b7dfe5ba90207
+macos: 15.7.5 (24G624)
+uptime: 13:03  up 33 days,  3:46, 4 users, load averages: 3.15 3.00 2.77
+process snapshot (top 10 by %cpu):
+ %CPU COMM
+ 99.2 node
+ 36.2 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+ 18.8 claude bg-spare
+ 15.7 /Applications/iTerm.app/Contents/MacOS/iTerm2
+ 14.7 /System/Library/Frameworks/Virtualization.framework/Versions/A/XPCServices/com.apple.Virtualization.VirtualMachine.xpc/Contents/MacOS/com.apple.Virtualization.VirtualMachine
+  6.5 claude
+  6.2 /usr/sbin/coreaudiod
+  5.2 ~/.local/bin/claude
+  4.0 codex

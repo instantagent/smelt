@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "args": [
+    {
+      "flag": "env",
+      "type": "enum",
+      "values": ["prod", "staging", "dev"],
+      "default": "prod",
+      "description": "Deployment environment the log line came from"
+    }
+  ],
+  "prompt": "Environment: {env}\n\nLog line:\n{input}"
+}

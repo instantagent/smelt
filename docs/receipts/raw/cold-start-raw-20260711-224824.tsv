@@ -1,0 +1,157 @@
+cell	trial	ttft_ms	exit_ms	rc	stdout_bytes	note
+# ia_cold load: 5.23 4.96 4.65
+ia_cold	1	267.7	269.5	0	8	cold
+ia_cold	2	270.2	271.7	0	8	cold
+ia_cold	3	275.5	277.5	0	8	cold
+ia_cold	4	268.1	269.8	0	8	cold
+ia_cold	5	266.3	268.2	0	8	cold
+ia_cold	6	272.3	274.5	0	8	cold
+ia_cold	7	274.5	276.0	0	8	cold
+ia_cold	8	268.7	270.5	0	8	cold
+ia_cold	9	267.9	270.1	0	8	cold
+ia_cold	10	269.1	271.1	0	8	cold
+ia_cold	11	264.1	265.9	0	8	cold
+ia_cold	12	266.1	268.0	0	8	cold
+# ia_warm load: 5.13 4.94 4.65
+ia_warm	1	112.2	114.0	0	8	warm
+ia_warm	2	112.6	114.3	0	8	warm
+ia_warm	3	114.0	116.0	0	8	warm
+ia_warm	4	114.5	116.6	0	8	warm
+ia_warm	5	112.3	114.0	0	8	warm
+ia_warm	6	111.2	112.8	0	8	warm
+ia_warm	7	112.8	115.1	0	8	warm
+ia_warm	8	110.1	111.7	0	8	warm
+ia_warm	9	112.4	114.2	0	8	warm
+ia_warm	10	107.0	108.7	0	8	warm
+ia_warm	11	113.5	115.5	0	8	warm
+ia_warm	12	113.1	114.8	0	8	warm
+# ia_linger load: 5.12 4.94 4.65
+ia_linger	1	45.2	45.6	0	8	linger
+ia_linger	2	28.1	28.5	0	8	linger
+ia_linger	3	27.7	28.1	0	8	linger
+ia_linger	4	35.8	36.2	0	8	linger
+ia_linger	5	28.3	28.8	0	8	linger
+ia_linger	6	28.7	29.2	0	8	linger
+ia_linger	7	28.9	29.4	0	8	linger
+ia_linger	8	28.1	28.6	0	8	linger
+ia_linger	9	36.6	37.1	0	8	linger
+ia_linger	10	33.9	34.4	0	8	linger
+ia_linger	11	28.2	28.7	0	8	linger
+ia_linger	12	37.7	38.3	0	8	linger
+# llamacpp_cold load: 5.12 4.94 4.65
+llamacpp_cold	1	1628.4	2137.2	0	24	cold
+llamacpp_cold	2	1306.8	1604.5	0	24	cold
+llamacpp_cold	3	1301.9	1615.1	0	24	cold
+llamacpp_cold	4	1312.7	1620.1	0	24	cold
+llamacpp_cold	5	1311.9	1608.2	0	24	cold
+llamacpp_cold	6	1330.3	1602.1	0	24	cold
+llamacpp_cold	7	1320.2	1635.4	0	24	cold
+llamacpp_cold	8	1310.6	1615.4	0	24	cold
+llamacpp_cold	9	1322.2	1608.3	0	24	cold
+llamacpp_cold	10	1310.8	1611.9	0	24	cold
+llamacpp_cold	11	1335.2	1603.4	0	24	cold
+llamacpp_cold	12	1342.6	1604.1	0	24	cold
+# llamacpp_warm load: 4.86 4.90 4.64
+llamacpp_warm	1	1647.4	2126.9	0	24	warm
+llamacpp_warm	2	1207.6	1608.1	0	24	warm
+llamacpp_warm	3	1124.8	1616.7	0	24	warm
+llamacpp_warm	4	1158.5	1609.3	0	24	warm
+llamacpp_warm	5	1144.0	1607.8	0	24	warm
+llamacpp_warm	6	1142.5	1622.4	0	24	warm
+llamacpp_warm	7	1189.2	1610.8	0	24	warm
+llamacpp_warm	8	1183.2	1602.5	0	24	warm
+llamacpp_warm	9	1177.2	1609.2	0	24	warm
+llamacpp_warm	10	1197.3	1588.1	0	24	warm
+llamacpp_warm	11	1185.5	1595.1	0	24	warm
+llamacpp_warm	12	1135.6	1600.2	0	24	warm
+# ollama_cold load: 5.85 5.16 4.77
+ollama_cold	1	4392.0	4392.9	0	10	cold
+ollama_cold	2	1354.0	1354.8	0	10	cold
+ollama_cold	3	1359.2	1360.4	0	10	cold
+ollama_cold	4	1361.9	1362.6	0	10	cold
+ollama_cold	5	1351.2	1352.1	0	10	cold
+ollama_cold	6	1366.2	1367.0	0	10	cold
+ollama_cold	7	1353.8	1354.8	0	10	cold
+ollama_cold	8	1355.4	1356.4	0	10	cold
+ollama_cold	9	1351.4	1352.3	0	10	cold
+ollama_cold	10	1352.6	1353.3	0	10	cold
+ollama_cold	11	1351.9	1352.9	0	10	cold
+ollama_cold	12	1358.9	1359.8	0	10	cold
+# ollama_warm load: 5.45 5.10 4.76
+ollama_warm	1	257.8	258.8	0	10	warm
+ollama_warm	2	256.6	257.3	0	10	warm
+ollama_warm	3	255.6	256.4	0	10	warm
+ollama_warm	4	263.0	263.8	0	10	warm
+ollama_warm	5	258.2	259.1	0	10	warm
+ollama_warm	6	250.3	251.3	0	10	warm
+ollama_warm	7	261.7	262.6	0	10	warm
+ollama_warm	8	256.5	257.6	0	10	warm
+ollama_warm	9	254.4	255.4	0	10	warm
+ollama_warm	10	254.6	255.4	0	10	warm
+ollama_warm	11	253.7	254.5	0	10	warm
+ollama_warm	12	261.3	262.0	0	10	warm
+# mlx_cold load: 8.75 5.98 5.10
+mlx_cold	1	2856.5	2943.7	0	142	cold
+mlx_cold	2	2348.4	2429.6	0	142	cold
+mlx_cold	3	2318.4	2396.0	0	142	cold
+mlx_cold	4	2310.0	2391.0	0	142	cold
+mlx_cold	5	2350.4	2432.1	0	142	cold
+mlx_cold	6	2315.9	2399.8	0	142	cold
+mlx_cold	7	2230.3	2304.2	0	142	cold
+mlx_cold	8	2301.5	2377.3	0	142	cold
+mlx_cold	9	2429.4	2528.0	0	142	cold
+mlx_cold	10	2411.6	2507.1	0	142	cold
+mlx_cold	11	2337.4	2416.6	0	142	cold
+mlx_cold	12	2268.3	2346.7	0	142	cold
+# mlx_warm load: 7.07 5.84 5.08
+mlx_warm	1	2300.4	2379.3	0	142	warm
+mlx_warm	2	2327.5	2414.1	0	142	warm
+mlx_warm	3	2250.4	2324.6	0	142	warm
+mlx_warm	4	2208.2	2289.6	0	142	warm
+mlx_warm	5	2242.9	2319.6	0	142	warm
+mlx_warm	6	2231.8	2310.4	0	142	warm
+mlx_warm	7	2191.7	2273.5	0	142	warm
+mlx_warm	8	2144.4	2219.5	0	142	warm
+mlx_warm	9	2232.9	2315.2	0	142	warm
+mlx_warm	10	2194.4	2282.9	0	142	warm
+mlx_warm	11	2290.1	2374.9	0	142	warm
+mlx_warm	12	2210.5	2290.4	0	142	warm
+# tts_cold load: 5.74 5.63 5.03
+tts_cold	1	303	0.30	0	0	ttfa_ms(load->1staudio); exit_ms col = wall_s
+tts_cold	2	286	0.29	0	0	ttfa_ms(load->1staudio); exit_ms col = wall_s
+tts_cold	3	306	0.31	0	0	ttfa_ms(load->1staudio); exit_ms col = wall_s
+tts_cold	4	300	0.30	0	0	ttfa_ms(load->1staudio); exit_ms col = wall_s
+tts_cold	5	310	0.31	0	0	ttfa_ms(load->1staudio); exit_ms col = wall_s
+tts_cold	6	308	0.31	0	0	ttfa_ms(load->1staudio); exit_ms col = wall_s
+tts_cold	7	301	0.30	0	0	ttfa_ms(load->1staudio); exit_ms col = wall_s
+tts_cold	8	295	0.29	0	0	ttfa_ms(load->1staudio); exit_ms col = wall_s
+tts_cold	9	295	0.30	0	0	ttfa_ms(load->1staudio); exit_ms col = wall_s
+tts_cold	10	283	0.28	0	0	ttfa_ms(load->1staudio); exit_ms col = wall_s
+tts_cold	11	301	0.30	0	0	ttfa_ms(load->1staudio); exit_ms col = wall_s
+tts_cold	12	306	0.31	0	0	ttfa_ms(load->1staudio); exit_ms col = wall_s
+# tts_warm load: 5.24 5.53 5.00
+tts_warm	1	298	0.30	0	0	ttfa_ms(load->1staudio); exit_ms col = wall_s
+tts_warm	2	301	0.30	0	0	ttfa_ms(load->1staudio); exit_ms col = wall_s
+tts_warm	3	290	0.29	0	0	ttfa_ms(load->1staudio); exit_ms col = wall_s
+tts_warm	4	299	0.30	0	0	ttfa_ms(load->1staudio); exit_ms col = wall_s
+tts_warm	5	301	0.30	0	0	ttfa_ms(load->1staudio); exit_ms col = wall_s
+tts_warm	6	297	0.30	0	0	ttfa_ms(load->1staudio); exit_ms col = wall_s
+tts_warm	7	303	0.30	0	0	ttfa_ms(load->1staudio); exit_ms col = wall_s
+tts_warm	8	312	0.31	0	0	ttfa_ms(load->1staudio); exit_ms col = wall_s
+tts_warm	9	287	0.29	0	0	ttfa_ms(load->1staudio); exit_ms col = wall_s
+tts_warm	10	298	0.30	0	0	ttfa_ms(load->1staudio); exit_ms col = wall_s
+tts_warm	11	294	0.29	0	0	ttfa_ms(load->1staudio); exit_ms col = wall_s
+tts_warm	12	301	0.30	0	0	ttfa_ms(load->1staudio); exit_ms col = wall_s
+# tts_linger load: 5.39 5.55 5.01
+tts_linger	1	1503	1.50	0	0	ttfa_ms(load->1staudio); exit_ms col = wall_s
+tts_linger	2	94	0.09	0	0	ttfa_ms(load->1staudio); exit_ms col = wall_s
+tts_linger	3	91	0.09	0	0	ttfa_ms(load->1staudio); exit_ms col = wall_s
+tts_linger	4	93	0.09	0	0	ttfa_ms(load->1staudio); exit_ms col = wall_s
+tts_linger	5	92	0.09	0	0	ttfa_ms(load->1staudio); exit_ms col = wall_s
+tts_linger	6	92	0.09	0	0	ttfa_ms(load->1staudio); exit_ms col = wall_s
+tts_linger	7	96	0.10	0	0	ttfa_ms(load->1staudio); exit_ms col = wall_s
+tts_linger	8	95	0.10	0	0	ttfa_ms(load->1staudio); exit_ms col = wall_s
+tts_linger	9	94	0.09	0	0	ttfa_ms(load->1staudio); exit_ms col = wall_s
+tts_linger	10	96	0.10	0	0	ttfa_ms(load->1staudio); exit_ms col = wall_s
+tts_linger	11	93	0.09	0	0	ttfa_ms(load->1staudio); exit_ms col = wall_s
+tts_linger	12	95	0.09	0	0	ttfa_ms(load->1staudio); exit_ms col = wall_s

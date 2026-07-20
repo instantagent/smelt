@@ -1,0 +1,1745 @@
+{
+  "artifacts" : [
+    {
+      "id" : "vision-component",
+      "required" : true,
+      "role" : "compiled-component"
+    }
+  ],
+  "backendConstraints" : [
+    {
+      "key" : "target",
+      "value" : "metal"
+    }
+  ],
+  "blocks" : [
+    {
+      "annotations" : [
+
+      ],
+      "id" : "trunk",
+      "operatorName" : "transformer",
+      "shape" : {
+        "requirements" : [
+
+        ],
+        "transformer" : {
+          "attention" : {
+            "headDim" : 256,
+            "kvHeads" : 4,
+            "qHeads" : 16,
+            "qkNorm" : "rms",
+            "rope" : {
+              "kind" : "neox",
+              "theta" : 10000000
+            }
+          },
+          "delta" : {
+            "convKernel" : 4,
+            "headDim" : 128,
+            "heads" : 32,
+            "projections" : {
+              "a" : 32,
+              "b" : 32,
+              "qkv" : 8192,
+              "z" : 4096
+            }
+          },
+          "ffn" : {
+            "activation" : "swiglu",
+            "dim" : 9216
+          },
+          "hiddenSize" : 2560,
+          "layers" : {
+            "repeatCount" : 8,
+            "roles" : [
+              "delta",
+              "delta",
+              "delta",
+              "attention"
+            ]
+          },
+          "norm" : {
+            "eps" : "1e-6",
+            "kind" : "rms",
+            "mode" : "one-plus-weight"
+          },
+          "projectionBanks" : [
+            {
+              "id" : "attention-input",
+              "outputs" : [
+                "attentionQ",
+                "attentionK",
+                "attentionV"
+              ],
+              "source" : "attentionInput"
+            },
+            {
+              "id" : "attention-output",
+              "outputs" : [
+                "attentionOut"
+              ],
+              "source" : "attentionOutput"
+            },
+            {
+              "id" : "delta-input",
+              "outputs" : [
+                "deltaQKV",
+                "deltaZ",
+                "deltaA",
+                "deltaB"
+              ],
+              "source" : "deltaInput"
+            },
+            {
+              "id" : "delta-output",
+              "outputs" : [
+                "deltaOut"
+              ],
+              "source" : "deltaOutput"
+            },
+            {
+              "id" : "ffn-input",
+              "outputs" : [
+                "ffnGate",
+                "ffnUp"
+              ],
+              "source" : "ffnInput"
+            },
+            {
+              "id" : "ffn-intermediate",
+              "outputs" : [
+                "ffnDown"
+              ],
+              "source" : "ffnIntermediate"
+            }
+          ],
+          "vocab" : {
+            "size" : 248320,
+            "tiedHead" : true
+          }
+        }
+      }
+    },
+    {
+      "annotations" : [
+
+      ],
+      "id" : "vision-encoder",
+      "operatorName" : "transformer-encoder",
+      "shape" : {
+        "requirements" : [
+          {
+            "key" : "activation",
+            "optional" : false,
+            "value" : "gelu-pytorch-tanh"
+          },
+          {
+            "key" : "attention-bias",
+            "optional" : false
+          },
+          {
+            "key" : "in-channels",
+            "optional" : false,
+            "value" : "3"
+          },
+          {
+            "key" : "patch-size",
+            "optional" : false,
+            "value" : "16"
+          },
+          {
+            "key" : "position-embeddings",
+            "optional" : false,
+            "value" : "2304"
+          },
+          {
+            "key" : "spatial-merge-size",
+            "optional" : false,
+            "value" : "2"
+          },
+          {
+            "key" : "temporal-patch-size",
+            "optional" : false,
+            "value" : "2"
+          }
+        ],
+        "transformer" : {
+          "attention" : {
+            "headDim" : 64,
+            "kvHeads" : 16,
+            "qHeads" : 16
+          },
+          "ffn" : {
+            "activation" : "gelu",
+            "dim" : 4096
+          },
+          "hiddenSize" : 1024,
+          "layers" : {
+            "repeatCount" : 24,
+            "roles" : [
+              "global"
+            ]
+          },
+          "norm" : {
+            "eps" : "1e-6",
+            "kind" : "layer",
+            "mode" : "weight"
+          }
+        }
+      }
+    },
+    {
+      "annotations" : [
+
+      ],
+      "id" : "vision-merger",
+      "operatorName" : "adapter",
+      "shape" : {
+        "requirements" : [
+          {
+            "key" : "activation",
+            "optional" : false,
+            "value" : "gelu-pytorch-tanh"
+          },
+          {
+            "key" : "hidden-size",
+            "optional" : false,
+            "value" : "1024"
+          },
+          {
+            "key" : "out-hidden-size",
+            "optional" : false,
+            "value" : "2560"
+          },
+          {
+            "key" : "spatial-merge-size",
+            "optional" : false,
+            "value" : "2"
+          }
+        ]
+      }
+    }
+  ],
+  "capabilities" : [
+    "bake.prompt-prefix",
+    "run.generate",
+    "run.generate.multimodal"
+  ],
+  "compile" : [
+    {
+      "key" : "layout",
+      "value" : "memory-neutral"
+    },
+    {
+      "key" : "prefill",
+      "value" : "metal batch 256"
+    },
+    {
+      "key" : "target",
+      "value" : "metal"
+    },
+    {
+      "key" : "vision",
+      "value" : "metal"
+    }
+  ],
+  "exportBindings" : [
+    {
+      "export" : "generate",
+      "flow" : "generate"
+    },
+    {
+      "export" : "generate_multimodal",
+      "flow" : "generate_multimodal"
+    }
+  ],
+  "exports" : [
+    {
+      "capabilities" : [
+        "bake.prompt-prefix",
+        "run.generate"
+      ],
+      "gates" : [
+        "startup"
+      ],
+      "id" : "generate",
+      "inputs" : [
+        {
+          "name" : "prompt",
+          "optional" : false,
+          "type" : {
+            "attributes" : {
+              "encoding" : "utf8"
+            },
+            "name" : "text"
+          }
+        }
+      ],
+      "outputs" : [
+        {
+          "name" : "text",
+          "optional" : false,
+          "type" : {
+            "attributes" : {
+              "encoding" : "utf8"
+            },
+            "name" : "text"
+          }
+        }
+      ]
+    },
+    {
+      "capabilities" : [
+        "bake.prompt-prefix",
+        "run.generate.multimodal"
+      ],
+      "gates" : [
+        "multimodal-startup"
+      ],
+      "id" : "generate_multimodal",
+      "inputs" : [
+        {
+          "name" : "media",
+          "optional" : false,
+          "type" : {
+            "attributes" : {
+              "kinds" : "image"
+            },
+            "name" : "media"
+          }
+        },
+        {
+          "name" : "prompt",
+          "optional" : false,
+          "type" : {
+            "attributes" : {
+              "encoding" : "utf8"
+            },
+            "name" : "text"
+          }
+        }
+      ],
+      "outputs" : [
+        {
+          "name" : "text",
+          "optional" : false,
+          "type" : {
+            "attributes" : {
+              "encoding" : "utf8"
+            },
+            "name" : "text"
+          }
+        }
+      ]
+    }
+  ],
+  "feedbackEdges" : [
+    {
+      "from" : {
+        "kind" : "nodePort",
+        "node" : "multimodal-sampler",
+        "port" : "tokens"
+      },
+      "to" : {
+        "kind" : "nodePort",
+        "node" : "multimodal-trunk",
+        "port" : "tokens"
+      }
+    },
+    {
+      "from" : {
+        "kind" : "nodePort",
+        "node" : "sampler",
+        "port" : "tokens"
+      },
+      "to" : {
+        "kind" : "nodePort",
+        "node" : "trunk",
+        "port" : "tokens"
+      }
+    }
+  ],
+  "flows" : [
+    {
+      "emit" : [
+        {
+          "kind" : "nodePort",
+          "node" : "detokenizer",
+          "port" : "text"
+        }
+      ],
+      "id" : "generate",
+      "phases" : [
+        {
+          "calls" : [
+            {
+              "kind" : "node",
+              "node" : "tokenizer"
+            }
+          ],
+          "role" : "setup"
+        },
+        {
+          "calls" : [
+            {
+              "kind" : "node",
+              "node" : "trunk"
+            },
+            {
+              "kind" : "node",
+              "node" : "sampler"
+            }
+          ],
+          "label" : "decode",
+          "role" : "step"
+        }
+      ],
+      "stop" : [
+        {
+          "kind" : "eos-token",
+          "value" : 248044
+        },
+        {
+          "kind" : "eos-token",
+          "value" : 248046
+        },
+        {
+          "kind" : "host-cancel"
+        },
+        {
+          "kind" : "max-steps",
+          "value" : 512
+        }
+      ]
+    },
+    {
+      "emit" : [
+        {
+          "kind" : "nodePort",
+          "node" : "multimodal-detokenizer",
+          "port" : "text"
+        }
+      ],
+      "id" : "generate_multimodal",
+      "phases" : [
+        {
+          "calls" : [
+            {
+              "kind" : "node",
+              "node" : "multimodal-tokenizer"
+            },
+            {
+              "kind" : "node",
+              "node" : "media-preprocessor"
+            },
+            {
+              "kind" : "node",
+              "node" : "vision-encoder"
+            },
+            {
+              "kind" : "node",
+              "node" : "vision-merger"
+            },
+            {
+              "kind" : "node",
+              "node" : "visual-token-fusion"
+            }
+          ],
+          "role" : "setup"
+        },
+        {
+          "calls" : [
+            {
+              "kind" : "node",
+              "node" : "multimodal-trunk"
+            },
+            {
+              "kind" : "node",
+              "node" : "multimodal-sampler"
+            }
+          ],
+          "label" : "decode",
+          "role" : "step"
+        }
+      ],
+      "stop" : [
+        {
+          "kind" : "eos-token",
+          "value" : 248044
+        },
+        {
+          "kind" : "eos-token",
+          "value" : 248046
+        },
+        {
+          "kind" : "host-cancel"
+        },
+        {
+          "kind" : "max-steps",
+          "value" : 512
+        }
+      ]
+    }
+  ],
+  "gates" : [
+    {
+      "evidence" : [
+
+      ],
+      "id" : "decode",
+      "measurements" : [
+
+      ],
+      "requirements" : [
+        {
+          "relation" : ">=",
+          "subject" : "decode-output.tokens",
+          "value" : "1"
+        }
+      ]
+    },
+    {
+      "evidence" : [
+
+      ],
+      "id" : "inventory",
+      "measurements" : [
+
+      ],
+      "requirements" : [
+        {
+          "relation" : "include",
+          "subject" : "package-files",
+          "value" : "manifest.json,weights.bin,model.metallib,SmeltGenerated.swift,dispatches.bin,prefill_dispatches.bin,tokenizer.json,tokenizer.bin,module.json"
+        },
+        {
+          "relation" : "include",
+          "subject" : "release-surface-ids",
+          "value" : "gate.startup,gate.prefill,gate.decode,release.verify"
+        }
+      ]
+    },
+    {
+      "evidence" : [
+
+      ],
+      "from" : {
+        "flow" : "generate_multimodal",
+        "kind" : "flow.accepted",
+        "predicates" : [
+
+        ]
+      },
+      "id" : "multimodal-startup",
+      "measurements" : [
+
+      ],
+      "requirements" : [
+
+      ],
+      "to" : {
+        "endpoint" : {
+          "kind" : "moduleOutput",
+          "name" : "text"
+        },
+        "flow" : "generate_multimodal",
+        "kind" : "emit",
+        "predicates" : [
+          {
+            "relation" : ">=",
+            "subject" : "tokens",
+            "value" : "1"
+          }
+        ]
+      }
+    },
+    {
+      "evidence" : [
+
+      ],
+      "id" : "prefill",
+      "measurements" : [
+
+      ],
+      "requirements" : [
+        {
+          "relation" : "<=",
+          "subject" : "prefill-batch",
+          "value" : "256"
+        }
+      ]
+    },
+    {
+      "evidence" : [
+
+      ],
+      "from" : {
+        "flow" : "generate",
+        "kind" : "flow.accepted",
+        "predicates" : [
+
+        ]
+      },
+      "id" : "startup",
+      "measurements" : [
+        {
+          "cacheState" : "cold",
+          "occurrence" : "first",
+          "processMode" : "cold",
+          "subject" : "elapsed"
+        }
+      ],
+      "requirements" : [
+        {
+          "relation" : "<=",
+          "subject" : "elapsed",
+          "unit" : "ms",
+          "value" : "210"
+        }
+      ],
+      "to" : {
+        "endpoint" : {
+          "kind" : "moduleOutput",
+          "name" : "text"
+        },
+        "flow" : "generate",
+        "kind" : "emit",
+        "predicates" : [
+          {
+            "relation" : ">=",
+            "subject" : "tokens",
+            "value" : "1"
+          }
+        ]
+      }
+    }
+  ],
+  "graphEdges" : [
+    {
+      "from" : {
+        "kind" : "graphValue",
+        "name" : "hidden"
+      },
+      "to" : {
+        "kind" : "nodePort",
+        "node" : "sampler",
+        "port" : "hidden"
+      },
+      "type" : {
+        "attributes" : {
+
+        },
+        "name" : "hidden"
+      }
+    },
+    {
+      "from" : {
+        "kind" : "graphValue",
+        "name" : "tokens"
+      },
+      "to" : {
+        "kind" : "nodePort",
+        "node" : "trunk",
+        "port" : "tokens"
+      },
+      "type" : {
+        "attributes" : {
+
+        },
+        "name" : "tokens"
+      }
+    },
+    {
+      "from" : {
+        "kind" : "graphValue",
+        "name" : "tokens_2"
+      },
+      "to" : {
+        "kind" : "nodePort",
+        "node" : "detokenizer",
+        "port" : "tokens"
+      },
+      "type" : {
+        "attributes" : {
+
+        },
+        "name" : "tokens"
+      }
+    },
+    {
+      "from" : {
+        "kind" : "moduleInput",
+        "name" : "media"
+      },
+      "to" : {
+        "kind" : "nodePort",
+        "node" : "media-preprocessor",
+        "port" : "media"
+      },
+      "type" : {
+        "attributes" : {
+          "kinds" : "image"
+        },
+        "name" : "media"
+      }
+    },
+    {
+      "from" : {
+        "kind" : "moduleInput",
+        "name" : "prompt"
+      },
+      "to" : {
+        "kind" : "nodePort",
+        "node" : "multimodal-tokenizer",
+        "port" : "prompt"
+      },
+      "type" : {
+        "attributes" : {
+          "encoding" : "utf8"
+        },
+        "name" : "text"
+      }
+    },
+    {
+      "from" : {
+        "kind" : "moduleInput",
+        "name" : "prompt"
+      },
+      "to" : {
+        "kind" : "nodePort",
+        "node" : "tokenizer",
+        "port" : "prompt"
+      },
+      "type" : {
+        "attributes" : {
+          "encoding" : "utf8"
+        },
+        "name" : "text"
+      }
+    },
+    {
+      "from" : {
+        "kind" : "nodePort",
+        "node" : "detokenizer",
+        "port" : "text"
+      },
+      "to" : {
+        "kind" : "moduleOutput",
+        "name" : "text"
+      },
+      "type" : {
+        "attributes" : {
+          "encoding" : "utf8"
+        },
+        "name" : "text"
+      }
+    },
+    {
+      "from" : {
+        "kind" : "nodePort",
+        "node" : "media-preprocessor",
+        "port" : "grid_thw"
+      },
+      "to" : {
+        "kind" : "nodePort",
+        "node" : "vision-encoder",
+        "port" : "grid_thw"
+      },
+      "type" : {
+        "attributes" : {
+          "axes" : "t,h,w"
+        },
+        "name" : "shape"
+      }
+    },
+    {
+      "from" : {
+        "kind" : "nodePort",
+        "node" : "media-preprocessor",
+        "port" : "grid_thw"
+      },
+      "to" : {
+        "kind" : "nodePort",
+        "node" : "vision-merger",
+        "port" : "grid_thw"
+      },
+      "type" : {
+        "attributes" : {
+          "axes" : "t,h,w"
+        },
+        "name" : "shape"
+      }
+    },
+    {
+      "from" : {
+        "kind" : "nodePort",
+        "node" : "media-preprocessor",
+        "port" : "grid_thw"
+      },
+      "to" : {
+        "kind" : "nodePort",
+        "node" : "visual-token-fusion",
+        "port" : "grid_thw"
+      },
+      "type" : {
+        "attributes" : {
+          "axes" : "t,h,w"
+        },
+        "name" : "shape"
+      }
+    },
+    {
+      "from" : {
+        "kind" : "nodePort",
+        "node" : "media-preprocessor",
+        "port" : "patches"
+      },
+      "to" : {
+        "kind" : "nodePort",
+        "node" : "vision-encoder",
+        "port" : "patches"
+      },
+      "type" : {
+        "attributes" : {
+          "dtype" : "f32"
+        },
+        "name" : "tensor"
+      }
+    },
+    {
+      "from" : {
+        "kind" : "nodePort",
+        "node" : "multimodal-detokenizer",
+        "port" : "text"
+      },
+      "to" : {
+        "kind" : "moduleOutput",
+        "name" : "text"
+      },
+      "type" : {
+        "attributes" : {
+          "encoding" : "utf8"
+        },
+        "name" : "text"
+      }
+    },
+    {
+      "from" : {
+        "kind" : "nodePort",
+        "node" : "multimodal-sampler",
+        "port" : "tokens"
+      },
+      "to" : {
+        "kind" : "nodePort",
+        "node" : "multimodal-detokenizer",
+        "port" : "tokens"
+      },
+      "type" : {
+        "attributes" : {
+
+        },
+        "name" : "tokens"
+      }
+    },
+    {
+      "from" : {
+        "kind" : "nodePort",
+        "node" : "multimodal-tokenizer",
+        "port" : "tokens"
+      },
+      "to" : {
+        "kind" : "nodePort",
+        "node" : "visual-token-fusion",
+        "port" : "tokens"
+      },
+      "type" : {
+        "attributes" : {
+
+        },
+        "name" : "tokens"
+      }
+    },
+    {
+      "from" : {
+        "kind" : "nodePort",
+        "node" : "multimodal-trunk",
+        "port" : "hidden"
+      },
+      "to" : {
+        "kind" : "nodePort",
+        "node" : "multimodal-sampler",
+        "port" : "hidden"
+      },
+      "type" : {
+        "attributes" : {
+
+        },
+        "name" : "hidden"
+      }
+    },
+    {
+      "from" : {
+        "kind" : "nodePort",
+        "node" : "sampler",
+        "port" : "tokens"
+      },
+      "to" : {
+        "kind" : "graphValue",
+        "name" : "tokens_2"
+      },
+      "type" : {
+        "attributes" : {
+
+        },
+        "name" : "tokens"
+      }
+    },
+    {
+      "from" : {
+        "kind" : "nodePort",
+        "node" : "tokenizer",
+        "port" : "tokens"
+      },
+      "to" : {
+        "kind" : "graphValue",
+        "name" : "tokens"
+      },
+      "type" : {
+        "attributes" : {
+
+        },
+        "name" : "tokens"
+      }
+    },
+    {
+      "from" : {
+        "kind" : "nodePort",
+        "node" : "trunk",
+        "port" : "hidden"
+      },
+      "to" : {
+        "kind" : "graphValue",
+        "name" : "hidden"
+      },
+      "type" : {
+        "attributes" : {
+
+        },
+        "name" : "hidden"
+      }
+    },
+    {
+      "from" : {
+        "kind" : "nodePort",
+        "node" : "vision-encoder",
+        "port" : "vision_hidden"
+      },
+      "to" : {
+        "kind" : "nodePort",
+        "node" : "vision-merger",
+        "port" : "vision_hidden"
+      },
+      "type" : {
+        "attributes" : {
+          "dim" : "1024",
+          "dtype" : "f16"
+        },
+        "name" : "hidden"
+      }
+    },
+    {
+      "from" : {
+        "kind" : "nodePort",
+        "node" : "vision-merger",
+        "port" : "visual_embeddings"
+      },
+      "to" : {
+        "kind" : "nodePort",
+        "node" : "visual-token-fusion",
+        "port" : "visual_embeddings"
+      },
+      "type" : {
+        "attributes" : {
+          "dim" : "2560",
+          "dtype" : "f16"
+        },
+        "name" : "embeddings"
+      }
+    },
+    {
+      "from" : {
+        "kind" : "nodePort",
+        "node" : "visual-token-fusion",
+        "port" : "prefill_state"
+      },
+      "to" : {
+        "kind" : "nodePort",
+        "node" : "multimodal-trunk",
+        "port" : "prefill_state"
+      },
+      "type" : {
+        "attributes" : {
+
+        },
+        "name" : "state"
+      }
+    }
+  ],
+  "graphNodes" : [
+    {
+      "annotations" : [
+        {
+          "key" : "tag",
+          "value" : "text-detokenizer"
+        }
+      ],
+      "id" : "detokenizer",
+      "implementation" : "native",
+      "inputs" : [
+        {
+          "name" : "tokens",
+          "optional" : false,
+          "type" : {
+            "attributes" : {
+
+            },
+            "name" : "tokens"
+          }
+        }
+      ],
+      "outputs" : [
+        {
+          "name" : "text",
+          "optional" : false,
+          "type" : {
+            "attributes" : {
+              "encoding" : "utf8"
+            },
+            "name" : "text"
+          }
+        }
+      ]
+    },
+    {
+      "annotations" : [
+        {
+          "key" : "image-mean",
+          "value" : "0.5,0.5,0.5"
+        },
+        {
+          "key" : "image-std",
+          "value" : "0.5,0.5,0.5"
+        },
+        {
+          "key" : "max-pixels",
+          "value" : "16777216"
+        },
+        {
+          "key" : "min-pixels",
+          "value" : "65536"
+        },
+        {
+          "key" : "patch-size",
+          "value" : "16"
+        },
+        {
+          "key" : "resample",
+          "value" : "bicubic"
+        },
+        {
+          "key" : "spatial-merge-size",
+          "value" : "2"
+        },
+        {
+          "key" : "tag",
+          "value" : "media-preprocessor"
+        },
+        {
+          "key" : "temporal-patch-size",
+          "value" : "2"
+        }
+      ],
+      "id" : "media-preprocessor",
+      "implementation" : "native",
+      "inputs" : [
+        {
+          "name" : "media",
+          "optional" : false,
+          "type" : {
+            "attributes" : {
+              "kinds" : "image"
+            },
+            "name" : "media"
+          }
+        }
+      ],
+      "outputs" : [
+        {
+          "name" : "grid_thw",
+          "optional" : false,
+          "type" : {
+            "attributes" : {
+              "axes" : "t,h,w"
+            },
+            "name" : "shape"
+          }
+        },
+        {
+          "name" : "patches",
+          "optional" : false,
+          "type" : {
+            "attributes" : {
+              "dtype" : "f32"
+            },
+            "name" : "tensor"
+          }
+        }
+      ]
+    },
+    {
+      "annotations" : [
+        {
+          "key" : "tag",
+          "value" : "text-detokenizer"
+        }
+      ],
+      "id" : "multimodal-detokenizer",
+      "implementation" : "native",
+      "inputs" : [
+        {
+          "name" : "tokens",
+          "optional" : false,
+          "type" : {
+            "attributes" : {
+
+            },
+            "name" : "tokens"
+          }
+        }
+      ],
+      "outputs" : [
+        {
+          "name" : "text",
+          "optional" : false,
+          "type" : {
+            "attributes" : {
+              "encoding" : "utf8"
+            },
+            "name" : "text"
+          }
+        }
+      ]
+    },
+    {
+      "annotations" : [
+        {
+          "key" : "state",
+          "value" : "sampler"
+        },
+        {
+          "key" : "tag",
+          "value" : "sampler"
+        }
+      ],
+      "id" : "multimodal-sampler",
+      "implementation" : "native",
+      "inputs" : [
+        {
+          "name" : "hidden",
+          "optional" : false,
+          "type" : {
+            "attributes" : {
+
+            },
+            "name" : "hidden"
+          }
+        }
+      ],
+      "outputs" : [
+        {
+          "name" : "tokens",
+          "optional" : false,
+          "type" : {
+            "attributes" : {
+
+            },
+            "name" : "tokens"
+          }
+        }
+      ]
+    },
+    {
+      "annotations" : [
+        {
+          "key" : "assistant-prelude",
+          "value" : "preclosed-think"
+        },
+        {
+          "key" : "image-token",
+          "value" : "248056"
+        },
+        {
+          "key" : "prompt-format",
+          "value" : "chatml-multimodal"
+        },
+        {
+          "key" : "tag",
+          "value" : "text-tokenizer"
+        },
+        {
+          "key" : "thinking-policy",
+          "value" : "disabled"
+        },
+        {
+          "key" : "tool-format",
+          "value" : "xml-function-parameters"
+        },
+        {
+          "key" : "video-token",
+          "value" : "248057"
+        },
+        {
+          "key" : "vision-end-token",
+          "value" : "248054"
+        },
+        {
+          "key" : "vision-start-token",
+          "value" : "248053"
+        }
+      ],
+      "id" : "multimodal-tokenizer",
+      "implementation" : "native",
+      "inputs" : [
+        {
+          "name" : "prompt",
+          "optional" : false,
+          "type" : {
+            "attributes" : {
+              "encoding" : "utf8"
+            },
+            "name" : "text"
+          }
+        }
+      ],
+      "outputs" : [
+        {
+          "name" : "tokens",
+          "optional" : false,
+          "type" : {
+            "attributes" : {
+
+            },
+            "name" : "tokens"
+          }
+        }
+      ]
+    },
+    {
+      "annotations" : [
+        {
+          "key" : "artifact",
+          "value" : "baked-inline"
+        },
+        {
+          "key" : "feedback",
+          "value" : "tokens"
+        },
+        {
+          "key" : "state",
+          "value" : "kv-cache,conv-state,rec-state"
+        },
+        {
+          "key" : "tag",
+          "value" : "decode-core"
+        }
+      ],
+      "block" : "trunk",
+      "id" : "multimodal-trunk",
+      "implementation" : "compiled",
+      "inputs" : [
+        {
+          "name" : "prefill_state",
+          "optional" : false,
+          "type" : {
+            "attributes" : {
+
+            },
+            "name" : "state"
+          }
+        },
+        {
+          "name" : "tokens",
+          "optional" : false,
+          "type" : {
+            "attributes" : {
+
+            },
+            "name" : "tokens"
+          }
+        }
+      ],
+      "outputs" : [
+        {
+          "name" : "hidden",
+          "optional" : false,
+          "type" : {
+            "attributes" : {
+
+            },
+            "name" : "hidden"
+          }
+        }
+      ]
+    },
+    {
+      "annotations" : [
+        {
+          "key" : "state",
+          "value" : "sampler"
+        },
+        {
+          "key" : "tag",
+          "value" : "sampler"
+        }
+      ],
+      "id" : "sampler",
+      "implementation" : "native",
+      "inputs" : [
+        {
+          "name" : "hidden",
+          "optional" : false,
+          "type" : {
+            "attributes" : {
+
+            },
+            "name" : "hidden"
+          }
+        }
+      ],
+      "outputs" : [
+        {
+          "name" : "tokens",
+          "optional" : false,
+          "type" : {
+            "attributes" : {
+
+            },
+            "name" : "tokens"
+          }
+        }
+      ]
+    },
+    {
+      "annotations" : [
+        {
+          "key" : "assistant-prelude",
+          "value" : "preclosed-think"
+        },
+        {
+          "key" : "prompt-format",
+          "value" : "chatml"
+        },
+        {
+          "key" : "tag",
+          "value" : "text-tokenizer"
+        },
+        {
+          "key" : "thinking-policy",
+          "value" : "disabled"
+        },
+        {
+          "key" : "tool-format",
+          "value" : "xml-function-parameters"
+        }
+      ],
+      "id" : "tokenizer",
+      "implementation" : "native",
+      "inputs" : [
+        {
+          "name" : "prompt",
+          "optional" : false,
+          "type" : {
+            "attributes" : {
+              "encoding" : "utf8"
+            },
+            "name" : "text"
+          }
+        }
+      ],
+      "outputs" : [
+        {
+          "name" : "tokens",
+          "optional" : false,
+          "type" : {
+            "attributes" : {
+
+            },
+            "name" : "tokens"
+          }
+        }
+      ]
+    },
+    {
+      "annotations" : [
+        {
+          "key" : "artifact",
+          "value" : "baked-inline"
+        },
+        {
+          "key" : "feedback",
+          "value" : "tokens"
+        },
+        {
+          "key" : "state",
+          "value" : "kv-cache,conv-state,rec-state"
+        }
+      ],
+      "block" : "trunk",
+      "id" : "trunk",
+      "implementation" : "compiled",
+      "inputs" : [
+        {
+          "name" : "tokens",
+          "optional" : false,
+          "type" : {
+            "attributes" : {
+
+            },
+            "name" : "tokens"
+          }
+        }
+      ],
+      "outputs" : [
+        {
+          "name" : "hidden",
+          "optional" : false,
+          "type" : {
+            "attributes" : {
+
+            },
+            "name" : "hidden"
+          }
+        }
+      ]
+    },
+    {
+      "annotations" : [
+        {
+          "key" : "artifact",
+          "value" : "vision-component"
+        },
+        {
+          "key" : "tag",
+          "value" : "vision-encoder"
+        }
+      ],
+      "block" : "vision-encoder",
+      "id" : "vision-encoder",
+      "implementation" : "compiled",
+      "inputs" : [
+        {
+          "name" : "grid_thw",
+          "optional" : false,
+          "type" : {
+            "attributes" : {
+              "axes" : "t,h,w"
+            },
+            "name" : "shape"
+          }
+        },
+        {
+          "name" : "patches",
+          "optional" : false,
+          "type" : {
+            "attributes" : {
+              "dtype" : "f32"
+            },
+            "name" : "tensor"
+          }
+        }
+      ],
+      "outputs" : [
+        {
+          "name" : "vision_hidden",
+          "optional" : false,
+          "type" : {
+            "attributes" : {
+              "dim" : "1024",
+              "dtype" : "f16"
+            },
+            "name" : "hidden"
+          }
+        }
+      ]
+    },
+    {
+      "annotations" : [
+        {
+          "key" : "artifact",
+          "value" : "vision-component"
+        },
+        {
+          "key" : "tag",
+          "value" : "vision-merger"
+        }
+      ],
+      "block" : "vision-merger",
+      "id" : "vision-merger",
+      "implementation" : "compiled",
+      "inputs" : [
+        {
+          "name" : "grid_thw",
+          "optional" : false,
+          "type" : {
+            "attributes" : {
+              "axes" : "t,h,w"
+            },
+            "name" : "shape"
+          }
+        },
+        {
+          "name" : "vision_hidden",
+          "optional" : false,
+          "type" : {
+            "attributes" : {
+              "dim" : "1024",
+              "dtype" : "f16"
+            },
+            "name" : "hidden"
+          }
+        }
+      ],
+      "outputs" : [
+        {
+          "name" : "visual_embeddings",
+          "optional" : false,
+          "type" : {
+            "attributes" : {
+              "dim" : "2560",
+              "dtype" : "f16"
+            },
+            "name" : "embeddings"
+          }
+        }
+      ]
+    },
+    {
+      "annotations" : [
+        {
+          "key" : "deepstack-visual-indexes",
+          "value" : "none"
+        },
+        {
+          "key" : "mrope-interleaved",
+          "value" : "true"
+        },
+        {
+          "key" : "mrope-section",
+          "value" : "11,11,10"
+        },
+        {
+          "key" : "tag",
+          "value" : "visual-token-fusion"
+        }
+      ],
+      "id" : "visual-token-fusion",
+      "implementation" : "native",
+      "inputs" : [
+        {
+          "name" : "grid_thw",
+          "optional" : false,
+          "type" : {
+            "attributes" : {
+              "axes" : "t,h,w"
+            },
+            "name" : "shape"
+          }
+        },
+        {
+          "name" : "tokens",
+          "optional" : false,
+          "type" : {
+            "attributes" : {
+
+            },
+            "name" : "tokens"
+          }
+        },
+        {
+          "name" : "visual_embeddings",
+          "optional" : false,
+          "type" : {
+            "attributes" : {
+              "dim" : "2560",
+              "dtype" : "f16"
+            },
+            "name" : "embeddings"
+          }
+        }
+      ],
+      "outputs" : [
+        {
+          "name" : "prefill_state",
+          "optional" : false,
+          "type" : {
+            "attributes" : {
+
+            },
+            "name" : "state"
+          }
+        }
+      ]
+    }
+  ],
+  "imports" : [
+
+  ],
+  "module" : {
+    "id" : "qwen35_4b"
+  },
+  "quantization" : [
+    {
+      "action" : "quantize",
+      "priority" : 10,
+      "resolution" : "source-deferred",
+      "selector" : {
+        "pattern" : "embeddings",
+        "source" : "weights"
+      },
+      "source" : "weights"
+    },
+    {
+      "action" : "preserve",
+      "priority" : 12,
+      "resolution" : "source-deferred",
+      "selector" : {
+        "pattern" : "*_norm_weight",
+        "source" : "weights"
+      },
+      "source" : "weights"
+    },
+    {
+      "action" : "preserve",
+      "priority" : 13,
+      "resolution" : "source-deferred",
+      "selector" : {
+        "pattern" : "conv1d_weight",
+        "source" : "weights"
+      },
+      "source" : "weights"
+    },
+    {
+      "action" : "preserve",
+      "priority" : 5,
+      "resolution" : "source-deferred",
+      "selector" : {
+        "pattern" : "A_log",
+        "source" : "weights"
+      },
+      "source" : "weights"
+    },
+    {
+      "action" : "preserve",
+      "priority" : 7,
+      "resolution" : "source-deferred",
+      "selector" : {
+        "pattern" : "dt_bias",
+        "source" : "weights"
+      },
+      "source" : "weights"
+    },
+    {
+      "action" : "default",
+      "resolution" : "declared-tensor",
+      "selector" : {
+        "pattern" : "*",
+        "source" : "weights"
+      },
+      "storage" : {
+        "format" : "affine-u4",
+        "groupSize" : 64
+      }
+    }
+  ],
+  "schemaVersion" : 4,
+  "sourceQuantization" : [
+
+  ],
+  "sources" : [
+    {
+      "id" : "tokenizer",
+      "kind" : "hf-file",
+      "locator" : "Qwen/Qwen3.5-4B/tokenizer.json"
+    },
+    {
+      "checkpointMap" : "hf.qwen",
+      "id" : "weights",
+      "kind" : "hf",
+      "locator" : "Qwen/Qwen3.5-4B",
+      "revision" : "main"
+    }
+  ],
+  "tensors" : [
+    {
+      "owner" : "trunk",
+      "selector" : {
+        "pattern" : "model.language_model.*",
+        "source" : "weights"
+      },
+      "source" : "weights",
+      "target" : {
+        "block" : "trunk",
+        "selector" : "*"
+      }
+    },
+    {
+      "owner" : "vision-encoder",
+      "selector" : {
+        "pattern" : "model.visual.blocks.*",
+        "source" : "weights"
+      },
+      "source" : "weights",
+      "target" : {
+        "block" : "vision-encoder",
+        "selector" : "blocks.*"
+      }
+    },
+    {
+      "owner" : "vision-encoder",
+      "selector" : {
+        "pattern" : "model.visual.patch_embed.*",
+        "source" : "weights"
+      },
+      "source" : "weights",
+      "target" : {
+        "block" : "vision-encoder",
+        "selector" : "patch_embed.*"
+      }
+    },
+    {
+      "owner" : "vision-encoder",
+      "selector" : {
+        "pattern" : "model.visual.pos_embed.*",
+        "source" : "weights"
+      },
+      "source" : "weights",
+      "target" : {
+        "block" : "vision-encoder",
+        "selector" : "pos_embed.*"
+      }
+    },
+    {
+      "owner" : "vision-merger",
+      "selector" : {
+        "pattern" : "model.visual.merger.*",
+        "source" : "weights"
+      },
+      "source" : "weights",
+      "target" : {
+        "block" : "vision-merger",
+        "selector" : "*"
+      }
+    }
+  ]
+}

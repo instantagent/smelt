@@ -1,0 +1,10 @@
+{
+  "type": "object",
+  "properties": {
+    "component": { "type": "string", "maxLength": 40 },
+    "summary": { "type": "string", "maxLength": 100 },
+    "severity": { "type": "string", "enum": ["page", "ticket", "ignore"] }
+  },
+  "required": ["component", "summary", "severity"],
+  "additionalProperties": false
+}

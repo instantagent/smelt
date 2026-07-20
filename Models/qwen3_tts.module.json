@@ -1,0 +1,1114 @@
+{
+  "artifacts" : [
+
+  ],
+  "backendConstraints" : [
+    {
+      "key" : "target",
+      "value" : "metal"
+    }
+  ],
+  "blocks" : [
+    {
+      "annotations" : [
+
+      ],
+      "id" : "codec-decoder",
+      "operatorName" : "codec-decoder",
+      "shape" : {
+        "codecDecoder" : {
+          "streaming" : true
+        },
+        "derivation" : {
+          "source" : "weights"
+        },
+        "requirements" : [
+          {
+            "key" : "audio-format",
+            "optional" : false,
+            "value" : "pcm-f32"
+          },
+          {
+            "key" : "audio-rate",
+            "optional" : false,
+            "value" : "24khz"
+          },
+          {
+            "key" : "source-dtype",
+            "optional" : false,
+            "value" : "f32"
+          },
+          {
+            "key" : "streaming",
+            "optional" : false
+          },
+          {
+            "key" : "tensor-evidence",
+            "optional" : false,
+            "value" : "decoder.*"
+          },
+          {
+            "key" : "tensor-evidence",
+            "optional" : false,
+            "value" : "decoder.decoder.*"
+          },
+          {
+            "key" : "tensor-evidence",
+            "optional" : false,
+            "value" : "decoder.pre_conv.*"
+          },
+          {
+            "key" : "tensor-evidence",
+            "optional" : false,
+            "value" : "decoder.pre_transformer.*"
+          },
+          {
+            "key" : "tensor-evidence",
+            "optional" : false,
+            "value" : "decoder.quantizer.*"
+          },
+          {
+            "key" : "tensor-evidence",
+            "optional" : false,
+            "value" : "decoder.upsample.*"
+          }
+        ]
+      }
+    },
+    {
+      "annotations" : [
+
+      ],
+      "id" : "codec-head",
+      "operatorName" : "codec-head",
+      "shape" : {
+        "derivation" : {
+          "source" : "weights"
+        },
+        "requirements" : [
+          {
+            "key" : "sampler",
+            "optional" : false
+          },
+          {
+            "key" : "source-dtype",
+            "optional" : false,
+            "value" : "bf16"
+          },
+          {
+            "key" : "tensor-evidence",
+            "optional" : false,
+            "value" : "talker.codec_head.*"
+          }
+        ]
+      }
+    },
+    {
+      "annotations" : [
+
+      ],
+      "id" : "mtp-head",
+      "operatorName" : "transformer",
+      "shape" : {
+        "derivation" : {
+          "source" : "weights"
+        },
+        "requirements" : [
+          {
+            "key" : "codebooks",
+            "optional" : false,
+            "value" : "16"
+          },
+          {
+            "key" : "max-frames",
+            "optional" : false,
+            "value" : "2048"
+          },
+          {
+            "key" : "residual-codebooks",
+            "optional" : false,
+            "value" : "16"
+          },
+          {
+            "key" : "source-dtype",
+            "optional" : false,
+            "value" : "bf16"
+          },
+          {
+            "key" : "tensor-evidence",
+            "optional" : false,
+            "value" : "talker.code_predictor.*"
+          }
+        ],
+        "transformer" : {
+
+        }
+      }
+    },
+    {
+      "annotations" : [
+
+      ],
+      "id" : "talker",
+      "operatorName" : "transformer",
+      "shape" : {
+        "derivation" : {
+          "source" : "weights"
+        },
+        "requirements" : [
+          {
+            "key" : "codec-eos",
+            "optional" : false,
+            "value" : "2150"
+          },
+          {
+            "key" : "codec-feedback",
+            "optional" : false
+          },
+          {
+            "key" : "max-frames",
+            "optional" : false,
+            "value" : "2048"
+          },
+          {
+            "key" : "source-dtype",
+            "optional" : false,
+            "value" : "bf16"
+          },
+          {
+            "key" : "tensor-evidence",
+            "optional" : false,
+            "value" : "talker.model.codec_embedding.weight"
+          },
+          {
+            "key" : "tensor-evidence",
+            "optional" : false,
+            "value" : "talker.model.layers.*"
+          },
+          {
+            "key" : "tensor-evidence",
+            "optional" : false,
+            "value" : "talker.model.norm.weight"
+          }
+        ],
+        "transformer" : {
+
+        }
+      }
+    },
+    {
+      "annotations" : [
+
+      ],
+      "id" : "tts-frontend",
+      "operatorName" : "tts-frontend",
+      "shape" : {
+        "derivation" : {
+          "source" : "weights"
+        },
+        "frontend" : {
+          "speakerConditioning" : true
+        },
+        "requirements" : [
+          {
+            "key" : "shape-evidence",
+            "optional" : false,
+            "value" : "config.json"
+          },
+          {
+            "key" : "source-dtype",
+            "optional" : false,
+            "value" : "bf16"
+          },
+          {
+            "key" : "speaker-conditioning",
+            "optional" : true
+          },
+          {
+            "key" : "tensor-evidence",
+            "optional" : false,
+            "value" : "talker.model.text_embedding.weight"
+          },
+          {
+            "key" : "tensor-evidence",
+            "optional" : false,
+            "value" : "talker.text_projection.*"
+          }
+        ]
+      }
+    }
+  ],
+  "capabilities" : [
+    "bake.voice-defaults",
+    "run.stream",
+    "run.synthesize"
+  ],
+  "compile" : [
+    {
+      "key" : "layout",
+      "value" : "memory-neutral"
+    },
+    {
+      "key" : "target",
+      "value" : "metal"
+    }
+  ],
+  "exportBindings" : [
+    {
+      "export" : "synth",
+      "flow" : "synth"
+    }
+  ],
+  "exports" : [
+    {
+      "capabilities" : [
+        "bake.voice-defaults",
+        "run.stream",
+        "run.synthesize"
+      ],
+      "gates" : [
+        "startup"
+      ],
+      "id" : "synth",
+      "inputs" : [
+        {
+          "name" : "speaker",
+          "optional" : true,
+          "type" : {
+            "attributes" : {
+
+            },
+            "name" : "voice-id"
+          }
+        },
+        {
+          "name" : "text",
+          "optional" : false,
+          "type" : {
+            "attributes" : {
+              "encoding" : "utf8"
+            },
+            "name" : "text"
+          }
+        }
+      ],
+      "outputs" : [
+        {
+          "name" : "audio",
+          "optional" : false,
+          "type" : {
+            "attributes" : {
+              "dtype" : "f32",
+              "rate" : "24khz"
+            },
+            "name" : "pcm"
+          }
+        }
+      ]
+    }
+  ],
+  "feedbackEdges" : [
+    {
+      "from" : {
+        "kind" : "nodePort",
+        "node" : "mtp-head",
+        "port" : "codec_token"
+      },
+      "to" : {
+        "kind" : "nodePort",
+        "node" : "talker",
+        "port" : "codec_token"
+      }
+    }
+  ],
+  "flows" : [
+    {
+      "emit" : [
+        {
+          "kind" : "nodePort",
+          "node" : "codec-decoder",
+          "port" : "audio"
+        }
+      ],
+      "id" : "synth",
+      "phases" : [
+        {
+          "calls" : [
+            {
+              "kind" : "node",
+              "node" : "tts-frontend"
+            },
+            {
+              "kind" : "node",
+              "node" : "talker"
+            },
+            {
+              "kind" : "node",
+              "node" : "codec-head"
+            }
+          ],
+          "role" : "setup"
+        },
+        {
+          "calls" : [
+            {
+              "kind" : "node",
+              "node" : "mtp-head"
+            },
+            {
+              "kind" : "node",
+              "node" : "talker"
+            },
+            {
+              "kind" : "node",
+              "node" : "codec-head"
+            }
+          ],
+          "label" : "generate",
+          "role" : "step"
+        },
+        {
+          "calls" : [
+            {
+              "kind" : "node",
+              "node" : "codec-decoder"
+            }
+          ],
+          "label" : "render",
+          "role" : "step"
+        }
+      ],
+      "stop" : [
+        {
+          "kind" : "codec-eos"
+        },
+        {
+          "kind" : "host-cancel"
+        },
+        {
+          "kind" : "max-frames",
+          "value" : 2048
+        }
+      ]
+    }
+  ],
+  "gates" : [
+    {
+      "evidence" : [
+
+      ],
+      "id" : "audio_contract",
+      "measurements" : [
+
+      ],
+      "requirements" : [
+        {
+          "relation" : "==",
+          "subject" : "audio-rate",
+          "value" : "24khz"
+        },
+        {
+          "relation" : "include",
+          "subject" : "package-files",
+          "value" : "manifest.json,weights.bin,model.metallib,trunk,trunk-mtp,vocab.json,merges.txt,tokenizer_config.json,config.json,module.json"
+        },
+        {
+          "relation" : "include",
+          "subject" : "release-surface-ids",
+          "value" : "gate.startup-audio,bake.voice-defaults,gate.audio-contract,correctness.stream-parity,release.verify"
+        }
+      ]
+    },
+    {
+      "evidence" : [
+
+      ],
+      "from" : {
+        "flow" : "synth",
+        "kind" : "flow.accepted",
+        "predicates" : [
+
+        ]
+      },
+      "id" : "startup",
+      "measurements" : [
+        {
+          "cacheState" : "cold",
+          "occurrence" : "first",
+          "processMode" : "cold",
+          "subject" : "elapsed"
+        }
+      ],
+      "requirements" : [
+        {
+          "relation" : "<=",
+          "subject" : "elapsed",
+          "unit" : "ms",
+          "value" : "400"
+        }
+      ],
+      "to" : {
+        "endpoint" : {
+          "kind" : "moduleOutput",
+          "name" : "audio"
+        },
+        "flow" : "synth",
+        "kind" : "emit",
+        "predicates" : [
+          {
+            "relation" : ">=",
+            "subject" : "duration",
+            "unit" : "ms",
+            "value" : "20"
+          },
+          {
+            "relation" : "==",
+            "subject" : "format",
+            "value" : "pcm f32 24khz"
+          }
+        ]
+      }
+    },
+    {
+      "evidence" : [
+        {
+          "kind" : "source-sha256-recorded",
+          "source" : "stream_parity",
+          "sourceDTypes" : [
+
+          ]
+        }
+      ],
+      "id" : "streaming_parity",
+      "measurements" : [
+
+      ],
+      "requirements" : [
+
+      ]
+    }
+  ],
+  "graphEdges" : [
+    {
+      "from" : {
+        "kind" : "graphValue",
+        "name" : "cb0_token"
+      },
+      "to" : {
+        "kind" : "nodePort",
+        "node" : "mtp-head",
+        "port" : "cb0_token"
+      },
+      "type" : {
+        "attributes" : {
+
+        },
+        "name" : "cb0_token"
+      }
+    },
+    {
+      "from" : {
+        "kind" : "graphValue",
+        "name" : "codec_token"
+      },
+      "to" : {
+        "kind" : "nodePort",
+        "node" : "codec-decoder",
+        "port" : "codec_token"
+      },
+      "type" : {
+        "attributes" : {
+
+        },
+        "name" : "codec_token"
+      }
+    },
+    {
+      "from" : {
+        "kind" : "graphValue",
+        "name" : "prompt_hidden"
+      },
+      "to" : {
+        "kind" : "nodePort",
+        "node" : "talker",
+        "port" : "prompt_hidden"
+      },
+      "type" : {
+        "attributes" : {
+
+        },
+        "name" : "prompt_hidden"
+      }
+    },
+    {
+      "from" : {
+        "kind" : "graphValue",
+        "name" : "talker_hidden"
+      },
+      "to" : {
+        "kind" : "nodePort",
+        "node" : "codec-head",
+        "port" : "talker_hidden"
+      },
+      "type" : {
+        "attributes" : {
+
+        },
+        "name" : "talker_hidden"
+      }
+    },
+    {
+      "from" : {
+        "kind" : "graphValue",
+        "name" : "talker_hidden"
+      },
+      "to" : {
+        "kind" : "nodePort",
+        "node" : "mtp-head",
+        "port" : "talker_hidden"
+      },
+      "type" : {
+        "attributes" : {
+
+        },
+        "name" : "talker_hidden"
+      }
+    },
+    {
+      "from" : {
+        "kind" : "moduleInput",
+        "name" : "text"
+      },
+      "to" : {
+        "kind" : "nodePort",
+        "node" : "tts-frontend",
+        "port" : "text"
+      },
+      "type" : {
+        "attributes" : {
+          "encoding" : "utf8"
+        },
+        "name" : "text"
+      }
+    },
+    {
+      "from" : {
+        "kind" : "nodePort",
+        "node" : "codec-decoder",
+        "port" : "audio"
+      },
+      "to" : {
+        "kind" : "moduleOutput",
+        "name" : "audio"
+      },
+      "type" : {
+        "attributes" : {
+          "dtype" : "f32",
+          "rate" : "24khz"
+        },
+        "name" : "pcm"
+      }
+    },
+    {
+      "from" : {
+        "kind" : "nodePort",
+        "node" : "codec-head",
+        "port" : "cb0_token"
+      },
+      "to" : {
+        "kind" : "graphValue",
+        "name" : "cb0_token"
+      },
+      "type" : {
+        "attributes" : {
+
+        },
+        "name" : "cb0_token"
+      }
+    },
+    {
+      "from" : {
+        "kind" : "nodePort",
+        "node" : "mtp-head",
+        "port" : "codec_token"
+      },
+      "to" : {
+        "kind" : "graphValue",
+        "name" : "codec_token"
+      },
+      "type" : {
+        "attributes" : {
+
+        },
+        "name" : "codec_token"
+      }
+    },
+    {
+      "from" : {
+        "kind" : "nodePort",
+        "node" : "talker",
+        "port" : "talker_hidden"
+      },
+      "to" : {
+        "kind" : "graphValue",
+        "name" : "talker_hidden"
+      },
+      "type" : {
+        "attributes" : {
+
+        },
+        "name" : "talker_hidden"
+      }
+    },
+    {
+      "from" : {
+        "kind" : "nodePort",
+        "node" : "tts-frontend",
+        "port" : "prompt_hidden"
+      },
+      "to" : {
+        "kind" : "graphValue",
+        "name" : "prompt_hidden"
+      },
+      "type" : {
+        "attributes" : {
+
+        },
+        "name" : "prompt_hidden"
+      }
+    }
+  ],
+  "graphNodes" : [
+    {
+      "annotations" : [
+        {
+          "key" : "artifact",
+          "value" : "baked-inline"
+        },
+        {
+          "key" : "streaming",
+          "value" : "true"
+        }
+      ],
+      "block" : "codec-decoder",
+      "id" : "codec-decoder",
+      "implementation" : "compiled",
+      "inputs" : [
+        {
+          "name" : "codec_token",
+          "optional" : false,
+          "type" : {
+            "attributes" : {
+
+            },
+            "name" : "codec_token"
+          }
+        }
+      ],
+      "outputs" : [
+        {
+          "name" : "audio",
+          "optional" : false,
+          "type" : {
+            "attributes" : {
+              "dtype" : "f32",
+              "rate" : "24khz"
+            },
+            "name" : "pcm"
+          }
+        }
+      ]
+    },
+    {
+      "annotations" : [
+        {
+          "key" : "state",
+          "value" : "sampler"
+        }
+      ],
+      "id" : "codec-head",
+      "implementation" : "native",
+      "inputs" : [
+        {
+          "name" : "talker_hidden",
+          "optional" : false,
+          "type" : {
+            "attributes" : {
+
+            },
+            "name" : "talker_hidden"
+          }
+        }
+      ],
+      "outputs" : [
+        {
+          "name" : "cb0_token",
+          "optional" : false,
+          "type" : {
+            "attributes" : {
+
+            },
+            "name" : "cb0_token"
+          }
+        }
+      ]
+    },
+    {
+      "annotations" : [
+        {
+          "key" : "artifact",
+          "value" : "sidecar"
+        },
+        {
+          "key" : "codebooks",
+          "value" : "16"
+        }
+      ],
+      "block" : "mtp-head",
+      "id" : "mtp-head",
+      "implementation" : "compiled",
+      "inputs" : [
+        {
+          "name" : "cb0_token",
+          "optional" : false,
+          "type" : {
+            "attributes" : {
+
+            },
+            "name" : "cb0_token"
+          }
+        },
+        {
+          "name" : "talker_hidden",
+          "optional" : false,
+          "type" : {
+            "attributes" : {
+
+            },
+            "name" : "talker_hidden"
+          }
+        }
+      ],
+      "outputs" : [
+        {
+          "name" : "codec_token",
+          "optional" : false,
+          "type" : {
+            "attributes" : {
+
+            },
+            "name" : "codec_token"
+          }
+        }
+      ]
+    },
+    {
+      "annotations" : [
+        {
+          "key" : "artifact",
+          "value" : "sidecar"
+        },
+        {
+          "key" : "feedback",
+          "value" : "codec_token"
+        },
+        {
+          "key" : "state",
+          "value" : "kv-cache"
+        }
+      ],
+      "block" : "talker",
+      "id" : "talker",
+      "implementation" : "compiled",
+      "inputs" : [
+        {
+          "name" : "codec_token",
+          "optional" : false,
+          "type" : {
+            "attributes" : {
+
+            },
+            "name" : "codec_token"
+          }
+        },
+        {
+          "name" : "prompt_hidden",
+          "optional" : false,
+          "type" : {
+            "attributes" : {
+
+            },
+            "name" : "prompt_hidden"
+          }
+        }
+      ],
+      "outputs" : [
+        {
+          "name" : "talker_hidden",
+          "optional" : false,
+          "type" : {
+            "attributes" : {
+
+            },
+            "name" : "talker_hidden"
+          }
+        }
+      ]
+    },
+    {
+      "annotations" : [
+        {
+          "key" : "speaker",
+          "value" : "optional"
+        }
+      ],
+      "id" : "tts-frontend",
+      "implementation" : "native",
+      "inputs" : [
+        {
+          "name" : "text",
+          "optional" : false,
+          "type" : {
+            "attributes" : {
+              "encoding" : "utf8"
+            },
+            "name" : "text"
+          }
+        }
+      ],
+      "outputs" : [
+        {
+          "name" : "prompt_hidden",
+          "optional" : false,
+          "type" : {
+            "attributes" : {
+
+            },
+            "name" : "prompt_hidden"
+          }
+        }
+      ]
+    }
+  ],
+  "imports" : [
+
+  ],
+  "module" : {
+    "id" : "qwen3_tts"
+  },
+  "quantization" : [
+    {
+      "action" : "preserve",
+      "priority" : 11,
+      "resolution" : "source-deferred",
+      "selector" : {
+        "pattern" : "*norm.weight",
+        "source" : "weights"
+      },
+      "source" : "weights"
+    },
+    {
+      "action" : "preserve",
+      "priority" : 18,
+      "resolution" : "declared-tensor",
+      "selector" : {
+        "pattern" : "talker.codec_head.*",
+        "source" : "weights"
+      },
+      "source" : "weights"
+    },
+    {
+      "action" : "preserve",
+      "priority" : 23,
+      "resolution" : "declared-tensor",
+      "selector" : {
+        "pattern" : "talker.text_projection.*",
+        "source" : "weights"
+      },
+      "source" : "weights"
+    },
+    {
+      "action" : "preserve",
+      "priority" : 35,
+      "resolution" : "declared-tensor",
+      "selector" : {
+        "pattern" : "talker.model.codec_embedding.weight",
+        "source" : "weights"
+      },
+      "source" : "weights"
+    },
+    {
+      "action" : "preserve",
+      "priority" : 37,
+      "resolution" : "source-deferred",
+      "selector" : {
+        "pattern" : "talker.code_predictor.lm_head.*.weight",
+        "source" : "weights"
+      },
+      "source" : "weights"
+    },
+    {
+      "action" : "preserve",
+      "priority" : 46,
+      "resolution" : "source-deferred",
+      "selector" : {
+        "pattern" : "talker.code_predictor.small_to_mtp_projection.*",
+        "source" : "weights"
+      },
+      "source" : "weights"
+    },
+    {
+      "action" : "preserve",
+      "priority" : 51,
+      "resolution" : "source-deferred",
+      "selector" : {
+        "pattern" : "talker.code_predictor.model.codec_embedding.*.weight",
+        "source" : "weights"
+      },
+      "source" : "weights"
+    },
+    {
+      "action" : "preserve",
+      "priority" : 8,
+      "resolution" : "declared-tensor",
+      "selector" : {
+        "pattern" : "decoder.*",
+        "source" : "weights"
+      },
+      "source" : "weights"
+    },
+    {
+      "action" : "default",
+      "resolution" : "declared-tensor",
+      "selector" : {
+        "pattern" : "*",
+        "source" : "weights"
+      },
+      "storage" : {
+        "format" : "affine-u4",
+        "groupSize" : 128
+      }
+    }
+  ],
+  "schemaVersion" : 4,
+  "sourceQuantization" : [
+
+  ],
+  "sources" : [
+    {
+      "id" : "stream_parity",
+      "kind" : "file",
+      "locator" : "evidence/streaming-parity.json"
+    },
+    {
+      "id" : "tokenizer",
+      "kind" : "hf-file",
+      "locator" : "Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice/tokenizer.json"
+    },
+    {
+      "checkpointMap" : "hf.qwen3-tts-talker-trunk",
+      "id" : "weights",
+      "kind" : "hf",
+      "locator" : "Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice",
+      "revision" : "main"
+    }
+  ],
+  "tensors" : [
+    {
+      "owner" : "codec-decoder",
+      "selector" : {
+        "pattern" : "decoder.*",
+        "source" : "weights"
+      },
+      "source" : "weights",
+      "target" : {
+        "block" : "codec-decoder",
+        "selector" : "*"
+      }
+    },
+    {
+      "owner" : "codec-head",
+      "selector" : {
+        "pattern" : "talker.codec_head.*",
+        "source" : "weights"
+      },
+      "source" : "weights",
+      "target" : {
+        "block" : "codec-head",
+        "selector" : "*"
+      }
+    },
+    {
+      "owner" : "mtp-head",
+      "selector" : {
+        "pattern" : "talker.code_predictor.*",
+        "source" : "weights"
+      },
+      "source" : "weights",
+      "target" : {
+        "block" : "mtp-head",
+        "selector" : "*"
+      }
+    },
+    {
+      "owner" : "talker",
+      "selector" : {
+        "pattern" : "talker.model.codec_embedding.weight",
+        "source" : "weights"
+      },
+      "source" : "weights",
+      "target" : {
+        "block" : "talker",
+        "selector" : "codec_embedding"
+      }
+    },
+    {
+      "owner" : "talker",
+      "selector" : {
+        "pattern" : "talker.model.layers.*",
+        "source" : "weights"
+      },
+      "source" : "weights",
+      "target" : {
+        "block" : "talker",
+        "selector" : "layers.*"
+      }
+    },
+    {
+      "owner" : "talker",
+      "selector" : {
+        "pattern" : "talker.model.norm.weight",
+        "source" : "weights"
+      },
+      "source" : "weights",
+      "target" : {
+        "block" : "talker",
+        "selector" : "norm"
+      }
+    },
+    {
+      "owner" : "tts-frontend",
+      "selector" : {
+        "pattern" : "talker.model.text_embedding.weight",
+        "source" : "weights"
+      },
+      "source" : "weights",
+      "target" : {
+        "block" : "tts-frontend",
+        "selector" : "text_embedding"
+      }
+    },
+    {
+      "owner" : "tts-frontend",
+      "selector" : {
+        "pattern" : "talker.text_projection.*",
+        "source" : "weights"
+      },
+      "source" : "weights",
+      "target" : {
+        "block" : "tts-frontend",
+        "selector" : "text_projection.*"
+      }
+    }
+  ]
+}

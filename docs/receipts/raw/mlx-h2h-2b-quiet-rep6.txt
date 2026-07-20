@@ -1,0 +1,131 @@
+=== rep 2b quiet #6 20260713-131204 ===
+pre-lock load: 3.44 3.04 2.85
+pre-lock thermal: nominal
+inside-lock load: 3.44 3.04 2.85
+inside-lock thermal: nominal
+--- ia bench decode window 1/5 (KV 5-132) ---
+$ <repo>/.build/release/ia bench <repo>/artifacts/qwen35-2b-qmm16x128/Qwen_Qwen3.5-2B.agent --iterations 128 --warmup 5
+Results:
+  Warmup:       5
+  Iterations:   128
+  Position:     varying sequential (wrap at 200)
+  Median:       4.85ms/tok  (206.1 tok/s)
+  P95:          5.38ms/tok
+  Pure GPU med: 4.39ms/tok
+  Pure GPU p95: 4.54ms/tok
+  CPU med:      0.188ms/tok
+  CPU p95:      0.225ms/tok
+  Submit med:   0.237ms/tok
+  Submit p95:   0.790ms/tok
+  Read med:     0.001ms/tok
+  Read p95:     0.001ms/tok
+  Window wall:  690.6ms  (185.3 tok/s over 128 steps)
+--- ia bench decode window 2/5 (KV 5-132) ---
+$ <repo>/.build/release/ia bench <repo>/artifacts/qwen35-2b-qmm16x128/Qwen_Qwen3.5-2B.agent --iterations 128 --warmup 5
+Results:
+  Warmup:       5
+  Iterations:   128
+  Position:     varying sequential (wrap at 200)
+  Median:       4.85ms/tok  (206.4 tok/s)
+  P95:          5.50ms/tok
+  Pure GPU med: 4.40ms/tok
+  Pure GPU p95: 4.54ms/tok
+  CPU med:      0.181ms/tok
+  CPU p95:      0.247ms/tok
+  Submit med:   0.255ms/tok
+  Submit p95:   0.781ms/tok
+  Read med:     0.001ms/tok
+  Read p95:     0.001ms/tok
+  Window wall:  695.6ms  (184.0 tok/s over 128 steps)
+--- ia bench decode window 3/5 (KV 5-132) ---
+$ <repo>/.build/release/ia bench <repo>/artifacts/qwen35-2b-qmm16x128/Qwen_Qwen3.5-2B.agent --iterations 128 --warmup 5
+Results:
+  Warmup:       5
+  Iterations:   128
+  Position:     varying sequential (wrap at 200)
+  Median:       4.84ms/tok  (206.5 tok/s)
+  P95:          5.43ms/tok
+  Pure GPU med: 4.41ms/tok
+  Pure GPU p95: 4.54ms/tok
+  CPU med:      0.181ms/tok
+  CPU p95:      0.228ms/tok
+  Submit med:   0.244ms/tok
+  Submit p95:   0.723ms/tok
+  Read med:     0.001ms/tok
+  Read p95:     0.001ms/tok
+  Window wall:  683.6ms  (187.2 tok/s over 128 steps)
+--- ia bench decode window 4/5 (KV 5-132) ---
+$ <repo>/.build/release/ia bench <repo>/artifacts/qwen35-2b-qmm16x128/Qwen_Qwen3.5-2B.agent --iterations 128 --warmup 5
+Results:
+  Warmup:       5
+  Iterations:   128
+  Position:     varying sequential (wrap at 200)
+  Median:       4.85ms/tok  (206.2 tok/s)
+  P95:          5.51ms/tok
+  Pure GPU med: 4.39ms/tok
+  Pure GPU p95: 4.58ms/tok
+  CPU med:      0.177ms/tok
+  CPU p95:      0.289ms/tok
+  Submit med:   0.234ms/tok
+  Submit p95:   0.749ms/tok
+  Read med:     0.001ms/tok
+  Read p95:     0.001ms/tok
+  Window wall:  695.7ms  (184.0 tok/s over 128 steps)
+--- ia bench decode window 5/5 (KV 5-132) ---
+$ <repo>/.build/release/ia bench <repo>/artifacts/qwen35-2b-qmm16x128/Qwen_Qwen3.5-2B.agent --iterations 128 --warmup 5
+Results:
+  Warmup:       5
+  Iterations:   128
+  Position:     varying sequential (wrap at 200)
+  Median:       4.82ms/tok  (207.5 tok/s)
+  P95:          5.42ms/tok
+  Pure GPU med: 4.40ms/tok
+  Pure GPU p95: 4.57ms/tok
+  CPU med:      0.171ms/tok
+  CPU p95:      0.241ms/tok
+  Submit med:   0.240ms/tok
+  Submit p95:   0.750ms/tok
+  Read med:     0.001ms/tok
+  Read p95:     0.001ms/tok
+  Window wall:  685.8ms  (186.6 tok/s over 128 steps)
+--- ia prefill-bench (256) ---
+$ <repo>/.build/release/ia prefill-bench <repo>/artifacts/qwen35-2b-qmm16x128/Qwen_Qwen3.5-2B.agent --tokens 256 --iterations 5 --warmup 2
+Benchmarking Metal prefill: <repo>/artifacts/qwen35-2b-qmm16x128/Qwen_Qwen3.5-2B.agent (5 iterations, 256 tokens)
+Results:
+  Warmup:       2
+  Final token:  198
+  Wall time:    187.5ms/prefill  (median of 5)
+  P95:          187.9ms/prefill
+  Pure GPU med: 186.7ms/prefill
+  Pure GPU p95: 186.8ms/prefill
+  CPU med:      0.261ms/prefill
+  CPU p95:      0.348ms/prefill
+  Submit med:   0.801ms/prefill
+  Submit p95:   0.884ms/prefill
+  Read med:     0.002ms/prefill
+  Read p95:     0.002ms/prefill
+  Tokens/sec:   1365.2
+--- mlx decode (prompt 5, gen 128; 5 trials) ---
+$ KMP_DUPLICATE_LIB_OK=TRUE /opt/homebrew/bin/python3 -m mlx_lm.benchmark --model mlx-community/Qwen3.5-2B-4bit --prompt-tokens 5 --generation-tokens 128 --num-trials 5 --prefill-step-size 2048
+Fetching 10 files:   0%|          | 0/10 [00:00<?, ?it/s]Fetching 10 files: 100%|██████████| 10/10 [00:00<00:00, 22733.36it/s]
+Running warmup..
+Timing with prompt_tokens=5, generation_tokens=128, batch_size=1.
+Trial 1:  prompt_tps=234.221, generation_tps=199.317, peak_memory=1.088
+Trial 2:  prompt_tps=223.166, generation_tps=199.383, peak_memory=1.088
+Trial 3:  prompt_tps=228.984, generation_tps=199.038, peak_memory=1.088
+Trial 4:  prompt_tps=222.644, generation_tps=199.316, peak_memory=1.088
+Trial 5:  prompt_tps=224.289, generation_tps=198.352, peak_memory=1.088
+Averages: prompt_tps=226.661, generation_tps=199.081, peak_memory=1.088
+--- mlx prefill (prompt 256, gen 1; 5 trials) ---
+$ KMP_DUPLICATE_LIB_OK=TRUE /opt/homebrew/bin/python3 -m mlx_lm.benchmark --model mlx-community/Qwen3.5-2B-4bit --prompt-tokens 256 --generation-tokens 1 --num-trials 5 --prefill-step-size 2048
+Fetching 10 files:   0%|          | 0/10 [00:00<?, ?it/s]Fetching 10 files: 100%|██████████| 10/10 [00:00<00:00, 26329.59it/s]
+Running warmup..
+Timing with prompt_tokens=256, generation_tokens=1, batch_size=1.
+Trial 1:  prompt_tps=1357.623, generation_tps=29925.915, peak_memory=1.520
+Trial 2:  prompt_tps=1356.281, generation_tps=44692.688, peak_memory=1.521
+Trial 3:  prompt_tps=1358.228, generation_tps=46511.526, peak_memory=1.521
+Trial 4:  prompt_tps=1357.760, generation_tps=42781.115, peak_memory=1.522
+Trial 5:  prompt_tps=1362.959, generation_tps=43088.418, peak_memory=1.523
+Averages: prompt_tps=1358.570, generation_tps=41399.932, peak_memory=1.521
+post-run load: 3.63 3.11 2.87
+post-run thermal: nominal

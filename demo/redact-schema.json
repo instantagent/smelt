@@ -1,0 +1,8 @@
+{
+  "type": "object",
+  "properties": {
+    "redacted": { "type": "string", "maxLength": 4000 }
+  },
+  "required": ["redacted"],
+  "additionalProperties": false
+}

@@ -1,0 +1,26 @@
+{
+  "type": "object",
+  "properties": {
+    "kind": { "type": "string", "enum": ["receipt", "invoice", "contact"] },
+    "name": { "type": "string", "maxLength": 80 },
+    "date": { "type": "string", "maxLength": 10 },
+    "total": { "type": "string", "maxLength": 16 },
+    "email": { "type": "string", "maxLength": 80 },
+    "phone": { "type": "string", "maxLength": 32 },
+    "items": {
+      "type": "array",
+      "maxItems": 12,
+      "items": {
+        "type": "object",
+        "properties": {
+          "desc": { "type": "string", "maxLength": 60 },
+          "amount": { "type": "string", "maxLength": 16 }
+        },
+        "required": ["desc", "amount"],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": ["kind", "name", "date", "total", "email", "phone", "items"],
+  "additionalProperties": false
+}

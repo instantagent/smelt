@@ -1,0 +1,9 @@
+{
+  "type": "object",
+  "properties": {
+    "subject": { "type": "string", "maxLength": 72 },
+    "body": { "type": "string", "maxLength": 400 }
+  },
+  "required": ["subject", "body"],
+  "additionalProperties": false
+}

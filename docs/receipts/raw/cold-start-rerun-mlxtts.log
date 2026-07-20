@@ -1,0 +1,16 @@
+[22:55:38] === cold-start receipt run 20260711-225538 ===
+[22:55:38] machine: Apple M2 Max | macOS 15.7.5 (24G624) | 32GB
+[22:55:38] N=12 prompt="Explain gravity in one short sentence."  raw -> <repo>/docs/receipts/raw/cold-start-rerun-mlxtts.tsv
+[22:55:39] CELL mlx_cold  load: 3.59 4.72 4.74
+[22:56:09] CELL mlx_warm  load: 4.12 4.73 4.74
+[22:56:37] CELL tts_cold  load: 3.70 4.58 4.69
+[22:56:51] CELL tts_warm  load: 3.69 4.54 4.67
+[22:57:00] CELL tts_linger  load: 3.51 4.47 4.64
+[22:57:05] === summary (median / min / max) ===
+cell               n  ttft_med  ttft_min  ttft_max  exit_med
+mlx_cold          12    2291.1    2193.4    2440.2    2373.2
+mlx_warm          12    2220.6    2185.7    2268.5    2297.2
+tts_cold          12     934.0     920.1     977.1     972.6
+tts_warm          12     686.8     661.7     705.4     721.6
+tts_linger        12     100.5      99.3     327.5     102.3
+[22:57:06] done. raw: <repo>/docs/receipts/raw/cold-start-rerun-mlxtts.tsv

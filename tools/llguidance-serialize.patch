@@ -1,0 +1,672 @@
+diff --git a/parser/src/earley/slicer.rs b/parser/src/earley/slicer.rs
+index 784d391..f13bb64 100644
+--- a/parser/src/earley/slicer.rs
++++ b/parser/src/earley/slicer.rs
+@@ -392,3 +392,200 @@ impl BiasComputer for SlicedBiasComputer {
+         self.tok_env.tok_trie()
+     }
+ }
++
++// --- serialization (smelt: tools/llguidance-serialize.patch) ---------------
++// Bakes the *built* slicer — regex containment tree, per-slice masks, and
++// filtered sub-tries — so an embedder can reconstruct a ParserFactory
++// without paying the build cost (regex scans over the whole vocabulary
++// plus several trie rebuilds; ~0.65s on a 250k vocab).
++
++fn put_u64(out: &mut Vec<u8>, v: u64) {
++    out.extend_from_slice(&v.to_le_bytes());
++}
++
++fn put_section(out: &mut Vec<u8>, b: &[u8]) {
++    put_u64(out, b.len() as u64);
++    out.extend_from_slice(b);
++}
++
++fn get_u64(bytes: &[u8], pos: &mut usize) -> Result<u64> {
++    ensure!(*pos + 8 <= bytes.len(), "slicer bytes truncated");
++    let v = u64::from_le_bytes(bytes[*pos..*pos + 8].try_into().unwrap());
++    *pos += 8;
++    Ok(v)
++}
++
++fn get_section<'a>(bytes: &'a [u8], pos: &mut usize) -> Result<&'a [u8]> {
++    let len = usize::try_from(get_u64(bytes, pos)?)?;
++    ensure!(
++        len <= bytes.len() && *pos + len <= bytes.len(),
++        "slicer bytes truncated"
++    );
++    let r = &bytes[*pos..*pos + len];
++    *pos += len;
++    Ok(r)
++}
++
++fn put_vob(out: &mut Vec<u8>, v: &SimpleVob) {
++    put_u64(out, v.len() as u64);
++    let words = v.as_slice();
++    let mut b = Vec::with_capacity(words.len() * 4);
++    for w in words {
++        b.extend_from_slice(&w.to_le_bytes());
++    }
++    put_section(out, &b);
++}
++
++fn get_vob(bytes: &[u8], pos: &mut usize) -> Result<SimpleVob> {
++    let size = usize::try_from(get_u64(bytes, pos)?)?;
++    let raw = get_section(bytes, pos)?;
++    ensure!(raw.len() % 4 == 0, "slicer vob byte length not word-aligned");
++    let words: Vec<u32> = raw
++        .chunks_exact(4)
++        .map(|c| u32::from_le_bytes(c.try_into().unwrap()))
++        .collect();
++    ensure!(
++        words.len() == size.div_ceil(32),
++        "slicer vob length mismatch"
++    );
++    Ok(SimpleVob::from_raw_parts(words, size))
++}
++
++impl TokenizerSlice {
++    fn write_bytes(&self, out: &mut Vec<u8>) {
++        put_u64(out, self.idx as u64);
++        put_section(out, self.regex.as_bytes());
++        put_u64(out, self.trie_without_child.len() as u64);
++        for trie in &self.trie_without_child {
++            put_section(out, &trie.to_bytes());
++        }
++        put_section(out, &self.trie_without_children.to_bytes());
++        put_section(out, &self.trie_with_children.to_bytes());
++        put_vob(out, &self.mask_with_children);
++        put_vob(out, &self.mask_trimmed);
++        put_u64(out, self.children.len() as u64);
++        for child in &self.children {
++            child.write_bytes(out);
++        }
++    }
++
++    fn read_bytes(bytes: &[u8], pos: &mut usize, depth: usize) -> Result<Self> {
++        ensure!(depth < 64, "slicer tree too deep");
++        let idx = usize::try_from(get_u64(bytes, pos)?)?;
++        let regex = String::from_utf8(get_section(bytes, pos)?.to_vec())?;
++        let num_children = usize::try_from(get_u64(bytes, pos)?)?;
++        ensure!(num_children <= 1024, "slicer tree too wide");
++        let mut trie_without_child = Vec::with_capacity(num_children);
++        for _ in 0..num_children {
++            trie_without_child.push(TokTrie::from_bytes(get_section(bytes, pos)?)?);
++        }
++        let trie_without_children = TokTrie::from_bytes(get_section(bytes, pos)?)?;
++        let trie_with_children = TokTrie::from_bytes(get_section(bytes, pos)?)?;
++        let mask_with_children = get_vob(bytes, pos)?;
++        let mask_trimmed = get_vob(bytes, pos)?;
++        let trailer_children = usize::try_from(get_u64(bytes, pos)?)?;
++        ensure!(
++            trailer_children == num_children,
++            "slicer child count mismatch"
++        );
++        let mut children = Vec::with_capacity(num_children);
++        for _ in 0..num_children {
++            children.push(TokenizerSlice::read_bytes(bytes, pos, depth + 1)?);
++        }
++        Ok(TokenizerSlice {
++            idx,
++            regex,
++            trie_without_child,
++            trie_without_children,
++            trie_with_children,
++            mask_with_children,
++            mask_trimmed,
++            children,
++        })
++    }
++}
++
++impl SlicedBiasComputer {
++    const SERIAL_MAGIC: u64 = 0x534c_4352_0000_0001; // "SLCR" + version 1
++
++    /// Whether this slicer has any real slice regexes (an empty-slices
++    /// slicer is trivial to rebuild and not worth serializing).
++    pub fn has_slices(&self) -> bool {
++        !self.slice_regexes.is_empty()
++    }
++
++    /// Serialize the built slicer for [`SlicedBiasComputer::from_bytes`].
++    /// Native-endian trie payloads — a same-architecture cache, not a
++    /// portable interchange format.
++    pub fn to_bytes(&self) -> Vec<u8> {
++        let mut out = Vec::new();
++        put_u64(&mut out, Self::SERIAL_MAGIC);
++        put_u64(&mut out, self.slice_regexes.len() as u64);
++        for regex in &self.slice_regexes {
++            put_section(&mut out, regex.as_bytes());
++        }
++        self.top_slice.write_bytes(&mut out);
++        out
++    }
++
++    /// Reconstruct a slicer serialized by [`SlicedBiasComputer::to_bytes`].
++    pub fn from_bytes(tok_env: &TokEnv, bytes: &[u8]) -> Result<Self> {
++        let mut pos = 0;
++        ensure!(
++            get_u64(bytes, &mut pos)? == Self::SERIAL_MAGIC,
++            "bad slicer magic"
++        );
++        let num_regexes = usize::try_from(get_u64(bytes, &mut pos)?)?;
++        ensure!(num_regexes <= 1024, "too many slice regexes");
++        let mut slice_regexes = Vec::with_capacity(num_regexes);
++        for _ in 0..num_regexes {
++            slice_regexes.push(String::from_utf8(
++                get_section(bytes, &mut pos)?.to_vec(),
++            )?);
++        }
++        let top_slice = Arc::new(TokenizerSlice::read_bytes(bytes, &mut pos, 0)?);
++        ensure!(pos == bytes.len(), "trailing slicer bytes");
++        ensure!(
++            top_slice.trie_with_children.vocab_size()
++                == tok_env.tok_trie().vocab_size(),
++            "slicer vocab size does not match tokenizer"
++        );
++        Ok(SlicedBiasComputer {
++            top_slice,
++            slice_regexes,
++            tok_env: tok_env.clone(),
++        })
++    }
++}
++
++#[cfg(test)]
++mod serial_tests {
++    use super::*;
++    use crate::toktrie::ApproximateTokEnv;
++
++    #[test]
++    fn test_slicer_bytes_round_trip() {
++        let tok_env: TokEnv = ApproximateTokEnv::single_byte_env();
++        let slicer =
++            SlicedBiasComputer::new(&tok_env, &SlicedBiasComputer::json_slices())
++                .unwrap();
++        let bytes = slicer.to_bytes();
++        let restored = SlicedBiasComputer::from_bytes(&tok_env, &bytes).unwrap();
++        assert_eq!(restored.to_bytes(), bytes);
++        assert_eq!(restored.extra_lexemes(), slicer.extra_lexemes());
++    }
++
++    #[test]
++    fn test_slicer_from_bytes_rejects_corrupt() {
++        let tok_env: TokEnv = ApproximateTokEnv::single_byte_env();
++        let slicer =
++            SlicedBiasComputer::new(&tok_env, &SlicedBiasComputer::json_slices())
++                .unwrap();
++        let bytes = slicer.to_bytes();
++        assert!(SlicedBiasComputer::from_bytes(&tok_env, &bytes[..bytes.len() - 1])
++            .is_err());
++        let mut bad = bytes.clone();
++        bad[0] ^= 0xff;
++        assert!(SlicedBiasComputer::from_bytes(&tok_env, &bad).is_err());
++    }
++}
+diff --git a/parser/src/factory.rs b/parser/src/factory.rs
+index 5a46653..ee33706 100644
+--- a/parser/src/factory.rs
++++ b/parser/src/factory.rs
+@@ -46,6 +46,24 @@ impl ParserFactory {
+         self.perf_counters.clone()
+     }
+ 
++    /// Like [`ParserFactory::new`] but with an already-built slicer
++    /// (e.g. reconstructed via `SlicedBiasComputer::from_bytes`).
++    pub fn new_with_slicer(
++        tok_env: &TokEnv,
++        inference_caps: InferenceCapabilities,
++        slicer: Arc<SlicedBiasComputer>,
++    ) -> Self {
++        ParserFactory {
++            tok_env: tok_env.clone(),
++            slicer,
++            inference_caps,
++            stderr_log_level: 1,
++            buffer_log_level: 0,
++            limits: ParserLimits::default(),
++            perf_counters: Arc::new(ParserPerfCounters::default()),
++        }
++    }
++
+     pub fn new_simple(tok_env: &TokEnv) -> Result<Self> {
+         Self::new(
+             tok_env,
+diff --git a/parser/src/ffi.rs b/parser/src/ffi.rs
+index 6fea04f..965a75e 100644
+--- a/parser/src/ffi.rs
++++ b/parser/src/ffi.rs
+@@ -192,6 +192,24 @@ impl LlgTokenizer {
+             trie = trie.with_eos_tokens(&eos_tokens);
+         }
+ 
++        Self::from_trie_and_init(trie, init, None)
++    }
++
++    /// Build the tokenizer from an already-constructed trie plus the
++    /// tokenize-callback and slicer fields of `init` (the vocabulary fields
++    /// of `init` are ignored — the trie already carries them). When
++    /// `slicer_bytes` is given (a serialized `SlicedBiasComputer`), the
++    /// slicer is reconstructed from it and `init.slices` is ignored.
++    fn from_trie_and_init(
++        trie: TokTrie,
++        init: &LlgTokenizerInitV2,
++        slicer_bytes: Option<&[u8]>,
++    ) -> Result<Self> {
++        ensure!(
++            init.tokenize_fn.is_some() || init.use_approximate_greedy_tokenize_fn,
++            "Either tokenize_fn or use_approximate_greedy_tokenize_fn must be set"
++        );
++
+         let tok_env: TokEnv = Arc::new(CTokenizerInner {
+             trie,
+             tokenize_assumes_string: init.tokenize_assumes_string && init.tokenize_fn.is_some(),
+@@ -199,25 +217,29 @@ impl LlgTokenizer {
+             tokenize_user_data: init.tokenize_user_data,
+         });
+ 
+-        let slices = if init.slices.is_null() {
+-            SlicedBiasComputer::general_slices()
++        let factory = if let Some(slicer_bytes) = slicer_bytes {
++            let slicer = Arc::new(SlicedBiasComputer::from_bytes(&tok_env, slicer_bytes)?);
++            ParserFactory::new_with_slicer(&tok_env, InferenceCapabilities::default(), slicer)
+         } else {
+-            let mut slices = vec![];
+-            let mut idx = 0;
+-            loop {
+-                let p = unsafe { *init.slices.add(idx) };
+-                if p.is_null() {
+-                    break;
++            let slices = if init.slices.is_null() {
++                SlicedBiasComputer::general_slices()
++            } else {
++                let mut slices = vec![];
++                let mut idx = 0;
++                loop {
++                    let p = unsafe { *init.slices.add(idx) };
++                    if p.is_null() {
++                        break;
++                    }
++                    let s = unsafe { c_str_to_str(p, "slice") }?;
++                    slices.push(s.to_string());
++                    idx += 1;
+                 }
+-                let s = unsafe { c_str_to_str(p, "slice") }?;
+-                slices.push(s.to_string());
+-                idx += 1;
+-            }
+-            slices
++                slices
++            };
++            ParserFactory::new(&tok_env, InferenceCapabilities::default(), &slices)?
+         };
+ 
+-        let factory = ParserFactory::new(&tok_env, InferenceCapabilities::default(), &slices)?;
+-
+         Ok(LlgTokenizer {
+             factory: Arc::new(factory),
+         })
+@@ -954,6 +976,142 @@ pub extern "C" fn llg_clone_tokenizer(tok: &LlgTokenizer) -> *mut LlgTokenizer {
+     Box::into_raw(Box::new(tok.clone()))
+ }
+ 
++/// Serialize the tokenizer's token trie into a heap-allocated byte buffer.
++///
++/// On return `*dst_size` is set to the buffer length. Free the buffer with
++/// [`llg_free_bytes()`]. Pass the bytes to [`llg_new_tokenizer_from_bytes()`]
++/// to reconstruct a tokenizer without re-building the trie from the
++/// vocabulary. The encoding is native-endian: treat it as a
++/// same-architecture cache, not a portable interchange format.
++#[no_mangle]
++pub extern "C" fn llg_tokenizer_to_bytes(tok: &LlgTokenizer, dst_size: &mut usize) -> *mut u8 {
++    let trie_bytes = tok.tok_trie().to_bytes();
++    let slicer = tok.factory.slicer();
++    let slicer_bytes = if slicer.has_slices() {
++        slicer.to_bytes()
++    } else {
++        Vec::new()
++    };
++    let mut out = Vec::with_capacity(24 + trie_bytes.len() + slicer_bytes.len());
++    out.extend_from_slice(&LLG_SERIAL_MAGIC.to_le_bytes());
++    out.extend_from_slice(&1u32.to_le_bytes());
++    out.extend_from_slice(&(trie_bytes.len() as u64).to_le_bytes());
++    out.extend_from_slice(&trie_bytes);
++    out.extend_from_slice(&(slicer_bytes.len() as u64).to_le_bytes());
++    out.extend_from_slice(&slicer_bytes);
++    let boxed = out.into_boxed_slice();
++    *dst_size = boxed.len();
++    Box::into_raw(boxed) as *mut u8
++}
++
++/// Container magic for [`llg_tokenizer_to_bytes()`] output ("LLGC").
++const LLG_SERIAL_MAGIC: u32 = 0x434c_4c47;
++
++/// Split serialized tokenizer bytes into (trie, optional slicer) sections.
++/// Accepts both the v1 raw-trie format (TokTrie magic) and the container.
++fn split_serialized_tokenizer(bytes: &[u8]) -> Result<(&[u8], Option<&[u8]>)> {
++    ensure!(bytes.len() >= 4, "serialized tokenizer too short");
++    let magic = u32::from_le_bytes(bytes[0..4].try_into().unwrap());
++    if magic == TokTrie::SERIAL_MAGIC {
++        return Ok((bytes, None));
++    }
++    ensure!(magic == LLG_SERIAL_MAGIC, "bad serialized tokenizer magic");
++    ensure!(bytes.len() >= 16, "serialized tokenizer header truncated");
++    let version = u32::from_le_bytes(bytes[4..8].try_into().unwrap());
++    ensure!(version == 1, "unsupported serialized tokenizer version {version}");
++    let trie_len = u64::from_le_bytes(bytes[8..16].try_into().unwrap()) as usize;
++    ensure!(
++        trie_len <= bytes.len() && 16 + trie_len + 8 <= bytes.len(),
++        "serialized tokenizer trie section truncated"
++    );
++    let trie = &bytes[16..16 + trie_len];
++    let mut pos = 16 + trie_len;
++    let slicer_len =
++        u64::from_le_bytes(bytes[pos..pos + 8].try_into().unwrap()) as usize;
++    pos += 8;
++    ensure!(
++        slicer_len <= bytes.len() && pos + slicer_len == bytes.len(),
++        "serialized tokenizer slicer section truncated"
++    );
++    let slicer = if slicer_len > 0 {
++        Some(&bytes[pos..pos + slicer_len])
++    } else {
++        None
++    };
++    Ok((trie, slicer))
++}
++
++/// Free a buffer returned by [`llg_tokenizer_to_bytes()`].
++///
++/// # Safety
++/// `ptr` must have been returned by [`llg_tokenizer_to_bytes()`] and `size`
++/// must be the exact value written to `dst_size` by that call.
++#[no_mangle]
++pub unsafe extern "C" fn llg_free_bytes(ptr: *mut u8, size: usize) {
++    if !ptr.is_null() {
++        drop(Box::from_raw(std::ptr::slice_from_raw_parts_mut(ptr, size)));
++    }
++}
++
++/// Copy the caller's (possibly smaller, older-versioned) init struct into a
++/// zero-initialized local one, honoring its `struct_size` field.
++unsafe fn copy_tokenizer_init_v2(tok_init: *const LlgTokenizerInitV2) -> Result<LlgTokenizerInitV2> {
++    ensure!(!tok_init.is_null(), "tok_init is NULL");
++    let struct_size = std::ptr::read(tok_init as *const usize);
++    let min_size = std::mem::offset_of!(LlgTokenizerInitV2, token_lens);
++    ensure!(
++        struct_size >= min_size,
++        "LlgTokenizerInitV2.struct_size is {struct_size} but expected at least {min_size}. \
++         Set struct_size = sizeof(LlgTokenizerInitV2)."
++    );
++    let mut local: LlgTokenizerInitV2 = std::mem::zeroed();
++    let copy_size = std::cmp::min(struct_size, std::mem::size_of::<LlgTokenizerInitV2>());
++    std::ptr::copy_nonoverlapping(
++        tok_init as *const u8,
++        &mut local as *mut LlgTokenizerInitV2 as *mut u8,
++        copy_size,
++    );
++    Ok(local)
++}
++
++/// Create a tokenizer from trie bytes produced by [`llg_tokenizer_to_bytes()`].
++///
++/// The vocabulary fields of `tok_init` (`vocab_size`, `tok_eos`,
++/// `token_lens`, `token_bytes`, `tokenizer_json`, `tok_eos_extra*`) are
++/// ignored — the serialized trie already carries them. The
++/// `tokenize_fn` / `tokenize_user_data` / `tokenize_assumes_string` and
++/// `slices` fields are used exactly as in [`llg_new_tokenizer_v2()`].
++///
++/// Returns `NULL` on error (including corrupted trie bytes) and writes the
++/// message to `error_string`.
++///
++/// # Safety
++/// `trie_bytes` must point to `trie_bytes_len` readable bytes, and
++/// `tok_init` must satisfy the same contract as in [`llg_new_tokenizer_v2()`].
++#[no_mangle]
++pub unsafe extern "C" fn llg_new_tokenizer_from_bytes(
++    trie_bytes: *const u8,
++    trie_bytes_len: usize,
++    tok_init: *const LlgTokenizerInitV2,
++    error_string: *mut c_char,
++    error_string_len: usize,
++) -> *mut LlgTokenizer {
++    let result = crate::panic_utils::catch_unwind(std::panic::AssertUnwindSafe(|| {
++        let local = copy_tokenizer_init_v2(tok_init)?;
++        let bytes = slice_from_ptr(trie_bytes, trie_bytes_len)?;
++        let (trie_section, slicer_section) = split_serialized_tokenizer(bytes)?;
++        let trie = TokTrie::from_bytes(trie_section)?;
++        LlgTokenizer::from_trie_and_init(trie, &local, slicer_section)
++    }));
++    match result {
++        Ok(tok) => Box::into_raw(Box::new(tok)),
++        Err(e) => {
++            save_error_string(e, error_string, error_string_len);
++            std::ptr::null_mut()
++        }
++    }
++}
++
+ /// Tokenize the given bytes and return the tokens.
+ ///
+ /// Always returns the number of tokens that would be written to
+diff --git a/toktrie/src/svob.rs b/toktrie/src/svob.rs
+index 56a28e1..d89e93c 100644
+--- a/toktrie/src/svob.rs
++++ b/toktrie/src/svob.rs
+@@ -96,6 +96,18 @@ impl SimpleVob {
+         r
+     }
+ 
++    /// Reconstruct from a word vector previously obtained via
++    /// [`SimpleVob::as_slice`] (serialization round trip).
++    pub fn from_raw_parts(data: Vec<u32>, size: usize) -> Self {
++        assert!(
++            data.len() == size.div_ceil(BITS),
++            "SimpleVob::from_raw_parts: {} words for {} bits",
++            data.len(),
++            size
++        );
++        Self { data, size }
++    }
++
+     pub fn len(&self) -> usize {
+         self.size
+     }
+diff --git a/toktrie/src/toktree.rs b/toktrie/src/toktree.rs
+index 7a7e715..b603368 100644
+--- a/toktrie/src/toktree.rs
++++ b/toktrie/src/toktree.rs
+@@ -96,7 +96,8 @@ pub trait Recognizer {
+     fn save_stats(&mut self, _nodes_walked: usize) {}
+ }
+ 
+-#[derive(Clone, Copy)]
++#[derive(Clone, Copy, Zeroable, Pod)]
++#[repr(C)]
+ struct TokDesc {
+     len: u32,
+     off: u32,
+@@ -215,7 +216,155 @@ impl TokTrie {
+         r
+     }
+ 
++    pub const SERIAL_MAGIC: u32 = 0x544b_5452; // "TKTR"
++    const SERIAL_VERSION: u32 = 1;
++    const SERIAL_OPT_NONE: u32 = u32::MAX;
++    const SERIAL_HEADER_WORDS: usize = 13;
++
++    /// Serialize the trie to a flat byte buffer that [`TokTrie::from_bytes`]
++    /// can reconstruct without re-building the trie from the vocabulary.
++    /// The encoding uses native endianness and is intended as a same-machine
++    /// (or same-architecture) cache, not a portable interchange format.
++    pub fn to_bytes(&self) -> Vec<u8> {
++        fn opt(v: Option<TokenId>) -> u32 {
++            v.unwrap_or(TokTrie::SERIAL_OPT_NONE)
++        }
++        let header: [u32; Self::SERIAL_HEADER_WORDS] = [
++            Self::SERIAL_MAGIC,
++            Self::SERIAL_VERSION,
++            self.info.vocab_size,
++            self.info.tok_eos,
++            opt(self.info.tok_bos),
++            opt(self.info.tok_pad),
++            opt(self.info.tok_unk),
++            opt(self.info.tok_end_of_turn),
++            self.max_token_len.try_into().unwrap(),
++            self.token_offsets.len().try_into().unwrap(),
++            self.token_data.len().try_into().unwrap(),
++            self.nodes.len().try_into().unwrap(),
++            self.eos_tokens.len().try_into().unwrap(),
++        ];
++        let mut out = Vec::with_capacity(
++            header.len() * 4
++                + std::mem::size_of_val(self.token_offsets.as_slice())
++                + std::mem::size_of_val(self.nodes.as_slice())
++                + self.eos_tokens.len() * 4
++                + self.token_data.len(),
++        );
++        out.extend_from_slice(bytemuck::cast_slice(&header));
++        out.extend_from_slice(bytemuck::cast_slice(&self.token_offsets));
++        out.extend_from_slice(bytemuck::cast_slice(&self.nodes));
++        out.extend_from_slice(bytemuck::cast_slice(&self.eos_tokens));
++        out.extend_from_slice(&self.token_data);
++        out
++    }
++
++    /// Reconstruct a trie serialized by [`TokTrie::to_bytes`].
++    ///
++    /// Header and section lengths are checked and produce errors; the full
++    /// structural walk in `validate()` is also run, which panics on a
++    /// corrupted node graph (callers crossing an FFI boundary should wrap
++    /// this in a panic catcher).
++    pub fn from_bytes(bytes: &[u8]) -> anyhow::Result<Self> {
++        use anyhow::ensure;
++        let header_bytes = Self::SERIAL_HEADER_WORDS * 4;
++        ensure!(
++            bytes.len() >= header_bytes,
++            "trie bytes too short for header"
++        );
++        let mut header = [0u32; Self::SERIAL_HEADER_WORDS];
++        for (i, h) in header.iter_mut().enumerate() {
++            *h = u32::from_ne_bytes(bytes[i * 4..i * 4 + 4].try_into().unwrap());
++        }
++        ensure!(header[0] == Self::SERIAL_MAGIC, "bad trie magic");
++        ensure!(
++            header[1] == Self::SERIAL_VERSION,
++            "unsupported trie serialization version {}",
++            header[1]
++        );
++        fn opt(v: u32) -> Option<TokenId> {
++            if v == TokTrie::SERIAL_OPT_NONE {
++                None
++            } else {
++                Some(v)
++            }
++        }
++        let info = TokRxInfo {
++            vocab_size: header[2],
++            tok_eos: header[3],
++            tok_bos: opt(header[4]),
++            tok_pad: opt(header[5]),
++            tok_unk: opt(header[6]),
++            tok_end_of_turn: opt(header[7]),
++        };
++        let max_token_len = header[8] as usize;
++        let num_offsets = header[9] as usize;
++        let token_data_len = header[10] as usize;
++        let num_nodes = header[11] as usize;
++        let num_eos = header[12] as usize;
++        ensure!(
++            num_offsets == info.vocab_size as usize,
++            "token offset count {} != vocab size {}",
++            num_offsets,
++            info.vocab_size
++        );
++        ensure!(num_nodes > 0, "empty trie node array");
++        ensure!(num_eos > 0, "empty eos token array");
++        let expected = header_bytes + num_offsets * 8 + num_nodes * 8 + num_eos * 4 + token_data_len;
++        ensure!(
++            bytes.len() == expected,
++            "trie bytes length mismatch: got {}, expected {}",
++            bytes.len(),
++            expected
++        );
++        // Copy each section into a fresh (aligned) Vec; the input slice has
++        // no alignment guarantee, so an in-place cast is not safe.
++        fn collect<T: bytemuck::Pod>(bytes: &[u8]) -> Vec<T> {
++            let mut v = vec![T::zeroed(); bytes.len() / std::mem::size_of::<T>()];
++            bytemuck::cast_slice_mut::<T, u8>(&mut v).copy_from_slice(bytes);
++            v
++        }
++        let mut pos = header_bytes;
++        let token_offsets: Vec<TokDesc> = collect(&bytes[pos..pos + num_offsets * 8]);
++        pos += num_offsets * 8;
++        let nodes: Vec<TrieNode> = collect(&bytes[pos..pos + num_nodes * 8]);
++        pos += num_nodes * 8;
++        let eos_tokens: Vec<TokenId> = collect(&bytes[pos..pos + num_eos * 4]);
++        pos += num_eos * 4;
++        let token_data = bytes[pos..].to_vec();
++        for desc in &token_offsets {
++            ensure!(
++                desc.off as usize + desc.len as usize <= token_data.len(),
++                "token offset out of range"
++            );
++        }
++        for &eos in &eos_tokens {
++            ensure!(
++                eos < info.vocab_size,
++                "eos token {} out of range (vocab_size={})",
++                eos,
++                info.vocab_size
++            );
++        }
++        let r = TokTrie {
++            info,
++            token_offsets,
++            token_data,
++            nodes,
++            max_token_len,
++            eos_tokens,
++        };
++        r.validate();
++        Ok(r)
++    }
++
+     pub fn filter(&self, filter: &SimpleVob) -> Self {
++        // An identity filter would rebuild an equal trie from the
++        // vocabulary — expensive for large vocabs (and the common case for
++        // the slicer's top slice). Clone instead.
++        if (0..self.vocab_size() as TokenId).all(|n| filter.is_allowed(n)) {
++            return self.clone();
++        }
+         let mut words = vec![];
+         for n in 0..(self.vocab_size() as TokenId) {
+             let b = if filter.is_allowed(n) {
+@@ -1304,6 +1453,27 @@ mod tests {
+         assert_eq!(set.num_set(), 1);
+     }
+ 
++    #[test]
++    fn test_bytes_round_trip() {
++        let trie = make_test_trie(0).with_eos_tokens(&[1, 3]);
++        let restored = TokTrie::from_bytes(&trie.to_bytes()).unwrap();
++        assert_eq!(restored.info(), trie.info());
++        assert_eq!(restored.eos_tokens(), trie.eos_tokens());
++        assert_eq!(restored.max_token_len(), trie.max_token_len());
++        for id in 0..trie.vocab_size() as TokenId {
++            assert_eq!(restored.token(id), trie.token(id));
++        }
++    }
++
++    #[test]
++    fn test_from_bytes_rejects_corrupt() {
++        let bytes = make_test_trie(0).to_bytes();
++        assert!(TokTrie::from_bytes(&bytes[..bytes.len() - 1]).is_err());
++        let mut bad_magic = bytes.clone();
++        bad_magic[0] ^= 0xff;
++        assert!(TokTrie::from_bytes(&bad_magic).is_err());
++    }
++
+     #[test]
+     fn test_eos_token_set_multiple() {
+         let trie = make_test_trie(0).with_eos_tokens(&[1, 3]);

@@ -1,0 +1,4 @@
+# id	module_path	artifact_root	output_package	evidence_json
+qwen35_fast	Models/qwen35_fast.module.json	artifacts/qwen35-0.8b-qmm16x128/Qwen_Qwen3.5-0.8B-build-source.smeltpkg	artifacts/qwen35-0.8b-qmm16x128/Qwen_Qwen3.5-0.8B.smeltpkg	qwen35-fast-build.json
+qwen35_text	Models/qwen35_text.module.json	artifacts/qwen35-2b-qmm16x128/Qwen_Qwen3.5-2B-build-source.smeltpkg	artifacts/qwen35-2b-qmm16x128/Qwen_Qwen3.5-2B.smeltpkg	qwen35-text-build.json
+qwen3_tts	Models/qwen3_tts.module.json	qwen3-tts-build-source.smeltpkg	qwen3-tts.smeltpkg	qwen3-tts-build.json

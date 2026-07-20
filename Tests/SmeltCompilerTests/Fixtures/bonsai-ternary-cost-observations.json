@@ -1,0 +1,24 @@
+{
+  "observations": [
+    {
+      "id": "matvec_residual_displaces_residual_norm",
+      "baselineRecords": 1062,
+      "candidateRecords": 1062,
+      "baselinePureGPUms": 25.48,
+      "candidatePureGPUms": 25.54,
+      "exact": true,
+      "expectedPrediction": "tooCloseToCall",
+      "lesson": "Price the complete competing rewrite plans, not one fusion edge."
+    },
+    {
+      "id": "residual_norm_activation_cooperative",
+      "baselineRecords": 1062,
+      "candidateRecords": 934,
+      "baselinePureGPUms": 25.48,
+      "candidatePureGPUms": 25.74,
+      "exact": true,
+      "expectedPrediction": "baselineFaster",
+      "lesson": "A global reduction followed by serial in-threadgroup work can lose more fan-out than its removed dispatches save."
+    }
+  ]
+}

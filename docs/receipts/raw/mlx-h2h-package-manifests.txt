@@ -1,0 +1,31 @@
+=== mlx-h2h package/binary provenance (recorded 2026-07-13 by the mlx-h2h fix-round writing agent) ===
+Purpose: pin the EXACT Smelt artifacts used by the aligned re-run — per-file sha256 of every
+file in both packages (manifest, metallib, dispatch tables, weights, tokenizer, ...), not just
+weights.bin, plus the rebuilt ia binary.
+
+ia binary (rebuilt in this worktree; includes this unit's additive 'Window wall' decode output
+line in Sources/AgentCLI/Helpers/Benchmarks.swift, uncommitted at build time):
+ed302be72d01f36f99d8e77bd73b16293c58d183f15407669d2edd403587f277  .build/release/ia
+
+--- artifacts/qwen35-0.8b-qmm16x128/Qwen_Qwen3.5-0.8B.agent ---
+fca912f9714d892758ce35ef8e7c3c94abc9f7da4ab7b9ac53fd8317c63899c9  artifacts/qwen35-0.8b-qmm16x128/Qwen_Qwen3.5-0.8B.agent/AgentGenerated.swift
+fa726562965348f48f64ec5cf180c685d7674203f99ab16f862c09c1c6eecbd8  artifacts/qwen35-0.8b-qmm16x128/Qwen_Qwen3.5-0.8B.agent/dispatches.bin
+738369fcecf6051f2021cf0bb1c1cdd0af4cd9d5dd078bc17ad7390abded0fa9  artifacts/qwen35-0.8b-qmm16x128/Qwen_Qwen3.5-0.8B.agent/manifest.json
+680d07bace965a348109db4b6293d38cb3c077aee6fb87595c3484627dacd145  artifacts/qwen35-0.8b-qmm16x128/Qwen_Qwen3.5-0.8B.agent/model.metallib
+dd8a286215db439e39c16353d80f238a85dac312a5695faf9a4079008e74d5b7  artifacts/qwen35-0.8b-qmm16x128/Qwen_Qwen3.5-0.8B.agent/module.json
+43d3e51bae99691c13f6c55737aef51f3d8aa041fe60ec0345bbe253b191951d  artifacts/qwen35-0.8b-qmm16x128/Qwen_Qwen3.5-0.8B.agent/prefill_dispatches.bin
+d45e90d9091547dcad5bedc6529bf790d7698263fce1f550285571c083966ab0  artifacts/qwen35-0.8b-qmm16x128/Qwen_Qwen3.5-0.8B.agent/tokenizer.bin
+5f9e4d4901a92b997e463c1f46055088b6cca5ca61a6522d1b9f64c4bb81cb42  artifacts/qwen35-0.8b-qmm16x128/Qwen_Qwen3.5-0.8B.agent/tokenizer.json
+bd465e614548726075c748c4f6e705afa4e29e4083bf7109ab1e162b6d4a6048  artifacts/qwen35-0.8b-qmm16x128/Qwen_Qwen3.5-0.8B.agent/weights.bin
+
+--- artifacts/qwen35-2b-qmm16x128/Qwen_Qwen3.5-2B.agent ---
+d06b296b5beac668ab1f52185e1641dc5a3cd6cd5b74d64746163d5164b7e64f  artifacts/qwen35-2b-qmm16x128/Qwen_Qwen3.5-2B.agent/AgentGenerated.swift
+c776a1df6b29d7bebebbd9fe04972e5361a93d4c9b7ba6c89fd017f2c9394c26  artifacts/qwen35-2b-qmm16x128/Qwen_Qwen3.5-2B.agent/dispatches.bin
+7e75b9dfaa103dd910fe98b8abea990c08bd3846f6670e1c5d216f9d8c728bf9  artifacts/qwen35-2b-qmm16x128/Qwen_Qwen3.5-2B.agent/manifest.json
+e0a33b59f1f4373cbac31e753d79234a4b33e991e0b71963a8fa465531ecb9c4  artifacts/qwen35-2b-qmm16x128/Qwen_Qwen3.5-2B.agent/model.metallib
+0d409b03c30f5ac0d4f4ade8b82c37f28f159c81a64cc63c10c3f43052e21f64  artifacts/qwen35-2b-qmm16x128/Qwen_Qwen3.5-2B.agent/module.json
+6d2d0c9ff9421fa0856813e69e45cbc3a7a2c9534313ff8fd40c3eb1efd81d8d  artifacts/qwen35-2b-qmm16x128/Qwen_Qwen3.5-2B.agent/prefill_dispatches.bin
+24f2090e4894fd72ababf8f38a218ec9dcd2ebf992c4dd244d0b7125e4b9acf2  artifacts/qwen35-2b-qmm16x128/Qwen_Qwen3.5-2B.agent/tokenizer.bin
+5f9e4d4901a92b997e463c1f46055088b6cca5ca61a6522d1b9f64c4bb81cb42  artifacts/qwen35-2b-qmm16x128/Qwen_Qwen3.5-2B.agent/tokenizer.json
+997f9bf5a7c23af23db9b656317e0c816c91fe4723b8e8853505efc32be7a200  artifacts/qwen35-2b-qmm16x128/Qwen_Qwen3.5-2B.agent/weights.bin
+

@@ -1,0 +1,2 @@
+# id	module_path	source_default	source_package	package_result	build_argv
+qwen36_27b	Models/qwen36_27b.module.json	~/.cache/smelt/models/Qwen--Qwen3.6-27B/main	artifacts/qwen36-27b-dev/Qwen_Qwen3.6-27B-build-source.smeltpkg	staged-single	build|{module}|--module-source-package|--weights-dir|{source}|--shader-dir|Resources/Shaders|--output|{stage}|--trace-mode|stripped-markers

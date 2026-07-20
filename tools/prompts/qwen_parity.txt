@@ -1,0 +1,11 @@
+# Short prompt
+The capital of France is?
+
+# Medium prompt
+Explain tail recursion in one short paragraph.
+
+# Another short factual prompt
+List three metals used in electronics and what each is commonly used for.
+
+# Longer systems prompt
+You are optimizing a quantized language model on Apple Silicon. Name two likely prompt-prefill bottlenecks and explain each one briefly.

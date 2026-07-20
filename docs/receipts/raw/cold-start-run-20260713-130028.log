@@ -1,0 +1,110 @@
+[13:00:28] === cold-start receipt run 20260713-130028 ===
+[13:00:28] machine: Apple M2 Max | macOS 15.7.5 (24G624) | 32GB
+[13:00:28] N=12 prompt="Explain gravity in one short sentence."  raw -> <repo>/docs/receipts/raw/cold-start-raw-20260713-130028.tsv
+[13:00:28] --- provenance ---
+[13:00:28] config: CELLS="ia_cold ia_warm ia_linger llamacpp_cold llamacpp_warm ollama_cold ollama_warm mlx_cold mlx_warm tts_cold tts_warm tts_linger trace" N=12 PROMPT="Explain gravity in one short sentence."
+[13:00:28] config: IA=<repo>/.build/release/ia IA_PKG=<repo>/bench-packages/Qwen_Qwen3.5-0.8B.agent TTS_PKG=<repo>/bench-packages/qwen3-tts.agent GGUF=/tmp/gguf-models/Qwen3.5-0.8B-Q4_0-ggmlorg.gguf
+[13:00:28] config: MLX_MODEL=mlx-community/Qwen3.5-0.8B-4bit MLX_PY=/tmp/mlx-venv/bin/python OLLAMA_MODEL=qwen35-08b-q4 LLAMA_COMPLETION=llama-completion
+[13:00:28] uptime: 13:00  up 33 days,  3:42, 4 users, load averages: 2.23 2.34 2.51
+[13:00:28] process snapshot (top 15 by %cpu):
+ %CPU COMM
+200.7 node
+ 59.2 ~/Projects/operator/build/Operator.app/Contents/MacOS/Operator
+ 47.4 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+ 11.9 /Applications/iTerm.app/Contents/MacOS/iTerm2
+  9.9 /usr/sbin/coreaudiod
+  5.3 claude bg-spare
+  4.5 claude
+  3.6 claude bg-spare
+  3.6 ~/.local/bin/claude
+  1.8 /Applications/Google Chrome.app/Contents/Frameworks/Google Chrome Framework.framework/Versions/149.0.7827.54/Helpers/Google Chrome Helper (Renderer).app/Contents/MacOS/Google Chrome Helper (Renderer)
+  1.6 claude bg-pty-host
+  1.3 /System/Applications/Messages.app/Contents/MacOS/Messages
+  0.7 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+  0.6 /usr/libexec/airportd
+[13:00:29] versions: llama.cpp version: 8680 (15f786e65) | ollama version is 0.31.1 | vmtouch v1.3.1
+[13:00:30] versions: system Python 3.14.6 | mlx-venv Python 3.12.2 | mlx_lm 0.31.3 | mlx 0.32.0
+[13:00:30] ia binary: <repo>/.build/arm64-apple-macosx/release/ia  sha256=18aeedf4cb972d9cf4a8ad899ecd0f14523ef813d9501a380bdd8969be55e76d
+[13:00:30] ia package eviction list (<repo>/bench-packages/Qwen_Qwen3.5-0.8B.agent):
+~/Library/Application Support/instant-agent/cas/sha256/43a814cc9b23a788db6427b844aaece1326293520307c755fe153e262264697b
+~/Library/Application Support/instant-agent/cas/sha256/5f9e4d4901a92b997e463c1f46055088b6cca5ca61a6522d1b9f64c4bb81cb42
+~/Library/Application Support/instant-agent/cas/sha256/680d07bace965a348109db4b6293d38cb3c077aee6fb87595c3484627dacd145
+~/Library/Application Support/instant-agent/cas/sha256/bd465e614548726075c748c4f6e705afa4e29e4083bf7109ab1e162b6d4a6048
+<repo>/bench-packages/Qwen_Qwen3.5-0.8B.agent/AgentGenerated.swift
+<repo>/bench-packages/Qwen_Qwen3.5-0.8B.agent/dispatches.bin
+<repo>/bench-packages/Qwen_Qwen3.5-0.8B.agent/manifest.json
+<repo>/bench-packages/Qwen_Qwen3.5-0.8B.agent/module.json
+<repo>/bench-packages/Qwen_Qwen3.5-0.8B.agent/prefill_dispatches.bin
+[13:00:32] ia weights: ~/Library/Application Support/instant-agent/cas/sha256/bd465e614548726075c748c4f6e705afa4e29e4083bf7109ab1e162b6d4a6048  sha256=bd465e614548726075c748c4f6e705afa4e29e4083bf7109ab1e162b6d4a6048
+[13:00:32] tts package eviction list (<repo>/bench-packages/qwen3-tts.agent):
+<repo>/bench-packages/qwen3-tts.agent/config.json
+<repo>/bench-packages/qwen3-tts.agent/manifest.json
+<repo>/bench-packages/qwen3-tts.agent/merges.txt
+<repo>/bench-packages/qwen3-tts.agent/model.metallib
+<repo>/bench-packages/qwen3-tts.agent/module.json
+<repo>/bench-packages/qwen3-tts.agent/tokenizer_config.json
+<repo>/bench-packages/qwen3-tts.agent/trunk-mtp/AgentGenerated.swift
+<repo>/bench-packages/qwen3-tts.agent/trunk-mtp/dispatches.bin
+<repo>/bench-packages/qwen3-tts.agent/trunk-mtp/gptq_capture_points.json
+<repo>/bench-packages/qwen3-tts.agent/trunk-mtp/manifest.json
+<repo>/bench-packages/qwen3-tts.agent/trunk-mtp/prefill_dispatches.bin
+<repo>/bench-packages/qwen3-tts.agent/trunk/AgentGenerated.swift
+<repo>/bench-packages/qwen3-tts.agent/trunk/dispatches.bin
+<repo>/bench-packages/qwen3-tts.agent/trunk/gptq_capture_points.json
+<repo>/bench-packages/qwen3-tts.agent/trunk/manifest.json
+<repo>/bench-packages/qwen3-tts.agent/trunk/prefill_dispatches.bin
+<repo>/bench-packages/qwen3-tts.agent/vocab.json
+<repo>/bench-packages/qwen3-tts.agent/weights.bin
+[13:00:35] tts weights: <repo>/bench-packages/qwen3-tts.agent/weights.bin  sha256=3564d2c608a9aea7a6447e836edc90bd37d36156713244fd8e84c0e40fed800a
+[13:00:37] gguf: /private/tmp/gguf-models/Qwen3.5-0.8B-Q4_0-ggmlorg.gguf  sha256=57d1997790d1744fba5b40a7317df71ea5e2acee28c47e78f0cce39c0703f8cf
+[13:00:38] mlx snapshot (revision = path tail): ~/.cache/huggingface/hub/models--mlx-community--Qwen3.5-0.8B-4bit/snapshots/da28692b5f139cb0ec58a356b437486b7dac7462
+[13:00:38] mlx eviction list:
+~/.cache/huggingface/hub/models--mlx-community--Qwen3.5-0.8B-4bit/blobs/0aa0ce0658d60ac4a5d609f4eadb0e8e43514176
+~/.cache/huggingface/hub/models--mlx-community--Qwen3.5-0.8B-4bit/blobs/0ef09f214eaa6d9bca297988afc1454b5827b2c7
+~/.cache/huggingface/hub/models--mlx-community--Qwen3.5-0.8B-4bit/blobs/1d5de9efcc5248f9f4c3e443152db2a2753e59a1
+~/.cache/huggingface/hub/models--mlx-community--Qwen3.5-0.8B-4bit/blobs/2ea84a437d448ff71b08df68fdd949d5cc4ebb64
+~/.cache/huggingface/hub/models--mlx-community--Qwen3.5-0.8B-4bit/blobs/3ba673a5ad7d4d13f54155ecd38b2a94a6dac8fe
+~/.cache/huggingface/hub/models--mlx-community--Qwen3.5-0.8B-4bit/blobs/52373fe24473b1aa44333d318f578ae6bf04b49b
+~/.cache/huggingface/hub/models--mlx-community--Qwen3.5-0.8B-4bit/blobs/7ad6acdf4203f22b7b990e36ccc3a1fe38563d5e
+~/.cache/huggingface/hub/models--mlx-community--Qwen3.5-0.8B-4bit/blobs/87a7830d63fcf43bf241c3c5242e96e62dd3fdc29224ca26fed8ea333db72de4
+~/.cache/huggingface/hub/models--mlx-community--Qwen3.5-0.8B-4bit/blobs/a068e2468cff426a9b105006e74e044030a6faf4
+~/.cache/huggingface/hub/models--mlx-community--Qwen3.5-0.8B-4bit/blobs/e9a7b6207ef38295c02bbdb5e5e98a27161a4a51
+~/.cache/huggingface/hub/models--mlx-community--Qwen3.5-0.8B-4bit/blobs/f2a232ff3224989be3b1a4db407475dbef3247f6
+~/.cache/huggingface/hub/models--mlx-community--Qwen3.5-0.8B-4bit/blobs/f5a0d9dd3efa73510542a8023d610ff26be2b4b020d181cfc4bedaa1fcc5dd9e
+[13:00:38] ollama manifest (~/.ollama/models/manifests/registry.ollama.ai/library/qwen35-08b-q4/latest):
+{"schemaVersion":2,"mediaType":"application/vnd.docker.distribution.manifest.v2+json","config":{"mediaType":"application/vnd.docker.container.image.v1+json","digest":"sha256:d54f4f9b41b9f66dbe7fa96a8f015529cd22abb97d2f163a0232a45d54948714","size":342},"layers":[{"mediaType":"application/vnd.ollama.image.model","digest":"sha256:57d1997790d1744fba5b40a7317df71ea5e2acee28c47e78f0cce39c0703f8cf","size":563036064},{"mediaType":"application/vnd.ollama.image.params","digest":"sha256:8bcb57445ea7dfb9e4797bd82c7c01f92ffd58428b038044f8754047438b795d","size":34}]}
+
+[13:00:38] ollama eviction list (manifest-referenced blobs):
+~/.ollama/models/blobs/sha256-d54f4f9b41b9f66dbe7fa96a8f015529cd22abb97d2f163a0232a45d54948714
+~/.ollama/models/blobs/sha256-57d1997790d1744fba5b40a7317df71ea5e2acee28c47e78f0cce39c0703f8cf
+~/.ollama/models/blobs/sha256-8bcb57445ea7dfb9e4797bd82c7c01f92ffd58428b038044f8754047438b795d
+[13:00:38] --- end provenance ---
+[13:00:38] CELL ia_cold  load: 2.65 2.42 2.54
+[13:00:43] CELL ia_warm  load: 3.48 2.60 2.60
+[13:00:45] CELL ia_linger  load: 3.48 2.60 2.60
+[13:00:48] CELL llamacpp_cold  load: 3.52 2.62 2.61
+[13:01:08] CELL llamacpp_warm  load: 3.64 2.71 2.64
+[13:01:27] CELL ollama_cold  load: 3.34 2.70 2.63
+[13:01:45] CELL ollama_warm  load: 3.25 2.71 2.64
+[13:01:49] CELL mlx_cold  load: 3.47 2.76 2.66
+[13:02:20] CELL mlx_warm  load: 4.15 2.99 2.75
+[13:02:49] CELL tts_cold  load: 3.62 2.98 2.75
+[13:03:03] CELL tts_warm  load: 3.71 3.02 2.77
+[13:03:13] CELL tts_linger  load: 3.68 3.04 2.78
+[13:03:18] CELL trace  load: 3.79 3.07 2.79
+[13:03:19] startup trace -> <repo>/docs/receipts/raw/ia-startup-trace-20260713-130028.txt
+[13:03:19] === summary (median / min / max) ===
+cell               n  ttft_med  ttft_min  ttft_max  exit_med
+ia_cold           12     278.1     266.4     316.6     280.1
+ia_warm           12     101.8      92.2     109.9     103.4
+ia_linger         12      27.4      26.5      50.0      27.8
+llamacpp_cold     12    1355.0    1236.5    1535.6    1617.9
+llamacpp_warm     12    1071.8    1035.7    1135.7    1614.6
+ollama_cold       12    1357.6    1337.9    1365.0    1358.5
+ollama_warm       12     248.7     243.7     252.7     249.3
+mlx_cold          12    2318.4    2222.6    2622.9    2400.3
+mlx_warm          12    2234.1    2148.5    2319.6    2315.4
+tts_cold          12     961.4     933.2    1028.4    1001.3
+tts_warm          12     673.7     662.0     688.7     707.8
+tts_linger        12      99.4      98.6     315.8     101.0
+[13:03:19] done. raw: <repo>/docs/receipts/raw/cold-start-raw-20260713-130028.tsv

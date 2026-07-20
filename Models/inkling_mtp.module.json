@@ -1,0 +1,532 @@
+{
+  "artifacts" : [
+
+  ],
+  "backendConstraints" : [
+    {
+      "key" : "target",
+      "value" : "metal"
+    }
+  ],
+  "blocks" : [
+    {
+      "annotations" : [
+
+      ],
+      "id" : "mtp",
+      "operatorName" : "transformer",
+      "shape" : {
+        "requirements" : [
+          {
+            "key" : "input-fusion-source-count",
+            "optional" : false,
+            "value" : "2"
+          },
+          {
+            "key" : "input-fusion-source-width",
+            "optional" : false,
+            "value" : "6144"
+          },
+          {
+            "key" : "input-projection-shape",
+            "optional" : false,
+            "value" : "6144x12288"
+          },
+          {
+            "key" : "output-unembedding",
+            "optional" : false,
+            "value" : "base-module"
+          },
+          {
+            "key" : "predictor-count",
+            "optional" : false,
+            "value" : "8"
+          },
+          {
+            "key" : "short-convolution-compute",
+            "optional" : false,
+            "value" : "f32"
+          }
+        ],
+        "transformer" : {
+          "attentionByRole" : [
+            {
+              "attention" : {
+                "headDim" : 128,
+                "kvHeads" : 8,
+                "qHeads" : 64,
+                "qkNorm" : "rms",
+                "relativePosition" : {
+                  "contentConditioned" : true,
+                  "extent" : 1024,
+                  "logScalingAlpha" : "0.1",
+                  "logScalingFloor" : 128000,
+                  "projectionDim" : 16
+                },
+                "scaling" : "inverse-head-dim"
+              },
+              "role" : "global"
+            },
+            {
+              "attention" : {
+                "headDim" : 128,
+                "kvHeads" : 16,
+                "qHeads" : 64,
+                "qkNorm" : "rms",
+                "relativePosition" : {
+                  "contentConditioned" : true,
+                  "extent" : 512,
+                  "projectionDim" : 16
+                },
+                "scaling" : "inverse-head-dim",
+                "window" : 512
+              },
+              "role" : "sliding"
+            }
+          ],
+          "ffn" : {
+            "activation" : "swiglu",
+            "dim" : 24576
+          },
+          "hiddenSize" : 6144,
+          "layers" : {
+            "repeatCount" : 1,
+            "roles" : [
+              "sliding",
+              "global",
+              "sliding",
+              "global",
+              "sliding",
+              "sliding",
+              "sliding",
+              "sliding"
+            ]
+          },
+          "norm" : {
+            "eps" : "1e-6",
+            "kind" : "rms",
+            "mode" : "weight"
+          },
+          "projectionBanks" : [
+            {
+              "id" : "attention-input",
+              "outputs" : [
+                "attentionQ",
+                "attentionK",
+                "attentionV",
+                "attentionRelative"
+              ],
+              "source" : "attentionInput"
+            },
+            {
+              "id" : "attention-output",
+              "outputs" : [
+                "attentionOut"
+              ],
+              "source" : "attentionOutput"
+            },
+            {
+              "id" : "ffn-input",
+              "outputs" : [
+                "ffnGate",
+                "ffnUp"
+              ],
+              "source" : "ffnInput"
+            },
+            {
+              "id" : "ffn-intermediate",
+              "outputs" : [
+                "ffnDown"
+              ],
+              "source" : "ffnIntermediate"
+            }
+          ],
+          "shortConvolutions" : [
+            {
+              "kernelSize" : 4,
+              "residual" : "add-input",
+              "site" : "attention-branch-output"
+            },
+            {
+              "kernelSize" : 4,
+              "residual" : "add-input",
+              "site" : "attention-key"
+            },
+            {
+              "kernelSize" : 4,
+              "residual" : "add-input",
+              "site" : "attention-value"
+            },
+            {
+              "kernelSize" : 4,
+              "residual" : "add-input",
+              "site" : "ffn-branch-output"
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "capabilities" : [
+    "run.predict-future-hidden"
+  ],
+  "compile" : [
+    {
+      "key" : "frozen-ir",
+      "value" : "required"
+    },
+    {
+      "key" : "layout",
+      "value" : "model-agnostic multi-buffer"
+    },
+    {
+      "key" : "target",
+      "value" : "metal"
+    }
+  ],
+  "exportBindings" : [
+    {
+      "export" : "predict_hidden",
+      "flow" : "predict_hidden"
+    }
+  ],
+  "exports" : [
+    {
+      "capabilities" : [
+        "run.predict-future-hidden"
+      ],
+      "gates" : [
+
+      ],
+      "id" : "predict_hidden",
+      "inputs" : [
+        {
+          "name" : "base_hidden",
+          "optional" : false,
+          "type" : {
+            "attributes" : {
+              "dim" : "6144",
+              "dtype" : "bf16"
+            },
+            "name" : "hidden"
+          }
+        },
+        {
+          "name" : "token_hidden",
+          "optional" : false,
+          "type" : {
+            "attributes" : {
+              "dim" : "6144",
+              "dtype" : "bf16"
+            },
+            "name" : "hidden"
+          }
+        }
+      ],
+      "outputs" : [
+        {
+          "name" : "predicted_hidden",
+          "optional" : false,
+          "type" : {
+            "attributes" : {
+              "dim" : "6144",
+              "dtype" : "bf16"
+            },
+            "name" : "hidden"
+          }
+        }
+      ]
+    }
+  ],
+  "feedbackEdges" : [
+
+  ],
+  "flows" : [
+    {
+      "emit" : [
+        {
+          "kind" : "nodePort",
+          "node" : "mtp",
+          "port" : "predicted_hidden"
+        }
+      ],
+      "id" : "predict_hidden",
+      "phases" : [
+        {
+          "calls" : [
+            {
+              "kind" : "node",
+              "node" : "mtp"
+            }
+          ],
+          "role" : "step"
+        }
+      ],
+      "stop" : [
+
+      ]
+    }
+  ],
+  "gates" : [
+
+  ],
+  "graphEdges" : [
+    {
+      "from" : {
+        "kind" : "moduleInput",
+        "name" : "base_hidden"
+      },
+      "to" : {
+        "kind" : "nodePort",
+        "node" : "mtp",
+        "port" : "base_hidden"
+      },
+      "type" : {
+        "attributes" : {
+          "dim" : "6144",
+          "dtype" : "bf16"
+        },
+        "name" : "hidden"
+      }
+    },
+    {
+      "from" : {
+        "kind" : "moduleInput",
+        "name" : "token_hidden"
+      },
+      "to" : {
+        "kind" : "nodePort",
+        "node" : "mtp",
+        "port" : "token_hidden"
+      },
+      "type" : {
+        "attributes" : {
+          "dim" : "6144",
+          "dtype" : "bf16"
+        },
+        "name" : "hidden"
+      }
+    },
+    {
+      "from" : {
+        "kind" : "nodePort",
+        "node" : "mtp",
+        "port" : "predicted_hidden"
+      },
+      "to" : {
+        "kind" : "moduleOutput",
+        "name" : "predicted_hidden"
+      },
+      "type" : {
+        "attributes" : {
+          "dim" : "6144",
+          "dtype" : "bf16"
+        },
+        "name" : "hidden"
+      }
+    }
+  ],
+  "graphNodes" : [
+    {
+      "annotations" : [
+        {
+          "key" : "artifact",
+          "value" : "baked-inline"
+        },
+        {
+          "key" : "tag",
+          "value" : "multi-token-predictor"
+        }
+      ],
+      "block" : "mtp",
+      "id" : "mtp",
+      "implementation" : "compiled",
+      "inputs" : [
+        {
+          "name" : "base_hidden",
+          "optional" : false,
+          "type" : {
+            "attributes" : {
+              "dim" : "6144",
+              "dtype" : "bf16"
+            },
+            "name" : "hidden"
+          }
+        },
+        {
+          "name" : "token_hidden",
+          "optional" : false,
+          "type" : {
+            "attributes" : {
+              "dim" : "6144",
+              "dtype" : "bf16"
+            },
+            "name" : "hidden"
+          }
+        }
+      ],
+      "outputs" : [
+        {
+          "name" : "predicted_hidden",
+          "optional" : false,
+          "type" : {
+            "attributes" : {
+              "dim" : "6144",
+              "dtype" : "bf16"
+            },
+            "name" : "hidden"
+          }
+        }
+      ]
+    }
+  ],
+  "imports" : [
+
+  ],
+  "module" : {
+    "id" : "inkling_mtp"
+  },
+  "quantization" : [
+    {
+      "action" : "preserve",
+      "priority" : 20,
+      "resolution" : "source-deferred",
+      "selector" : {
+        "pattern" : "*norm*",
+        "source" : "weights"
+      },
+      "source" : "weights"
+    },
+    {
+      "action" : "preserve",
+      "priority" : 20,
+      "resolution" : "source-deferred",
+      "selector" : {
+        "pattern" : "*relative*",
+        "source" : "weights"
+      },
+      "source" : "weights"
+    },
+    {
+      "action" : "preserve",
+      "priority" : 20,
+      "resolution" : "source-deferred",
+      "selector" : {
+        "pattern" : "*sconv*",
+        "source" : "weights"
+      },
+      "source" : "weights"
+    },
+    {
+      "action" : "default",
+      "resolution" : "declared-tensor",
+      "selector" : {
+        "pattern" : "*",
+        "source" : "weights"
+      },
+      "storage" : {
+        "format" : "affine-u4",
+        "groupSize" : 64
+      }
+    }
+  ],
+  "schemaVersion" : 4,
+  "sourceQuantization" : [
+
+  ],
+  "sources" : [
+    {
+      "byteCount" : 128600,
+      "id" : "checkpoint-index",
+      "kind" : "hf-file",
+      "locator" : "thinkingmachines/Inkling/model.safetensors.index.json",
+      "revision" : "e4aa5ee880fbb0d2c1a93b1e4a39f2d4b97eb28a",
+      "sha256" : "6bdebc2a928b1be96e1666b40704a4222ee0c764c2611247bb8ad4d485ea9a97"
+    },
+    {
+      "id" : "checkpoint-index-nvfp4",
+      "kind" : "hf-file",
+      "locator" : "thinkingmachines/Inkling/model.safetensors.index.json",
+      "revision" : "1fa46988f638221367b5fdeee4e86d5c9882ae23",
+      "sha256" : "23e5784d569500563c2603920d0d2e7240caab5daa627bb5928e3d092fc6e560"
+    },
+    {
+      "byteCount" : 2415,
+      "id" : "config",
+      "kind" : "hf-file",
+      "locator" : "thinkingmachines/Inkling/config.json",
+      "revision" : "e4aa5ee880fbb0d2c1a93b1e4a39f2d4b97eb28a",
+      "sha256" : "58720f145bcecef9a7ab2b419ab346e7c634af8d2f3e7362e900d00f789ea46c"
+    },
+    {
+      "byteCount" : 1110,
+      "id" : "processor",
+      "kind" : "hf-file",
+      "locator" : "thinkingmachines/Inkling/processor_config.json",
+      "revision" : "e4aa5ee880fbb0d2c1a93b1e4a39f2d4b97eb28a",
+      "sha256" : "b4a3962ea5f7ec39f40b5cf14e57ce99776c3dcce4756a110f7a169809e3a04c"
+    },
+    {
+      "id" : "reference",
+      "kind" : "git",
+      "locator" : "huggingface/transformers/src/transformers/models/inkling",
+      "revision" : "28596623762cb409bb1c9234f04bfb1269b1ece1"
+    },
+    {
+      "byteCount" : 6294,
+      "id" : "renderer",
+      "kind" : "hf-file",
+      "locator" : "thinkingmachines/Inkling/chat_template.jinja",
+      "revision" : "e4aa5ee880fbb0d2c1a93b1e4a39f2d4b97eb28a",
+      "sha256" : "0aa1aa0c729d90176dcaa00c440c8faffca2957ffb2cc4b79456ee6d02bcf43b"
+    },
+    {
+      "byteCount" : 517,
+      "id" : "special-tokens",
+      "kind" : "hf-file",
+      "locator" : "thinkingmachines/Inkling/special_tokens_map.json",
+      "revision" : "e4aa5ee880fbb0d2c1a93b1e4a39f2d4b97eb28a",
+      "sha256" : "abc97715b4b3b30eb65ea6895afd7b529c32bd10c28901f9ddae7edc39723b0f"
+    },
+    {
+      "id" : "tokenizer",
+      "kind" : "hf-file",
+      "locator" : "thinkingmachines/Inkling/tokenizer.json",
+      "revision" : "e4aa5ee880fbb0d2c1a93b1e4a39f2d4b97eb28a"
+    },
+    {
+      "byteCount" : 12111,
+      "id" : "tokenizer-config",
+      "kind" : "hf-file",
+      "locator" : "thinkingmachines/Inkling/tokenizer_config.json",
+      "revision" : "e4aa5ee880fbb0d2c1a93b1e4a39f2d4b97eb28a",
+      "sha256" : "2e36c9748a2081abb935b2e745ee22e82efa32589c2500df7e5bc0f93145cd77"
+    },
+    {
+      "id" : "weights",
+      "kind" : "hf",
+      "locator" : "thinkingmachines/Inkling",
+      "revision" : "e4aa5ee880fbb0d2c1a93b1e4a39f2d4b97eb28a"
+    },
+    {
+      "id" : "weights-nvfp4",
+      "kind" : "hf",
+      "locator" : "thinkingmachines/Inkling",
+      "revision" : "1fa46988f638221367b5fdeee4e86d5c9882ae23"
+    }
+  ],
+  "tensors" : [
+    {
+      "owner" : "mtp",
+      "selector" : {
+        "pattern" : "model.mtp.*",
+        "source" : "weights"
+      },
+      "source" : "weights",
+      "target" : {
+        "block" : "mtp",
+        "selector" : "*"
+      }
+    }
+  ]
+}

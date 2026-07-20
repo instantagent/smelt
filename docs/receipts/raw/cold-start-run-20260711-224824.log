@@ -1,0 +1,30 @@
+[22:48:24] === cold-start receipt run 20260711-224824 ===
+[22:48:24] machine: Apple M2 Max | macOS 15.7.5 (24G624) | 32GB
+[22:48:24] N=12 prompt="Explain gravity in one short sentence."  raw -> <repo>/docs/receipts/raw/cold-start-raw-20260711-224824.tsv
+[22:48:24] CELL ia_cold  load: 5.23 4.96 4.65
+[22:48:28] CELL ia_warm  load: 5.13 4.94 4.65
+[22:48:30] CELL ia_linger  load: 5.12 4.94 4.65
+[22:48:33] CELL llamacpp_cold  load: 5.12 4.94 4.65
+[22:48:54] CELL llamacpp_warm  load: 4.86 4.90 4.64
+[22:51:20] CELL ollama_cold  load: 5.85 5.16 4.77
+[22:51:41] CELL ollama_warm  load: 5.45 5.10 4.76
+[22:52:25] CELL mlx_cold  load: 8.75 5.98 5.10
+[22:52:56] CELL mlx_warm  load: 7.07 5.84 5.08
+[22:53:25] CELL tts_cold  load: 5.74 5.63 5.03
+[22:53:38] CELL tts_warm  load: 5.24 5.53 5.00
+[22:53:48] CELL tts_linger  load: 5.39 5.55 5.01
+[22:53:54] === summary (median / min / max) ===
+cell               n  ttft_med  ttft_min  ttft_max  exit_med
+ia_cold           12     268.4     264.1     275.5     270.3
+ia_warm           12     112.5     107.0     114.5     114.2
+ia_linger         12      28.8      27.7      45.2      29.3
+llamacpp_cold     12    1316.5    1301.9    1628.4    1610.1
+llamacpp_warm     12    1180.2    1124.8    1647.4    1608.7
+ollama_cold       12    1354.7    1351.2    4392.0    1355.6
+ollama_warm       12     256.6     250.3     263.0     257.5
+mlx_cold          12    2327.9    2230.3    2856.5    2408.2
+mlx_warm          12    2232.4    2144.4    2327.5    2312.8
+tts_cold          12     301.0     283.0     310.0       0.3
+tts_warm          12     298.5     287.0     312.0       0.3
+tts_linger        12      94.0      91.0    1503.0       0.1
+[22:53:54] done. raw: <repo>/docs/receipts/raw/cold-start-raw-20260711-224824.tsv

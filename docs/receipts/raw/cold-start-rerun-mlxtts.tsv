@@ -1,0 +1,66 @@
+cell	trial	ttft_ms	exit_ms	rc	stdout_bytes	note
+# mlx_cold load: 3.59 4.72 4.74
+mlx_cold	1	2440.2	2522.4	0	142	cold
+mlx_cold	2	2418.5	2506.5	0	142	cold
+mlx_cold	3	2332.3	2408.8	0	142	cold
+mlx_cold	4	2344.4	2421.2	0	142	cold
+mlx_cold	5	2284.5	2369.8	0	142	cold
+mlx_cold	6	2240.1	2317.6	0	142	cold
+mlx_cold	7	2203.1	2285.6	0	142	cold
+mlx_cold	8	2193.4	2277.8	0	142	cold
+mlx_cold	9	2400.9	2493.1	0	142	cold
+mlx_cold	10	2297.7	2376.6	0	142	cold
+mlx_cold	11	2278.4	2356.4	0	142	cold
+mlx_cold	12	2256.8	2333.3	0	142	cold
+# mlx_warm load: 4.12 4.73 4.74
+mlx_warm	1	2207.8	2287.9	0	142	warm
+mlx_warm	2	2260.0	2341.9	0	142	warm
+mlx_warm	3	2216.8	2291.1	0	142	warm
+mlx_warm	4	2219.7	2298.4	0	142	warm
+mlx_warm	5	2228.2	2305.9	0	142	warm
+mlx_warm	6	2268.5	2352.2	0	142	warm
+mlx_warm	7	2216.0	2293.5	0	142	warm
+mlx_warm	8	2221.6	2295.9	0	142	warm
+mlx_warm	9	2237.2	2316.3	0	142	warm
+mlx_warm	10	2185.7	2262.2	0	142	warm
+mlx_warm	11	2238.5	2313.8	0	142	warm
+mlx_warm	12	2200.6	2277.5	0	142	warm
+# tts_cold load: 3.70 4.58 4.69
+tts_cold	1	977.1	1010.6	0	0	full_cold_exit_ms; ia_ttfa_stamp_ms=303(load->1staudio)
+tts_cold	2	939.6	982.3	0	0	full_cold_exit_ms; ia_ttfa_stamp_ms=295(load->1staudio)
+tts_cold	3	946.2	985.3	0	0	full_cold_exit_ms; ia_ttfa_stamp_ms=295(load->1staudio)
+tts_cold	4	932.1	974.9	0	0	full_cold_exit_ms; ia_ttfa_stamp_ms=294(load->1staudio)
+tts_cold	5	932.1	967.2	0	0	full_cold_exit_ms; ia_ttfa_stamp_ms=282(load->1staudio)
+tts_cold	6	931.7	965.3	0	0	full_cold_exit_ms; ia_ttfa_stamp_ms=295(load->1staudio)
+tts_cold	7	920.4	953.3	0	0	full_cold_exit_ms; ia_ttfa_stamp_ms=289(load->1staudio)
+tts_cold	8	920.1	959.6	0	0	full_cold_exit_ms; ia_ttfa_stamp_ms=281(load->1staudio)
+tts_cold	9	929.0	963.9	0	0	full_cold_exit_ms; ia_ttfa_stamp_ms=286(load->1staudio)
+tts_cold	10	935.9	970.3	0	0	full_cold_exit_ms; ia_ttfa_stamp_ms=290(load->1staudio)
+tts_cold	11	941.8	977.4	0	0	full_cold_exit_ms; ia_ttfa_stamp_ms=292(load->1staudio)
+tts_cold	12	947.1	984.7	0	0	full_cold_exit_ms; ia_ttfa_stamp_ms=289(load->1staudio)
+# tts_warm load: 3.69 4.54 4.67
+tts_warm	1	686.9	720.4	0	0	full_cold_exit_ms; ia_ttfa_stamp_ms=292(load->1staudio)
+tts_warm	2	690.9	730.7	0	0	full_cold_exit_ms; ia_ttfa_stamp_ms=290(load->1staudio)
+tts_warm	3	686.7	720.7	0	0	full_cold_exit_ms; ia_ttfa_stamp_ms=293(load->1staudio)
+tts_warm	4	678.4	722.5	0	0	full_cold_exit_ms; ia_ttfa_stamp_ms=296(load->1staudio)
+tts_warm	5	665.0	705.7	0	0	full_cold_exit_ms; ia_ttfa_stamp_ms=288(load->1staudio)
+tts_warm	6	661.7	702.8	0	0	full_cold_exit_ms; ia_ttfa_stamp_ms=287(load->1staudio)
+tts_warm	7	689.3	722.6	0	0	full_cold_exit_ms; ia_ttfa_stamp_ms=293(load->1staudio)
+tts_warm	8	676.9	712.6	0	0	full_cold_exit_ms; ia_ttfa_stamp_ms=292(load->1staudio)
+tts_warm	9	674.5	709.9	0	0	full_cold_exit_ms; ia_ttfa_stamp_ms=293(load->1staudio)
+tts_warm	10	701.7	737.0	0	0	full_cold_exit_ms; ia_ttfa_stamp_ms=296(load->1staudio)
+tts_warm	11	705.4	746.2	0	0	full_cold_exit_ms; ia_ttfa_stamp_ms=296(load->1staudio)
+tts_warm	12	701.0	734.9	0	0	full_cold_exit_ms; ia_ttfa_stamp_ms=296(load->1staudio)
+# tts_linger load: 3.51 4.47 4.64
+tts_linger	1	327.5	329.2	0	0	full_cold_exit_ms; ia_ttfa_stamp_ms=308(load->1staudio)
+tts_linger	2	102.1	103.7	0	0	full_cold_exit_ms; ia_ttfa_stamp_ms=85(load->1staudio)
+tts_linger	3	99.9	101.6	0	0	full_cold_exit_ms; ia_ttfa_stamp_ms=84(load->1staudio)
+tts_linger	4	100.0	101.9	0	0	full_cold_exit_ms; ia_ttfa_stamp_ms=83(load->1staudio)
+tts_linger	5	100.3	102.1	0	0	full_cold_exit_ms; ia_ttfa_stamp_ms=84(load->1staudio)
+tts_linger	6	101.1	103.2	0	0	full_cold_exit_ms; ia_ttfa_stamp_ms=84(load->1staudio)
+tts_linger	7	100.8	102.5	0	0	full_cold_exit_ms; ia_ttfa_stamp_ms=84(load->1staudio)
+tts_linger	8	101.3	103.1	0	0	full_cold_exit_ms; ia_ttfa_stamp_ms=84(load->1staudio)
+tts_linger	9	99.5	101.1	0	0	full_cold_exit_ms; ia_ttfa_stamp_ms=83(load->1staudio)
+tts_linger	10	100.9	102.6	0	0	full_cold_exit_ms; ia_ttfa_stamp_ms=84(load->1staudio)
+tts_linger	11	99.3	101.1	0	0	full_cold_exit_ms; ia_ttfa_stamp_ms=83(load->1staudio)
+tts_linger	12	99.5	101.2	0	0	full_cold_exit_ms; ia_ttfa_stamp_ms=84(load->1staudio)

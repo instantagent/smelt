@@ -1,0 +1,2 @@
+# id	module_path	artifact_root	output_package	evidence_json
+qwen36_27b	Models/qwen36_27b.module.json	artifacts/qwen36-27b-dev/Qwen_Qwen3.6-27B-build-source.smeltpkg	artifacts/qwen36-27b-dev/Qwen_Qwen3.6-27B.smeltpkg	qwen36-27b-build.json

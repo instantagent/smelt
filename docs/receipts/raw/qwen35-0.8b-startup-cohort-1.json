@@ -1,0 +1,897 @@
+{
+  "schema": 1,
+  "kind": "agent.module.text_startup_evidence",
+  "command": [
+    ".build/release/ia",
+    "run",
+    "artifacts/qwen35-0.8b-qmm16x128/Qwen_Qwen3.5-0.8B.agent",
+    "--prompt",
+    "hi",
+    "--max-tokens",
+    "1",
+    "--temp",
+    "0"
+  ],
+  "package": "./artifacts/qwen35-0.8b-qmm16x128/Qwen_Qwen3.5-0.8B.agent",
+  "package_realpath": "./artifacts/qwen35-0.8b-qmm16x128/Qwen_Qwen3.5-0.8B.agent",
+  "manifest_sha256": "302ce7db629daa06bb77a0cdadb9448417fa0206f5c8f3cf23010ae4cfc4bf24",
+  "package_profile": true,
+  "profile_gate": "text.decode-prefill-startup",
+  "iterations": 12,
+  "warmup": 1,
+  "first_ms": 104.7987500205636,
+  "median_ms": 99.759291857481,
+  "p95_ms": 108.22404222562909,
+  "trace_first_token_first_ms": 89.29999999999998,
+  "trace_first_token_median_ms": 83.5,
+  "required_output_metrics": [
+    "trace_first_token_ms"
+  ],
+  "required_trace_labels": [
+    "exec -> main (dyld)",
+    "tokenizer load",
+    "AgentModel init (total)"
+  ],
+  "min_ms": 86.11679170280695,
+  "max_ms": 109.99045800417662,
+  "samples": [
+    {
+      "index": 0,
+      "phase": "warmup",
+      "wall_ms": 99.3116251192987,
+      "startup": [
+        {
+          "label": "exec -> main (dyld)",
+          "ms": 4.4
+        },
+        {
+          "label": "tokenizer load",
+          "ms": 1.3
+        },
+        {
+          "label": "(total     0.1ms)  manifest decode",
+          "ms": 0.1
+        },
+        {
+          "label": "(total     0.1ms)  bake honesty",
+          "ms": 0.1
+        },
+        {
+          "label": "(total     0.2ms)  mmap region",
+          "ms": 0.0
+        },
+        {
+          "label": "(total    41.9ms)  Metal device + queue (overlapped)",
+          "ms": 41.7
+        },
+        {
+          "label": "(total    42.6ms)  metallib load",
+          "ms": 0.7
+        },
+        {
+          "label": "(total    42.7ms)  dispatch tables",
+          "ms": 0.1
+        },
+        {
+          "label": "(total    42.8ms)  pipeline states (0/418, 25 async)",
+          "ms": 0.1
+        },
+        {
+          "label": "(total    44.1ms)  buffer alloc",
+          "ms": 1.3
+        },
+        {
+          "label": "(total    50.3ms)  weights join + residency",
+          "ms": 6.2
+        },
+        {
+          "label": "AgentModel init (total)",
+          "ms": 50.5
+        },
+        {
+          "label": "pipeline materialization wait",
+          "ms": 0.0
+        }
+      ],
+      "prompt_tokens": 13,
+      "prefill_ms": 28.5,
+      "generate_ms": 0.0,
+      "tok_s": 932067.6,
+      "trace_first_token_ms": 84.7,
+      "generated": "[9419]",
+      "stdout_preview": "Hello\n"
+    },
+    {
+      "index": 0,
+      "phase": "timed",
+      "wall_ms": 104.7987500205636,
+      "startup": [
+        {
+          "label": "exec -> main (dyld)",
+          "ms": 5.7
+        },
+        {
+          "label": "tokenizer load",
+          "ms": 1.4
+        },
+        {
+          "label": "(total     0.1ms)  manifest decode",
+          "ms": 0.1
+        },
+        {
+          "label": "(total     0.2ms)  bake honesty",
+          "ms": 0.1
+        },
+        {
+          "label": "(total     0.2ms)  mmap region",
+          "ms": 0.0
+        },
+        {
+          "label": "(total    49.9ms)  Metal device + queue (overlapped)",
+          "ms": 49.7
+        },
+        {
+          "label": "(total    50.6ms)  metallib load",
+          "ms": 0.7
+        },
+        {
+          "label": "(total    50.7ms)  dispatch tables",
+          "ms": 0.1
+        },
+        {
+          "label": "(total    50.9ms)  pipeline states (0/418, 25 async)",
+          "ms": 0.2
+        },
+        {
+          "label": "(total    52.3ms)  buffer alloc",
+          "ms": 1.4
+        },
+        {
+          "label": "(total    58.6ms)  weights join + residency",
+          "ms": 6.3
+        },
+        {
+          "label": "AgentModel init (total)",
+          "ms": 58.8
+        },
+        {
+          "label": "pipeline materialization wait",
+          "ms": 0.0
+        }
+      ],
+      "prompt_tokens": 13,
+      "prefill_ms": 23.4,
+      "generate_ms": 0.0,
+      "tok_s": Infinity,
+      "trace_first_token_ms": 89.29999999999998,
+      "generated": "[9419]",
+      "stdout_preview": "Hello\n"
+    },
+    {
+      "index": 1,
+      "phase": "timed",
+      "wall_ms": 98.92329201102257,
+      "startup": [
+        {
+          "label": "exec -> main (dyld)",
+          "ms": 5.4
+        },
+        {
+          "label": "tokenizer load",
+          "ms": 1.4
+        },
+        {
+          "label": "(total     0.1ms)  manifest decode",
+          "ms": 0.1
+        },
+        {
+          "label": "(total     0.1ms)  bake honesty",
+          "ms": 0.1
+        },
+        {
+          "label": "(total     0.2ms)  mmap region",
+          "ms": 0.0
+        },
+        {
+          "label": "(total    47.0ms)  Metal device + queue (overlapped)",
+          "ms": 46.9
+        },
+        {
+          "label": "(total    47.7ms)  metallib load",
+          "ms": 0.7
+        },
+        {
+          "label": "(total    47.8ms)  dispatch tables",
+          "ms": 0.1
+        },
+        {
+          "label": "(total    48.0ms)  pipeline states (0/418, 25 async)",
+          "ms": 0.2
+        },
+        {
+          "label": "(total    49.4ms)  buffer alloc",
+          "ms": 1.4
+        },
+        {
+          "label": "(total    55.6ms)  weights join + residency",
+          "ms": 6.2
+        },
+        {
+          "label": "AgentModel init (total)",
+          "ms": 55.8
+        },
+        {
+          "label": "pipeline materialization wait",
+          "ms": 0.0
+        }
+      ],
+      "prompt_tokens": 13,
+      "prefill_ms": 20.9,
+      "generate_ms": 0.0,
+      "tok_s": 932067.6,
+      "trace_first_token_ms": 83.5,
+      "generated": "[9419]",
+      "stdout_preview": "Hello\n"
+    },
+    {
+      "index": 2,
+      "phase": "timed",
+      "wall_ms": 100.27745878323913,
+      "startup": [
+        {
+          "label": "exec -> main (dyld)",
+          "ms": 5.8
+        },
+        {
+          "label": "tokenizer load",
+          "ms": 1.7
+        },
+        {
+          "label": "(total     0.1ms)  manifest decode",
+          "ms": 0.1
+        },
+        {
+          "label": "(total     0.2ms)  bake honesty",
+          "ms": 0.1
+        },
+        {
+          "label": "(total     0.2ms)  mmap region",
+          "ms": 0.0
+        },
+        {
+          "label": "(total    48.6ms)  Metal device + queue (overlapped)",
+          "ms": 48.4
+        },
+        {
+          "label": "(total    49.3ms)  metallib load",
+          "ms": 0.7
+        },
+        {
+          "label": "(total    49.4ms)  dispatch tables",
+          "ms": 0.1
+        },
+        {
+          "label": "(total    49.6ms)  pipeline states (0/418, 25 async)",
+          "ms": 0.1
+        },
+        {
+          "label": "(total    51.0ms)  buffer alloc",
+          "ms": 1.4
+        },
+        {
+          "label": "(total    57.4ms)  weights join + residency",
+          "ms": 6.4
+        },
+        {
+          "label": "AgentModel init (total)",
+          "ms": 57.6
+        },
+        {
+          "label": "pipeline materialization wait",
+          "ms": 0.0
+        }
+      ],
+      "prompt_tokens": 13,
+      "prefill_ms": 18.4,
+      "generate_ms": 0.0,
+      "tok_s": Infinity,
+      "trace_first_token_ms": 83.5,
+      "generated": "[9419]",
+      "stdout_preview": "Hello\n"
+    },
+    {
+      "index": 3,
+      "phase": "timed",
+      "wall_ms": 102.45233308523893,
+      "startup": [
+        {
+          "label": "exec -> main (dyld)",
+          "ms": 5.6
+        },
+        {
+          "label": "tokenizer load",
+          "ms": 1.5
+        },
+        {
+          "label": "(total     0.1ms)  manifest decode",
+          "ms": 0.1
+        },
+        {
+          "label": "(total     0.1ms)  bake honesty",
+          "ms": 0.1
+        },
+        {
+          "label": "(total     0.2ms)  mmap region",
+          "ms": 0.0
+        },
+        {
+          "label": "(total    51.9ms)  Metal device + queue (overlapped)",
+          "ms": 51.7
+        },
+        {
+          "label": "(total    52.6ms)  metallib load",
+          "ms": 0.7
+        },
+        {
+          "label": "(total    52.7ms)  dispatch tables",
+          "ms": 0.1
+        },
+        {
+          "label": "(total    52.8ms)  pipeline states (0/418, 25 async)",
+          "ms": 0.1
+        },
+        {
+          "label": "(total    54.2ms)  buffer alloc",
+          "ms": 1.4
+        },
+        {
+          "label": "(total    60.4ms)  weights join + residency",
+          "ms": 6.2
+        },
+        {
+          "label": "AgentModel init (total)",
+          "ms": 60.6
+        },
+        {
+          "label": "pipeline materialization wait",
+          "ms": 0.0
+        }
+      ],
+      "prompt_tokens": 13,
+      "prefill_ms": 18.5,
+      "generate_ms": 0.0,
+      "tok_s": 932067.6,
+      "trace_first_token_ms": 86.2,
+      "generated": "[9419]",
+      "stdout_preview": "Hello\n"
+    },
+    {
+      "index": 4,
+      "phase": "timed",
+      "wall_ms": 97.83454099670053,
+      "startup": [
+        {
+          "label": "exec -> main (dyld)",
+          "ms": 5.7
+        },
+        {
+          "label": "tokenizer load",
+          "ms": 1.4
+        },
+        {
+          "label": "(total     0.1ms)  manifest decode",
+          "ms": 0.1
+        },
+        {
+          "label": "(total     0.1ms)  bake honesty",
+          "ms": 0.1
+        },
+        {
+          "label": "(total     0.2ms)  mmap region",
+          "ms": 0.0
+        },
+        {
+          "label": "(total    47.5ms)  Metal device + queue (overlapped)",
+          "ms": 47.3
+        },
+        {
+          "label": "(total    48.3ms)  metallib load",
+          "ms": 0.8
+        },
+        {
+          "label": "(total    48.4ms)  dispatch tables",
+          "ms": 0.2
+        },
+        {
+          "label": "(total    48.6ms)  pipeline states (0/418, 25 async)",
+          "ms": 0.2
+        },
+        {
+          "label": "(total    49.9ms)  buffer alloc",
+          "ms": 1.3
+        },
+        {
+          "label": "(total    55.5ms)  weights join + residency",
+          "ms": 5.6
+        },
+        {
+          "label": "AgentModel init (total)",
+          "ms": 55.7
+        },
+        {
+          "label": "pipeline materialization wait",
+          "ms": 0.0
+        }
+      ],
+      "prompt_tokens": 13,
+      "prefill_ms": 18.5,
+      "generate_ms": 0.0,
+      "tok_s": 1048576.0,
+      "trace_first_token_ms": 81.30000000000001,
+      "generated": "[9419]",
+      "stdout_preview": "Hello\n"
+    },
+    {
+      "index": 5,
+      "phase": "timed",
+      "wall_ms": 86.11679170280695,
+      "startup": [
+        {
+          "label": "exec -> main (dyld)",
+          "ms": 5.6
+        },
+        {
+          "label": "tokenizer load",
+          "ms": 1.4
+        },
+        {
+          "label": "(total     0.1ms)  manifest decode",
+          "ms": 0.1
+        },
+        {
+          "label": "(total     0.1ms)  bake honesty",
+          "ms": 0.1
+        },
+        {
+          "label": "(total     0.2ms)  mmap region",
+          "ms": 0.0
+        },
+        {
+          "label": "(total    37.2ms)  Metal device + queue (overlapped)",
+          "ms": 37.0
+        },
+        {
+          "label": "(total    37.8ms)  metallib load",
+          "ms": 0.6
+        },
+        {
+          "label": "(total    37.9ms)  dispatch tables",
+          "ms": 0.1
+        },
+        {
+          "label": "(total    38.1ms)  pipeline states (0/418, 25 async)",
+          "ms": 0.1
+        },
+        {
+          "label": "(total    39.2ms)  buffer alloc",
+          "ms": 1.2
+        },
+        {
+          "label": "(total    44.9ms)  weights join + residency",
+          "ms": 5.6
+        },
+        {
+          "label": "AgentModel init (total)",
+          "ms": 45.1
+        },
+        {
+          "label": "pipeline materialization wait",
+          "ms": 0.0
+        }
+      ],
+      "prompt_tokens": 13,
+      "prefill_ms": 17.6,
+      "generate_ms": 0.0,
+      "tok_s": Infinity,
+      "trace_first_token_ms": 69.7,
+      "generated": "[9419]",
+      "stdout_preview": "Hello\n"
+    },
+    {
+      "index": 6,
+      "phase": "timed",
+      "wall_ms": 103.05670881643891,
+      "startup": [
+        {
+          "label": "exec -> main (dyld)",
+          "ms": 5.6
+        },
+        {
+          "label": "tokenizer load",
+          "ms": 1.3
+        },
+        {
+          "label": "(total     0.1ms)  manifest decode",
+          "ms": 0.1
+        },
+        {
+          "label": "(total     0.1ms)  bake honesty",
+          "ms": 0.1
+        },
+        {
+          "label": "(total     0.2ms)  mmap region",
+          "ms": 0.0
+        },
+        {
+          "label": "(total    42.4ms)  Metal device + queue (overlapped)",
+          "ms": 42.3
+        },
+        {
+          "label": "(total    43.2ms)  metallib load",
+          "ms": 0.7
+        },
+        {
+          "label": "(total    43.3ms)  dispatch tables",
+          "ms": 0.1
+        },
+        {
+          "label": "(total    43.5ms)  pipeline states (0/418, 25 async)",
+          "ms": 0.1
+        },
+        {
+          "label": "(total    44.7ms)  buffer alloc",
+          "ms": 1.2
+        },
+        {
+          "label": "(total    50.2ms)  weights join + residency",
+          "ms": 5.5
+        },
+        {
+          "label": "AgentModel init (total)",
+          "ms": 50.4
+        },
+        {
+          "label": "pipeline materialization wait",
+          "ms": 0.0
+        }
+      ],
+      "prompt_tokens": 13,
+      "prefill_ms": 29.7,
+      "generate_ms": 0.0,
+      "tok_s": 932067.6,
+      "trace_first_token_ms": 87.0,
+      "generated": "[9419]",
+      "stdout_preview": "Hello\n"
+    },
+    {
+      "index": 7,
+      "phase": "timed",
+      "wall_ms": 98.04495889693499,
+      "startup": [
+        {
+          "label": "exec -> main (dyld)",
+          "ms": 5.6
+        },
+        {
+          "label": "tokenizer load",
+          "ms": 1.5
+        },
+        {
+          "label": "(total     0.1ms)  manifest decode",
+          "ms": 0.1
+        },
+        {
+          "label": "(total     0.2ms)  bake honesty",
+          "ms": 0.1
+        },
+        {
+          "label": "(total     0.2ms)  mmap region",
+          "ms": 0.0
+        },
+        {
+          "label": "(total    45.9ms)  Metal device + queue (overlapped)",
+          "ms": 45.7
+        },
+        {
+          "label": "(total    46.7ms)  metallib load",
+          "ms": 0.8
+        },
+        {
+          "label": "(total    46.8ms)  dispatch tables",
+          "ms": 0.1
+        },
+        {
+          "label": "(total    47.0ms)  pipeline states (0/418, 25 async)",
+          "ms": 0.1
+        },
+        {
+          "label": "(total    48.4ms)  buffer alloc",
+          "ms": 1.4
+        },
+        {
+          "label": "(total    54.0ms)  weights join + residency",
+          "ms": 5.6
+        },
+        {
+          "label": "AgentModel init (total)",
+          "ms": 54.2
+        },
+        {
+          "label": "pipeline materialization wait",
+          "ms": 0.0
+        }
+      ],
+      "prompt_tokens": 13,
+      "prefill_ms": 19.8,
+      "generate_ms": 0.0,
+      "tok_s": 1048576.0,
+      "trace_first_token_ms": 81.10000000000001,
+      "generated": "[9419]",
+      "stdout_preview": "Hello\n"
+    },
+    {
+      "index": 8,
+      "phase": "timed",
+      "wall_ms": 108.22404222562909,
+      "startup": [
+        {
+          "label": "exec -> main (dyld)",
+          "ms": 5.7
+        },
+        {
+          "label": "tokenizer load",
+          "ms": 1.3
+        },
+        {
+          "label": "(total     0.1ms)  manifest decode",
+          "ms": 0.1
+        },
+        {
+          "label": "(total     0.1ms)  bake honesty",
+          "ms": 0.1
+        },
+        {
+          "label": "(total     0.2ms)  mmap region",
+          "ms": 0.0
+        },
+        {
+          "label": "(total    48.1ms)  Metal device + queue (overlapped)",
+          "ms": 48.0
+        },
+        {
+          "label": "(total    48.9ms)  metallib load",
+          "ms": 0.8
+        },
+        {
+          "label": "(total    49.1ms)  dispatch tables",
+          "ms": 0.2
+        },
+        {
+          "label": "(total    49.3ms)  pipeline states (0/418, 25 async)",
+          "ms": 0.1
+        },
+        {
+          "label": "(total    50.5ms)  buffer alloc",
+          "ms": 1.2
+        },
+        {
+          "label": "(total    56.1ms)  weights join + residency",
+          "ms": 5.6
+        },
+        {
+          "label": "AgentModel init (total)",
+          "ms": 56.3
+        },
+        {
+          "label": "pipeline materialization wait",
+          "ms": 0.0
+        }
+      ],
+      "prompt_tokens": 13,
+      "prefill_ms": 29.2,
+      "generate_ms": 0.0,
+      "tok_s": Infinity,
+      "trace_first_token_ms": 92.5,
+      "generated": "[9419]",
+      "stdout_preview": "Hello\n"
+    },
+    {
+      "index": 9,
+      "phase": "timed",
+      "wall_ms": 109.99045800417662,
+      "startup": [
+        {
+          "label": "exec -> main (dyld)",
+          "ms": 5.6
+        },
+        {
+          "label": "tokenizer load",
+          "ms": 1.5
+        },
+        {
+          "label": "(total     0.1ms)  manifest decode",
+          "ms": 0.1
+        },
+        {
+          "label": "(total     0.1ms)  bake honesty",
+          "ms": 0.1
+        },
+        {
+          "label": "(total     0.2ms)  mmap region",
+          "ms": 0.0
+        },
+        {
+          "label": "(total    49.9ms)  Metal device + queue (overlapped)",
+          "ms": 49.7
+        },
+        {
+          "label": "(total    50.6ms)  metallib load",
+          "ms": 0.7
+        },
+        {
+          "label": "(total    50.7ms)  dispatch tables",
+          "ms": 0.2
+        },
+        {
+          "label": "(total    50.9ms)  pipeline states (0/418, 25 async)",
+          "ms": 0.2
+        },
+        {
+          "label": "(total    52.2ms)  buffer alloc",
+          "ms": 1.3
+        },
+        {
+          "label": "(total    57.7ms)  weights join + residency",
+          "ms": 5.5
+        },
+        {
+          "label": "AgentModel init (total)",
+          "ms": 58.0
+        },
+        {
+          "label": "pipeline materialization wait",
+          "ms": 0.0
+        }
+      ],
+      "prompt_tokens": 13,
+      "prefill_ms": 28.8,
+      "generate_ms": 0.0,
+      "tok_s": 1048576.0,
+      "trace_first_token_ms": 93.89999999999999,
+      "generated": "[9419]",
+      "stdout_preview": "Hello\n"
+    },
+    {
+      "index": 10,
+      "phase": "timed",
+      "wall_ms": 99.24112493172288,
+      "startup": [
+        {
+          "label": "exec -> main (dyld)",
+          "ms": 5.6
+        },
+        {
+          "label": "tokenizer load",
+          "ms": 1.5
+        },
+        {
+          "label": "(total     0.1ms)  manifest decode",
+          "ms": 0.1
+        },
+        {
+          "label": "(total     0.1ms)  bake honesty",
+          "ms": 0.1
+        },
+        {
+          "label": "(total     0.2ms)  mmap region",
+          "ms": 0.0
+        },
+        {
+          "label": "(total    48.9ms)  Metal device + queue (overlapped)",
+          "ms": 48.7
+        },
+        {
+          "label": "(total    49.5ms)  metallib load",
+          "ms": 0.6
+        },
+        {
+          "label": "(total    49.6ms)  dispatch tables",
+          "ms": 0.1
+        },
+        {
+          "label": "(total    49.8ms)  pipeline states (0/418, 25 async)",
+          "ms": 0.1
+        },
+        {
+          "label": "(total    51.2ms)  buffer alloc",
+          "ms": 1.4
+        },
+        {
+          "label": "(total    56.5ms)  weights join + residency",
+          "ms": 5.3
+        },
+        {
+          "label": "AgentModel init (total)",
+          "ms": 56.7
+        },
+        {
+          "label": "pipeline materialization wait",
+          "ms": 0.0
+        }
+      ],
+      "prompt_tokens": 13,
+      "prefill_ms": 19.2,
+      "generate_ms": 0.0,
+      "tok_s": Infinity,
+      "trace_first_token_ms": 83.0,
+      "generated": "[9419]",
+      "stdout_preview": "Hello\n"
+    },
+    {
+      "index": 11,
+      "phase": "timed",
+      "wall_ms": 92.75920828804374,
+      "startup": [
+        {
+          "label": "exec -> main (dyld)",
+          "ms": 5.4
+        },
+        {
+          "label": "tokenizer load",
+          "ms": 1.4
+        },
+        {
+          "label": "(total     0.1ms)  manifest decode",
+          "ms": 0.1
+        },
+        {
+          "label": "(total     0.1ms)  bake honesty",
+          "ms": 0.1
+        },
+        {
+          "label": "(total     0.2ms)  mmap region",
+          "ms": 0.0
+        },
+        {
+          "label": "(total    44.9ms)  Metal device + queue (overlapped)",
+          "ms": 44.8
+        },
+        {
+          "label": "(total    45.7ms)  metallib load",
+          "ms": 0.7
+        },
+        {
+          "label": "(total    45.8ms)  dispatch tables",
+          "ms": 0.2
+        },
+        {
+          "label": "(total    46.0ms)  pipeline states (0/418, 25 async)",
+          "ms": 0.2
+        },
+        {
+          "label": "(total    47.4ms)  buffer alloc",
+          "ms": 1.4
+        },
+        {
+          "label": "(total    52.9ms)  weights join + residency",
+          "ms": 5.5
+        },
+        {
+          "label": "AgentModel init (total)",
+          "ms": 53.1
+        },
+        {
+          "label": "pipeline materialization wait",
+          "ms": 0.0
+        }
+      ],
+      "prompt_tokens": 13,
+      "prefill_ms": 17.5,
+      "generate_ms": 0.0,
+      "tok_s": 1048576.0,
+      "trace_first_token_ms": 77.4,
+      "generated": "[9419]",
+      "stdout_preview": "Hello\n"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+# mlx_lm stdout byte-order probe — evidence for the cold-start receipt's mlx marker semantics
+# What this is: a single instrumented run of the exact bench invocation, reading the child's
+# stdout pipe with a monotonic clock to record WHEN bytes arrive and in WHAT writes.
+# NOT a timed bench trial (N=1, uncontrolled cache state); it establishes byte order/flush only.
+# Probe date: 2026-07-13 12:33:38 CDT | mlx_lm 0.31.3 | Python 3.12.2
+#
+# --- probe script (verbatim) ---
+# import subprocess, time, sys
+# cmd = ["/tmp/mlx-venv/bin/python","-m","mlx_lm","generate",
+#        "--model","mlx-community/Qwen3.5-0.8B-4bit",
+#        "--prompt","Explain gravity in one short sentence.",
+#        "--max-tokens","1"]
+# errf = open("/tmp/mlx_probe.err","wb")
+# t0 = time.monotonic()
+# p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=errf, bufsize=0)
+# chunks=[]
+# while True:
+#     b = p.stdout.read(4096)   # read1-ish: returns whatever is available
+#     if not b:
+#         break
+#     dt = (time.monotonic()-t0)*1000
+#     chunks.append((dt, b))
+# p.wait()
+# texit = (time.monotonic()-t0)*1000
+# errf.close()
+# print(f"=== exit_ms={texit:.1f} rc={p.returncode} nchunks={len(chunks)} ===")
+# for i,(dt,b) in enumerate(chunks):
+#     print(f"chunk#{i} @{dt:.1f}ms len={len(b)} repr={b[:120]!r}")
+#
+# --- probe output ---
+=== exit_ms=2321.2 rc=0 nchunks=2 ===
+chunk#0 @2243.3ms len=19 repr=b'==========\nThinking'
+chunk#1 @2263.8ms len=123 repr=b'\n==========\nPrompt: 18 tokens, 253.799 tokens-per-sec\nGeneration: 1 tokens, 28606.035 tokens-per-sec\nPeak memory: 0.523 '

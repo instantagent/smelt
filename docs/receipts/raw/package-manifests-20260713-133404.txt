@@ -1,0 +1,34 @@
+# per-file sha256 manifests (find -L <pkg> -type f | sort | shasum -a 256), run 20260713-133404
+## ia package: <repo>/bench-packages/Qwen_Qwen3.5-0.8B.agent
+fca912f9714d892758ce35ef8e7c3c94abc9f7da4ab7b9ac53fd8317c63899c9  <repo>/bench-packages/Qwen_Qwen3.5-0.8B.agent/AgentGenerated.swift
+fa726562965348f48f64ec5cf180c685d7674203f99ab16f862c09c1c6eecbd8  <repo>/bench-packages/Qwen_Qwen3.5-0.8B.agent/dispatches.bin
+738369fcecf6051f2021cf0bb1c1cdd0af4cd9d5dd078bc17ad7390abded0fa9  <repo>/bench-packages/Qwen_Qwen3.5-0.8B.agent/manifest.json
+680d07bace965a348109db4b6293d38cb3c077aee6fb87595c3484627dacd145  <repo>/bench-packages/Qwen_Qwen3.5-0.8B.agent/model.metallib
+dd8a286215db439e39c16353d80f238a85dac312a5695faf9a4079008e74d5b7  <repo>/bench-packages/Qwen_Qwen3.5-0.8B.agent/module.json
+43d3e51bae99691c13f6c55737aef51f3d8aa041fe60ec0345bbe253b191951d  <repo>/bench-packages/Qwen_Qwen3.5-0.8B.agent/prefill_dispatches.bin
+43a814cc9b23a788db6427b844aaece1326293520307c755fe153e262264697b  <repo>/bench-packages/Qwen_Qwen3.5-0.8B.agent/tokenizer.bin
+5f9e4d4901a92b997e463c1f46055088b6cca5ca61a6522d1b9f64c4bb81cb42  <repo>/bench-packages/Qwen_Qwen3.5-0.8B.agent/tokenizer.json
+bd465e614548726075c748c4f6e705afa4e29e4083bf7109ab1e162b6d4a6048  <repo>/bench-packages/Qwen_Qwen3.5-0.8B.agent/weights.bin
+## tts package: <repo>/bench-packages/qwen3-tts.agent
+81aca2b6fac304944d8acf345272d8a9a727d5fc2e2e66b222ab4729340c7455  <repo>/bench-packages/qwen3-tts.agent/config.json
+40f6b9f3cf5c2c17fdbbb17c1a34fe91c1bc9c26304a2fed73a03d29f74dfba1  <repo>/bench-packages/qwen3-tts.agent/manifest.json
+599bab54075088774b1733fde865d5bd747cbcc7a547c5bc12610e874e26f5e3  <repo>/bench-packages/qwen3-tts.agent/merges.txt
+5c83ee4137f79d909d05661115c500c1862b643a3ce7b873055739f0a558b893  <repo>/bench-packages/qwen3-tts.agent/model.metallib
+1b0ee63d9cd38e16ba470ec264dcf98c8e26b2758c2f93bdbb17c9c8f4c36fc5  <repo>/bench-packages/qwen3-tts.agent/module.json
+dc3c31c3bdaedd5016382bb3cbe07323026775ad51f5a4fb564505992ae4a670  <repo>/bench-packages/qwen3-tts.agent/tokenizer_config.json
+4f529a16147e14d45446bc71ab5a6f3aa835d6ac2507d8a4814460fa3752cdc7  <repo>/bench-packages/qwen3-tts.agent/trunk-mtp/AgentGenerated.swift
+0d689438fb39c77f92e41cfbf0a11dab00978173a2bcf30505852a9352b7f80a  <repo>/bench-packages/qwen3-tts.agent/trunk-mtp/dispatches.bin
+a63003d2752875ffa856c170eb0beafa541cb5bc92f0d28b6e3a39e4de05dfcd  <repo>/bench-packages/qwen3-tts.agent/trunk-mtp/gptq_capture_points.json
+c749ef0e67b7d11d10a7bafb04bbeaa2e65e1f3c19b684ea0d28255c96130359  <repo>/bench-packages/qwen3-tts.agent/trunk-mtp/manifest.json
+5c83ee4137f79d909d05661115c500c1862b643a3ce7b873055739f0a558b893  <repo>/bench-packages/qwen3-tts.agent/trunk-mtp/model.metallib
+c0337f7685a662947bf990050a60595313ccc6bb7a43005d4e9e1c9d5d876f24  <repo>/bench-packages/qwen3-tts.agent/trunk-mtp/prefill_dispatches.bin
+3564d2c608a9aea7a6447e836edc90bd37d36156713244fd8e84c0e40fed800a  <repo>/bench-packages/qwen3-tts.agent/trunk-mtp/weights.bin
+4f529a16147e14d45446bc71ab5a6f3aa835d6ac2507d8a4814460fa3752cdc7  <repo>/bench-packages/qwen3-tts.agent/trunk/AgentGenerated.swift
+ef649138baa1812827a693198adb3c2ea499977124384790cb283ad36782b56e  <repo>/bench-packages/qwen3-tts.agent/trunk/dispatches.bin
+38922cf3d42de39a010959d0f304606a34e3818364268fa42752787efeb8a531  <repo>/bench-packages/qwen3-tts.agent/trunk/gptq_capture_points.json
+36e67b3f21881a59ea44c106bc1e40ddedada26b22e9515587ab245df454d751  <repo>/bench-packages/qwen3-tts.agent/trunk/manifest.json
+5c83ee4137f79d909d05661115c500c1862b643a3ce7b873055739f0a558b893  <repo>/bench-packages/qwen3-tts.agent/trunk/model.metallib
+25368bec44f51d76e14a37a45ecd90776119df903822f39f4cef51d2c4c8f9bd  <repo>/bench-packages/qwen3-tts.agent/trunk/prefill_dispatches.bin
+3564d2c608a9aea7a6447e836edc90bd37d36156713244fd8e84c0e40fed800a  <repo>/bench-packages/qwen3-tts.agent/trunk/weights.bin
+ca10d7e9fb3ed18575dd1e277a2579c16d108e32f27439684afa0e10b1440910  <repo>/bench-packages/qwen3-tts.agent/vocab.json
+3564d2c608a9aea7a6447e836edc90bd37d36156713244fd8e84c0e40fed800a  <repo>/bench-packages/qwen3-tts.agent/weights.bin
