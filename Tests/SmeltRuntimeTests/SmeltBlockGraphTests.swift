@@ -30,9 +30,9 @@ import Testing
         func b(_ g: SmeltBlockGraph, _ name: String) -> SmeltBlockGraph.Block {
             g.blocks.first { $0.name == name }!
         }
-        // LLM trunk: compiled, baked dispatch table in the MAIN package (not a sidecar subdir).
+        // LLM trunk: compiled dispatch table in the MAIN package (not a sidecar subdir).
         #expect(b(.tokenFeedbackText, "trunk").impl == .compiled)
-        #expect(b(.tokenFeedbackText, "trunk").compiledDelivery == .bakedInline)
+        #expect(b(.tokenFeedbackText, "trunk").compiledDelivery == .compiledInline)
         // TTS non-bf16 graph: the front-end + talker + MTP are HAND; codec-decoder is COMPILED
         // (runtime-emit) in EVERY build (its dtype-aware realizer covers u4/f16/f32 too).
         #expect(b(.qwen3TTS, "tts-frontend").impl == .native)
@@ -43,23 +43,23 @@ import Testing
         #expect(b(.qwen3TTS, "mtp-head").compiledDelivery == nil)
         #expect(b(.qwen3TTS, "codec-decoder").impl == .compiled)
         #expect(b(.qwen3TTS, "codec-decoder").compiledDelivery == .runtimeEmit)
-        // TTS bf16 graph: front-end is a COMPILED runtime-emit record table (1a-ii); talker baked in
+        // TTS bf16 graph: front-end is a COMPILED runtime-emit record table (1a-ii); talker compiled in
         // its own sidecar subdir; MTP native head wrapping a compiled internal transformer; codec
         // still runtime-emit.
         #expect(b(.qwen3TTSCompiledTalker, "tts-frontend").impl == .compiled)
         #expect(b(.qwen3TTSCompiledTalker, "tts-frontend").compiledDelivery == .runtimeEmit)
         #expect(b(.qwen3TTSCompiledTalker, "talker").impl == .compiled)
-        #expect(b(.qwen3TTSCompiledTalker, "talker").compiledDelivery == .bakedSidecar)
+        #expect(b(.qwen3TTSCompiledTalker, "talker").compiledDelivery == .compiledSidecar)
         #expect(b(.qwen3TTSCompiledTalker, "mtp-head").impl == .native)
         #expect(b(.qwen3TTSCompiledTalker, "mtp-head").compiledDelivery == .internalSidecar)
         #expect(b(.qwen3TTSCompiledTalker, "codec-decoder").compiledDelivery == .runtimeEmit)
-        // TTS u4 graph (Phase 3): trunks compiled (talker baked sidecar, MTP internal sidecar),
+        // TTS u4 graph (Phase 3): trunks compiled (talker sidecar, MTP internal sidecar),
         // but the front-end stays NATIVE — text_embedding is u4, no compiled u4 gather yet. The
         // honest u4 graph, distinct from the bf16 graph's compiled-front-end claim.
         #expect(b(.qwen3TTSCompiledTrunkNativeFrontEnd, "tts-frontend").impl == .native)
         #expect(b(.qwen3TTSCompiledTrunkNativeFrontEnd, "tts-frontend").compiledDelivery == nil)
         #expect(b(.qwen3TTSCompiledTrunkNativeFrontEnd, "talker").impl == .compiled)
-        #expect(b(.qwen3TTSCompiledTrunkNativeFrontEnd, "talker").compiledDelivery == .bakedSidecar)
+        #expect(b(.qwen3TTSCompiledTrunkNativeFrontEnd, "talker").compiledDelivery == .compiledSidecar)
         #expect(b(.qwen3TTSCompiledTrunkNativeFrontEnd, "mtp-head").impl == .native)
         #expect(b(.qwen3TTSCompiledTrunkNativeFrontEnd, "mtp-head").compiledDelivery == .internalSidecar)
         #expect(b(.qwen3TTSCompiledTrunkNativeFrontEnd, "codec-decoder").impl == .compiled)

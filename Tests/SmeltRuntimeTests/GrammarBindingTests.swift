@@ -108,7 +108,7 @@ private func enumValues(in schema: String) throws -> [String] {
 @Test func jsonEscapedPlaceholderIsStillASlot() throws {
     // The dollar sign spelled as a \u escape decodes to the same slot; a
     // raw-substring scan would miss this spelling and let the slot
-    // bake/run as a literal enum value.
+    // flow into execution as a literal enum value.
     let schema = "{\"enum\":[\"\\u0024bind:routes\"]}"
     #expect(!schema.contains("$bind:"))
     #expect(try SmeltGrammarBinding.placeholders(inJSONSchema: schema) == ["routes"])

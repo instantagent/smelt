@@ -568,6 +568,10 @@ public enum SmeltPipeline: Int, CaseIterable, Sendable {
     case denseBF16WF32Rows8 = 535
     case denseBF16WF32Rows8Epilogue = 536
     case noncausalAttentionQ8F32 = 537
+    case denseBF16WF32Rows8Columns2Epilogue = 538
+    case noncausalAttentionQ16F32 = 539
+    case fusedAffineMatvecAddC2048R1024G64BatchedFullB8 = 540
+    case fusedAffineMatvecAddC3584R1024G64BatchedFullB8 = 541
 
     // --- Prefill batched kernels ---
     case fusedLutMatmul = 25
@@ -3072,6 +3076,20 @@ public enum SmeltKernelCatalog {
         SmeltKernelSignature(pipeline: .denseBF16WF32Rows8, metalFunctionName: "dense_bf16w_f32_rows8", bufferBindingCount: 4, constantCount: 4),
         SmeltKernelSignature(pipeline: .denseBF16WF32Rows8Epilogue, metalFunctionName: "dense_bf16w_f32_rows8_epilogue", bufferBindingCount: 5, constantCount: 5),
         SmeltKernelSignature(pipeline: .noncausalAttentionQ8F32, metalFunctionName: "noncausal_attention_q8_f32", bufferBindingCount: 4, constantCount: 4),
+        SmeltKernelSignature(pipeline: .denseBF16WF32Rows8Columns2Epilogue, metalFunctionName: "dense_bf16w_f32_rows8_cols2_epilogue", bufferBindingCount: 5, constantCount: 5),
+        SmeltKernelSignature(pipeline: .noncausalAttentionQ16F32, metalFunctionName: "noncausal_attention_q16_f32", bufferBindingCount: 4, constantCount: 4),
+        SmeltKernelSignature(
+            pipeline: .fusedAffineMatvecAddC2048R1024G64BatchedFullB8,
+            metalFunctionName: "fused_affine_matvec_add_c2048_r1024_g64_batched_full_b8",
+            bufferBindingCount: 7,
+            constantCount: 1
+        ),
+        SmeltKernelSignature(
+            pipeline: .fusedAffineMatvecAddC3584R1024G64BatchedFullB8,
+            metalFunctionName: "fused_affine_matvec_add_c3584_r1024_g64_batched_full_b8",
+            bufferBindingCount: 7,
+            constantCount: 1
+        ),
     ]
 
     /// Look up a signature by pipeline case.

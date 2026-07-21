@@ -36,8 +36,10 @@ Run one package request:
 Serve a model package:
   smelt serve <model.smeltpkg> [serve options]
 
-Inspect and verify:
-  smelt verify <model.smeltpkg> [verify options]
+Measure and verify:
+  smelt lab <subcommand> [lab options]
+
+Inspect module contracts:
   smelt module <subcommand> [module options]
 """
 
@@ -56,23 +58,11 @@ case "run":
 case "build":
     runBuildCommand()
 
-case "prepare-prompt":
-    runPreparePromptCommand()
-
-case "vision-component-build":
-    runQwen35VisionComponentBuildCommand()
-
-case "rig-build":
-    runRigBuildCommand()
-
-case "optimizer-report":
-    runOptimizerReportCommand()
-
-case "optimize-next":
-    runOptimizeNextCommand()
-
 case "module":
     runCAMCommand()
+
+case "lab":
+    runLabCommand(args)
 
 // Internal: warm worker spawned by `smelt run --linger`.
 case "linger-worker":
@@ -81,50 +71,8 @@ case "linger-worker":
 case "serve":
     runServeCommand()
 
-case "bench-logprobs":
-    runBenchLogprobsCommand()
-
-case "replay":
-    runReplayCommand()
-
-case "bench":
-    runBenchCommand()
-
-case "mtp-bench":
-    runMtpBenchCommand()
-
-case "profile":
-    runProfileCommand()
-
-case "prefill-bench":
-    runPrefillBenchCommand()
-
-case "kernels":
-    runKernelsCommand()
-
-case "kernel-lab":
-    runKernelLabCommand()
-
-case "dispatches":
-    runDispatchesCommand()
-
-case "trace":
-    runTraceCommand()
-
-case "prefill-kernels":
-    runPrefillKernelsCommand()
-
-case "prefill":
-    runPrefillCommand()
-
-case "verify":
-    runVerifyCommand()
-
 case "cas":
     runCasCommand()
-
-case "module-profile":
-    runCAMProfileCommand()
 
 default:
     fputs("Unknown command: \(args[1])\n", stderr)

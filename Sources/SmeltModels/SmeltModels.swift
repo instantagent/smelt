@@ -19,6 +19,7 @@ public enum SmeltModels {
             qwen3TTS(),
             inkling(),
             inklingMTP(),
+      skinTokensArticulation(),
         ]
     }
 

@@ -5,7 +5,7 @@ import Testing
 
 @Suite struct SmeltCAMCheckedPackageProjectionTests {
     private static let syntheticQwen3TTSProjectedPackageSpecSHA256 =
-        "b8b48cecd28ad529abeca763eae06bf25290cd99f36d069142fc9cd8338f362f"
+        "84e0d579b69a6309625d7b9311ef52dfc442f9b53088f9ef2d14bb46ba1a82c1"
 
     @Test func attentionQKNormWeightSemanticsAreIndependentOfResidualNorm() throws {
         let ir = try SmeltCAMCheckedPackageProjector.sourceModelIR(
@@ -47,7 +47,7 @@ import Testing
         #expect(projection.packageFiles == expectedProjection.packageFiles)
         #expect(plan.runtime.routes.map(\.signature) == [
             "tokenizer:native:none",
-            "trunk:compiled:baked-inline",
+            "trunk:compiled:compiled-inline",
             "text-head:native:none",
         ])
         #expect(projection.spec.runtime.architecture == SmeltRuntimeGraphPolicy.textGeneration.rawValue)
@@ -140,7 +140,7 @@ import Testing
         #expect(projection.packageFiles.contains("prefill_dispatches.bin"))
         #expect(plan.runtime.routes.map(\.signature) == [
             "tokenizer:native:none",
-            "trunk:compiled:baked-inline",
+            "trunk:compiled:compiled-inline",
             "text-head:native:none",
         ])
         #expect(projection.spec.runtime.architecture == SmeltRuntimeGraphPolicy.textGeneration.rawValue)
@@ -249,7 +249,7 @@ import Testing
         #expect(plan.runtime.architecture == SmeltRuntimeGraphPolicy.sidecarTextToCodecAudio.rawValue)
         #expect(plan.runtime.routes.map(\.signature) == [
             "tts-frontend:native:none",
-            "talker:compiled:baked-sidecar",
+            "talker:compiled:compiled-sidecar",
             "codec-head:native:none",
             "mtp-head:native:internal-sidecar",
             "codec-decoder:compiled:runtime-emit",

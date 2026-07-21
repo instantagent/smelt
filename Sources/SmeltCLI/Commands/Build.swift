@@ -26,9 +26,15 @@ private struct BuildInputHeader: Decodable {
 
 func runBuildCommand() {
     guard args.count >= 3 else {
-        fputs("Usage: smelt build <model.module.json> [--module-source-package] [--weights-dir DIR] [--shader-dir DIR] --output DIR [--trace-mode full|stripped|stripped-markers] [--optimizer-report] [--module-artifact-root DIR] [--module-build-evidence-json FILE]\n", stderr)
-        fputs("  module packages: --module-artifact-root and --module-build-evidence-json are required for checked builds.\n", stderr)
-        fputs("  module source packages: --module-source-package, --weights-dir, --shader-dir, and --output are required.\n", stderr)
+    fputs(
+      "Usage: smelt build <model.module.json> [--module-source-package] [--weights-dir DIR | --source ID=PATH ...] [--shader-dir DIR] --output DIR [--trace-mode full|stripped|stripped-markers] [--optimizer-report] [--module-artifact-root DIR] [--module-build-evidence-json FILE]\n",
+      stderr)
+    fputs(
+      "  module packages: --module-artifact-root and --module-build-evidence-json are required for checked builds.\n",
+      stderr)
+    fputs(
+      "  module source packages: --module-source-package, source input, --shader-dir, and --output are required.\n",
+      stderr)
         exit(1)
     }
     let agentFile = args[2]
@@ -46,9 +52,11 @@ func runBuildCommand() {
                 fputs("Error: \(argumentError)\n", stderr)
                 exit(1)
             }
-            guard let traceMode = SmeltTraceMode(
+      guard
+        let traceMode = SmeltTraceMode(
                 rawValue: parseArg("--trace-mode", default: SmeltTraceMode.full.rawValue)
-            ) else {
+        )
+      else {
                 fputs("Error: --trace-mode must be one of: full, stripped, stripped-markers\n", stderr)
                 exit(1)
             }
@@ -57,11 +65,14 @@ func runBuildCommand() {
                     camPath: agentFile,
                     outputDirectory: outputDir,
                     weightsDir: parseArg("--weights-dir"),
+          sourceOverrides: try parseSourceOverrides(args),
                     shaderDir: parseArg("--shader-dir"),
                     traceMode: traceMode
                 )
                 fputs("Built: \(result.packagePath)\n", stderr)
-                fputs("  Generated Swift: \(result.generatedSwiftPath)\n", stderr)
+        if let generatedSwiftPath = result.generatedSwiftPath {
+          fputs("  Generated Swift: \(generatedSwiftPath)\n", stderr)
+        }
                 fputs("  Metal library:   \(result.metallibPath)\n", stderr)
                 fputs("  Manifest:        \(result.manifestPath)\n", stderr)
                 if hasArg("--optimizer-report") {
@@ -109,7 +120,8 @@ func runBuildCommand() {
     // JSON (which used to be sniffed here before falling through to the DSL parser).
     if let data = try? Data(contentsOf: URL(fileURLWithPath: agentFile)),
        let header = try? JSONDecoder().decode(BuildInputHeader.self, from: data),
-       header.looksLikeInternalPackageSpec {
+    header.looksLikeInternalPackageSpec
+  {
         fputs("Error: package spec JSON is internal; build a .module.json module instead\n", stderr)
         exit(1)
     }
@@ -119,4 +131,35 @@ func runBuildCommand() {
         stderr
     )
     exit(1)
+}
+
+private func parseSourceOverrides(_ command: [String]) throws -> [String: String] {
+  var overrides: [String: String] = [:]
+  var index = 3
+  while index < command.count {
+    guard command[index] == "--source" else {
+      index +=
+        command[index].hasPrefix("--")
+          && !["--module-source-package", "--optimizer-report"].contains(command[index])
+        ? 2 : 1
+      continue
+    }
+    guard index + 1 < command.count else {
+      throw SmeltCAMSourcePackageBuilderError.malformed("--source requires ID=PATH")
+    }
+    let value = command[index + 1]
+    let fields = value.split(separator: "=", maxSplits: 1, omittingEmptySubsequences: false)
+    guard fields.count == 2, !fields[0].isEmpty, !fields[1].isEmpty else {
+      throw SmeltCAMSourcePackageBuilderError.malformed("--source requires ID=PATH")
+    }
+    let id = String(fields[0])
+    guard overrides[id] == nil else {
+      throw SmeltCAMSourcePackageBuilderError.malformed(
+        "duplicate source override '\(id)'"
+      )
+    }
+    overrides[id] = String(fields[1])
+    index += 2
+  }
+  return overrides
 }

@@ -1,21 +1,21 @@
 import Foundation
 import SmeltRuntime
 
-func runKernelsCommand() {
+func runKernelsCommand(_ args: [String]) {
     guard args.count >= 3 else {
-        fputs("Usage: smelt kernels <model.smeltpkg> [--iterations N] [--position N] [--trace-start N --trace-length N]\n", stderr)
+        fputs("Usage: smelt lab profile decode <model.smeltpkg> --kernels [--iterations N] [--position N] [--trace-start N --trace-length N]\n", stderr)
         exit(1)
     }
     let pkgPath = args[2]
     let construction = requireCAMTextRuntimePlanOrExit(
         packagePath: pkgPath,
         request: .profileDecodeKernels,
-        verb: "kernels"
+        verb: "lab profile decode"
     )
-    let iterations = Int(parseArg("--iterations", default: "10")) ?? 10
-    let fixedPosition = Int32(parseArg("--position", default: ""))
-    let traceStart = Int32(parseArg("--trace-start", default: ""))
-    let traceLength = Int(parseArg("--trace-length", default: "")) ?? 0
+    let iterations = Int(parseArg(args, "--iterations", default: "10")) ?? 10
+    let fixedPosition = Int32(parseArg(args, "--position", default: ""))
+    let traceStart = Int32(parseArg(args, "--trace-start", default: ""))
+    let traceLength = Int(parseArg(args, "--trace-length", default: "")) ?? 0
 
     do {
         let runtime = try construction.makeRuntime(contextLimit: nil)

@@ -1,6 +1,6 @@
 import Foundation
 
-/// Flattened triangle mesh in world space for rig model preprocessing.
+/// Flattened triangle mesh in world space for skinning component preprocessing.
 public struct SmeltMesh: Sendable, Equatable {
     public let positions: [SIMD3<Float>]
     public let normals: [SIMD3<Float>]
@@ -68,7 +68,7 @@ public struct SmeltSurfaceSamplingReceipt: Sendable, Equatable {
     }
 }
 
-/// the rig model's normalized sampled point cloud and its replay receipt.
+/// the skinning component's normalized sampled point cloud and its replay receipt.
 public struct SmeltSampledSurface: Sendable, Equatable {
     public let normalization: SmeltMeshNormalization
     public let pointNormals: [Float]
@@ -105,7 +105,36 @@ public struct SmeltVertexSkin: Sendable, Equatable {
     }
 }
 
-/// Native geometry policy used before and after the neural rig model path.
+/// Exact eight-neighbor transfer program plus the minimal sampled query union.
+public struct SmeltSkinTransferPlan: Sendable, Equatable {
+  public let vertexCount: Int
+  public let sampledPointCount: Int
+  public let querySourceIndices: [Int]
+  public let queryPointNormals: [Float]
+  public let neighborOffsets: [Int]
+  public let neighborQueryRows: [Int]
+  public let neighborBlends: [Float]
+
+  public init(
+    vertexCount: Int,
+    sampledPointCount: Int,
+    querySourceIndices: [Int],
+    queryPointNormals: [Float],
+    neighborOffsets: [Int],
+    neighborQueryRows: [Int],
+    neighborBlends: [Float]
+  ) {
+    self.vertexCount = vertexCount
+    self.sampledPointCount = sampledPointCount
+    self.querySourceIndices = querySourceIndices
+    self.queryPointNormals = queryPointNormals
+    self.neighborOffsets = neighborOffsets
+    self.neighborQueryRows = neighborQueryRows
+    self.neighborBlends = neighborBlends
+  }
+}
+
+/// Native geometry policy used before and after the neural skinning component path.
 public enum SmeltMeshGeometry {
     public static let sampledPointCount = 54_000
     public static let maximumAuthoredVertexSamples = 16_384
@@ -209,7 +238,8 @@ public enum SmeltMeshGeometry {
     ) throws -> [Float] {
         let positions = mesh.positions.map(normalization.normalize)
         let normals = mesh.normals.map(normalized)
-        guard receipt.sourceVertexIndices.count
+    guard
+      receipt.sourceVertexIndices.count
                 + receipt.sourceTriangleIndices.count == sampledPointCount,
               receipt.sourceTriangleIndices.count == receipt.barycentricUV.count,
               receipt.sourceVertexIndices.allSatisfy(positions.indices.contains),
@@ -248,19 +278,41 @@ public enum SmeltMeshGeometry {
         sampled: SmeltSampledSurface,
         sampledWeights: SmeltSkinWeights
     ) throws -> SmeltVertexSkin {
-        guard sampled.pointNormals.count == sampledWeights.vertexCount * 6,
-              sampledWeights.jointCount > 0,
-              sampledWeights.jointCount <= Int(UInt16.max),
-              sampledWeights.values.count
-                == sampledWeights.vertexCount * sampledWeights.jointCount
-        else {
+    let plan = try prepareSkinTransfer(mesh: mesh, sampled: sampled)
+    guard sampledWeights.vertexCount == plan.sampledPointCount else {
+      throw SmeltMeshGeometryError.invalidSampledWeights
+    }
+    var selected = [Float](
+      repeating: 0,
+      count: plan.querySourceIndices.count * sampledWeights.jointCount
+    )
+    for (queryRow, sourceRow) in plan.querySourceIndices.enumerated() {
+      let source = sourceRow * sampledWeights.jointCount
+      let destination = queryRow * sampledWeights.jointCount
+      selected.replaceSubrange(
+        destination..<(destination + sampledWeights.jointCount),
+        with: sampledWeights.values[source..<(source + sampledWeights.jointCount)]
+      )
+    }
+    return try transferSkin(
+      plan: plan,
+      sampledWeights: .init(
+        vertexCount: plan.querySourceIndices.count,
+        jointCount: sampledWeights.jointCount,
+        values: selected
+      )
+    )
+  }
+
+  public static func prepareSkinTransfer(
+    mesh: SmeltMesh,
+    sampled: SmeltSampledSurface
+  ) throws -> SmeltSkinTransferPlan {
+    guard sampled.pointNormals.count.isMultiple(of: 6) else {
             throw SmeltMeshGeometryError.invalidSampledWeights
         }
-        let sampledPositions = stride(
-            from: 0,
-            to: sampled.pointNormals.count,
-            by: 6
-        ).map {
+    let sampledPointCount = sampled.pointNormals.count / 6
+    let sampledPositions = stride(from: 0, to: sampled.pointNormals.count, by: 6).map {
             SIMD3(
                 sampled.pointNormals[$0],
                 sampled.pointNormals[$0 + 1],
@@ -268,11 +320,12 @@ public enum SmeltMeshGeometry {
             )
         }
         let tree = KDTree(points: sampledPositions)
-        var joints = [UInt16](repeating: 0, count: mesh.positions.count * 4)
-        var weights = [Float](repeating: 0, count: mesh.positions.count * 4)
-        var accumulated = [Float](repeating: 0, count: sampledWeights.jointCount)
+    var sourceNeighbors: [[Int]] = []
+    var blends: [[Float]] = []
+    sourceNeighbors.reserveCapacity(mesh.positions.count)
+    blends.reserveCapacity(mesh.positions.count)
+    var sourceUnion = Set<Int>()
         for vertex in mesh.positions.indices {
-            for joint in accumulated.indices { accumulated[joint] = 0 }
             let query = sampled.normalization.normalize(mesh.positions[vertex])
             let neighbors = tree.nearest(query, count: min(8, sampledPositions.count))
             var inverseDistances: [Double] = []
@@ -282,10 +335,66 @@ public enum SmeltMeshGeometry {
                 let inverse = 1.0 / (sqrt(neighbor.distanceSquared) + 1e-8)
                 inverseDistances.append(inverse)
                 totalInverse += inverse
+        sourceUnion.insert(neighbor.index)
+      }
+      sourceNeighbors.append(neighbors.map(\.index))
+      blends.append(inverseDistances.map { Float($0 / totalInverse) })
+    }
+    let querySourceIndices = sourceUnion.sorted()
+    let queryRowBySource = Dictionary(
+      uniqueKeysWithValues: querySourceIndices.enumerated().map { ($0.element, $0.offset) }
+    )
+    var queryPointNormals: [Float] = []
+    queryPointNormals.reserveCapacity(querySourceIndices.count * 6)
+    for source in querySourceIndices {
+      queryPointNormals.append(contentsOf: sampled.pointNormals[(source * 6)..<(source * 6 + 6)])
+    }
+    var neighborOffsets = [0]
+    var neighborQueryRows: [Int] = []
+    var neighborBlends: [Float] = []
+    for vertex in sourceNeighbors.indices {
+      for (source, blend) in zip(sourceNeighbors[vertex], blends[vertex]) {
+        guard let row = queryRowBySource[source] else {
+          throw SmeltMeshGeometryError.invalidSampledWeights
+        }
+        neighborQueryRows.append(row)
+        neighborBlends.append(blend)
             }
-            for (offset, neighbor) in neighbors.enumerated() {
-                let blend = Float(inverseDistances[offset] / totalInverse)
-                let source = neighbor.index * sampledWeights.jointCount
+      neighborOffsets.append(neighborQueryRows.count)
+    }
+    return SmeltSkinTransferPlan(
+      vertexCount: mesh.positions.count,
+      sampledPointCount: sampledPointCount,
+      querySourceIndices: querySourceIndices,
+      queryPointNormals: queryPointNormals,
+      neighborOffsets: neighborOffsets,
+      neighborQueryRows: neighborQueryRows,
+      neighborBlends: neighborBlends
+    )
+  }
+
+  public static func transferSkin(
+    plan: SmeltSkinTransferPlan,
+    sampledWeights: SmeltSkinWeights
+  ) throws -> SmeltVertexSkin {
+    guard sampledWeights.vertexCount == plan.querySourceIndices.count,
+      sampledWeights.jointCount > 0,
+      sampledWeights.jointCount <= Int(UInt16.max),
+      sampledWeights.values.count
+        == sampledWeights.vertexCount * sampledWeights.jointCount
+    else {
+      throw SmeltMeshGeometryError.invalidSampledWeights
+    }
+    var joints = [UInt16](repeating: 0, count: plan.vertexCount * 4)
+    var weights = [Float](repeating: 0, count: plan.vertexCount * 4)
+    var accumulated = [Float](repeating: 0, count: sampledWeights.jointCount)
+    for vertex in 0..<plan.vertexCount {
+      for joint in accumulated.indices { accumulated[joint] = 0 }
+      let start = plan.neighborOffsets[vertex]
+      let end = plan.neighborOffsets[vertex + 1]
+      for neighbor in start..<end {
+        let blend = plan.neighborBlends[neighbor]
+        let source = plan.neighborQueryRows[neighbor] * sampledWeights.jointCount
                 for joint in 0..<sampledWeights.jointCount {
                     accumulated[joint] += sampledWeights.values[source + joint] * blend
                 }
@@ -306,7 +415,7 @@ public enum SmeltMeshGeometry {
             }
         }
         return SmeltVertexSkin(
-            vertexCount: mesh.positions.count,
+      vertexCount: plan.vertexCount,
             jointCount: sampledWeights.jointCount,
             jointIndices: joints,
             weights: weights
@@ -361,8 +470,7 @@ public enum SmeltMeshGeometry {
         var upper = values.count
         while lower < upper {
             let middle = (lower + upper) / 2
-            if values[middle] < target { lower = middle + 1 }
-            else { upper = middle }
+      if values[middle] < target { lower = middle + 1 } else { upper = middle }
         }
         return min(lower, values.count - 1)
     }
@@ -469,7 +577,8 @@ private final class KDTree {
         let near = difference < 0 ? node.left : node.right
         let far = difference < 0 ? node.right : node.left
         search(near, point: point, count: count, best: &best)
-        let worst = best.count < count
+    let worst =
+      best.count < count
             ? Double.greatestFiniteMagnitude
             : best[best.count - 1].distanceSquared
         if difference * difference <= worst {

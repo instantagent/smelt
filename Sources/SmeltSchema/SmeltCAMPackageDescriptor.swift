@@ -9,6 +9,7 @@ public struct SmeltCAMPackageDescriptor: Codable, Sendable, Equatable {
     public let descriptorVersion: Int
     public let camSchemaVersion: Int
     public let moduleID: String
+  public let run: SmeltPackageRunContract?
     public let camSemanticSHA256: String
     public let exportABISHA256: String
     public let imports: [Import]
@@ -44,6 +45,7 @@ public struct SmeltCAMPackageDescriptor: Codable, Sendable, Equatable {
         descriptorVersion = Self.currentDescriptorVersion
         camSchemaVersion = cam.schemaVersion
         moduleID = cam.module.id
+    run = cam.run
         camSemanticSHA256 = try cam.semanticSHA256()
         exportABISHA256 = try cam.exportABISHA256()
         imports = cam.imports.map(Import.init(import:))
@@ -75,7 +77,8 @@ public struct SmeltCAMPackageDescriptor: Codable, Sendable, Equatable {
 
     public func canonicalJSONData(prettyPrinted: Bool = false) throws -> Data {
         let encoder = JSONEncoder()
-        encoder.outputFormatting = prettyPrinted
+    encoder.outputFormatting =
+      prettyPrinted
             ? [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
             : [.sortedKeys, .withoutEscapingSlashes]
         return try encoder.encode(self)
@@ -88,18 +91,16 @@ public struct SmeltCAMPackageDescriptor: Codable, Sendable, Equatable {
         feedbackEdges: [FeedbackEdge],
         flows: [Flow]
     ) -> [String] {
-        (
-            blocks.map { "block:\($0.signature)" }
+    (blocks.map { "block:\($0.signature)" }
                 + nodes.map { "node:\($0.signature)" }
                 + graphEdges.map { "edge:\($0.signature)" }
                 + feedbackEdges.map { "feedback:\($0.signature)" }
-                + flows.map { "flow:\($0.signature)" }
-        ).sorted()
+      + flows.map { "flow:\($0.signature)" }).sorted()
     }
 }
 
-public extension SmeltCAMPackageDescriptor {
-    struct Import: Codable, Sendable, Equatable {
+extension SmeltCAMPackageDescriptor {
+  public struct Import: Codable, Sendable, Equatable {
         public let alias: String
         public let moduleID: String
         public let camSemanticSHA256: String
@@ -117,7 +118,7 @@ public extension SmeltCAMPackageDescriptor {
         }
     }
 
-    struct Export: Codable, Sendable, Equatable {
+  public struct Export: Codable, Sendable, Equatable {
         public let exportID: String
         public let inputs: [Port]
         public let outputs: [Port]
@@ -139,7 +140,7 @@ public extension SmeltCAMPackageDescriptor {
         }
     }
 
-    struct ExportFlowBinding: Codable, Sendable, Equatable {
+  public struct ExportFlowBinding: Codable, Sendable, Equatable {
         public let exportID: String
         public let flowID: String
 
@@ -149,7 +150,7 @@ public extension SmeltCAMPackageDescriptor {
         }
     }
 
-    struct Port: Codable, Sendable, Equatable {
+  public struct Port: Codable, Sendable, Equatable {
         public let portName: String
         public let type: ValueType
         public let optional: Bool
@@ -165,7 +166,7 @@ public extension SmeltCAMPackageDescriptor {
         }
     }
 
-    struct ValueType: Codable, Sendable, Equatable {
+  public struct ValueType: Codable, Sendable, Equatable {
         public let typeName: String
         public let attributes: [String: String]
 
@@ -186,7 +187,7 @@ public extension SmeltCAMPackageDescriptor {
         }
     }
 
-    struct Requirement: Codable, Sendable, Equatable {
+  public struct Requirement: Codable, Sendable, Equatable {
         public let key: String
         public let value: String
 
@@ -196,7 +197,7 @@ public extension SmeltCAMPackageDescriptor {
         }
     }
 
-    struct SourceReference: Codable, Sendable, Equatable {
+  public struct SourceReference: Codable, Sendable, Equatable {
         public let sourceID: String
         public let sourceType: String
         public let locator: String
@@ -216,7 +217,7 @@ public extension SmeltCAMPackageDescriptor {
         }
     }
 
-    struct Block: Codable, Sendable, Equatable {
+  public struct Block: Codable, Sendable, Equatable {
         public let blockID: String
         public let operatorName: String
         public let shape: BlockShape
@@ -234,7 +235,7 @@ public extension SmeltCAMPackageDescriptor {
         }
     }
 
-    struct BlockShape: Codable, Sendable, Equatable {
+  public struct BlockShape: Codable, Sendable, Equatable {
         public let derivation: ShapeDerivation?
         public let transformer: TransformerShape?
         public let codecDecoder: CodecDecoderShape?
@@ -250,7 +251,7 @@ public extension SmeltCAMPackageDescriptor {
         }
     }
 
-    struct ShapeDerivation: Codable, Sendable, Equatable {
+  public struct ShapeDerivation: Codable, Sendable, Equatable {
         public let sourceID: String
         public let authority: String?
 
@@ -260,7 +261,7 @@ public extension SmeltCAMPackageDescriptor {
         }
     }
 
-    struct BlockRequirement: Codable, Sendable, Equatable {
+  public struct BlockRequirement: Codable, Sendable, Equatable {
         public let key: String
         public let value: String?
         public let optional: Bool
@@ -272,7 +273,7 @@ public extension SmeltCAMPackageDescriptor {
         }
     }
 
-    struct TransformerShape: Codable, Sendable, Equatable {
+  public struct TransformerShape: Codable, Sendable, Equatable {
         public let hiddenSize: Int?
         public let layers: LayerPattern?
         public let delta: DeltaShape?
@@ -312,7 +313,7 @@ public extension SmeltCAMPackageDescriptor {
         }
     }
 
-    struct ProjectionBank: Codable, Sendable, Equatable {
+  public struct ProjectionBank: Codable, Sendable, Equatable {
         public let id: String
         public let source: String
         public let outputs: [String]
@@ -326,7 +327,7 @@ public extension SmeltCAMPackageDescriptor {
         }
     }
 
-    struct LayerPattern: Codable, Sendable, Equatable {
+  public struct LayerPattern: Codable, Sendable, Equatable {
         public let count: Int?
         public let roles: [String]
         public let repeatCount: Int?
@@ -338,7 +339,7 @@ public extension SmeltCAMPackageDescriptor {
         }
     }
 
-    struct DeltaShape: Codable, Sendable, Equatable {
+  public struct DeltaShape: Codable, Sendable, Equatable {
         public let heads: Int
         public let headDim: Int
         public let convKernel: Int?
@@ -352,7 +353,7 @@ public extension SmeltCAMPackageDescriptor {
         }
     }
 
-    struct AttentionShape: Codable, Sendable, Equatable {
+  public struct AttentionShape: Codable, Sendable, Equatable {
         public let qHeads: Int
         public let kvHeads: Int
         public let headDim: Int
@@ -380,7 +381,7 @@ public extension SmeltCAMPackageDescriptor {
         }
     }
 
-    struct RelativePositionShape: Codable, Sendable, Equatable {
+  public struct RelativePositionShape: Codable, Sendable, Equatable {
         public let projectionDim: Int
         public let extent: Int
         public let contentConditioned: Bool
@@ -396,7 +397,7 @@ public extension SmeltCAMPackageDescriptor {
         }
     }
 
-    struct RoleAttentionShape: Codable, Sendable, Equatable {
+  public struct RoleAttentionShape: Codable, Sendable, Equatable {
         public let role: String
         public let attention: AttentionShape
 
@@ -406,7 +407,7 @@ public extension SmeltCAMPackageDescriptor {
         }
     }
 
-    struct RopeShape: Codable, Sendable, Equatable {
+  public struct RopeShape: Codable, Sendable, Equatable {
         public let ropeType: String
         public let theta: Int?
 
@@ -416,7 +417,7 @@ public extension SmeltCAMPackageDescriptor {
         }
     }
 
-    struct FFNShape: Codable, Sendable, Equatable {
+  public struct FFNShape: Codable, Sendable, Equatable {
         public let dim: Int
         public let activation: String
 
@@ -426,7 +427,7 @@ public extension SmeltCAMPackageDescriptor {
         }
     }
 
-    struct RouterShape: Codable, Sendable, Equatable {
+  public struct RouterShape: Codable, Sendable, Equatable {
         public let topK: Int
         public let experts: Int
         public let sharedExperts: Int?
@@ -450,7 +451,7 @@ public extension SmeltCAMPackageDescriptor {
         }
     }
 
-    struct ShortConvolutionShape: Codable, Sendable, Equatable {
+  public struct ShortConvolutionShape: Codable, Sendable, Equatable {
         public let site: String
         public let kernelSize: Int
         public let residual: String
@@ -462,7 +463,7 @@ public extension SmeltCAMPackageDescriptor {
         }
     }
 
-    struct ExpertShape: Codable, Sendable, Equatable {
+  public struct ExpertShape: Codable, Sendable, Equatable {
         public let ffn: FFNShape
 
         fileprivate init(expert value: SmeltCAMIR.ExpertShape) {
@@ -470,7 +471,7 @@ public extension SmeltCAMPackageDescriptor {
         }
     }
 
-    struct NormShape: Codable, Sendable, Equatable {
+  public struct NormShape: Codable, Sendable, Equatable {
         public let normType: String
         public let eps: String?
         public let mode: String?
@@ -482,7 +483,7 @@ public extension SmeltCAMPackageDescriptor {
         }
     }
 
-    struct VocabShape: Codable, Sendable, Equatable {
+  public struct VocabShape: Codable, Sendable, Equatable {
         public let size: Int
         public let tiedHead: Bool
 
@@ -492,7 +493,7 @@ public extension SmeltCAMPackageDescriptor {
         }
     }
 
-    struct PerLayerInputShape: Codable, Sendable, Equatable {
+  public struct PerLayerInputShape: Codable, Sendable, Equatable {
         public let hiddenSize: Int
         public let vocabSize: Int
 
@@ -502,7 +503,7 @@ public extension SmeltCAMPackageDescriptor {
         }
     }
 
-    struct CodecDecoderShape: Codable, Sendable, Equatable {
+  public struct CodecDecoderShape: Codable, Sendable, Equatable {
         public let codebooks: Int?
         public let streaming: Bool
 
@@ -512,7 +513,7 @@ public extension SmeltCAMPackageDescriptor {
         }
     }
 
-    struct FrontendShape: Codable, Sendable, Equatable {
+  public struct FrontendShape: Codable, Sendable, Equatable {
         public let speakerConditioning: Bool
 
         fileprivate init(frontend value: SmeltCAMIR.FrontendShape) {
@@ -520,7 +521,7 @@ public extension SmeltCAMPackageDescriptor {
         }
     }
 
-    struct GraphNode: Codable, Sendable, Equatable {
+  public struct GraphNode: Codable, Sendable, Equatable {
         public let nodeID: String
         public let implementation: String
         public let blockID: String?
@@ -555,7 +556,7 @@ public extension SmeltCAMPackageDescriptor {
         }
     }
 
-    struct ImportedExportRef: Codable, Sendable, Equatable {
+  public struct ImportedExportRef: Codable, Sendable, Equatable {
         public let alias: String
         public let exportID: String
 
@@ -565,7 +566,7 @@ public extension SmeltCAMPackageDescriptor {
         }
     }
 
-    struct EndpointRef: Codable, Sendable, Equatable {
+  public struct EndpointRef: Codable, Sendable, Equatable {
         public let endpointType: String
         public let name: String?
         public let nodeID: String?
@@ -594,7 +595,7 @@ public extension SmeltCAMPackageDescriptor {
         }
     }
 
-    struct GraphEdge: Codable, Sendable, Equatable {
+  public struct GraphEdge: Codable, Sendable, Equatable {
         public let from: EndpointRef
         public let to: EndpointRef
         public let valueType: ValueType?
@@ -610,7 +611,7 @@ public extension SmeltCAMPackageDescriptor {
         }
     }
 
-    struct FeedbackEdge: Codable, Sendable, Equatable {
+  public struct FeedbackEdge: Codable, Sendable, Equatable {
         public let from: EndpointRef
         public let to: EndpointRef
 
@@ -624,7 +625,7 @@ public extension SmeltCAMPackageDescriptor {
         }
     }
 
-    struct Flow: Codable, Sendable, Equatable {
+  public struct Flow: Codable, Sendable, Equatable {
         public let flowID: String
         public let phases: [FlowPhase]
         public let emit: [EndpointRef]
@@ -645,7 +646,7 @@ public extension SmeltCAMPackageDescriptor {
         }
     }
 
-    struct FlowPhase: Codable, Sendable, Equatable {
+  public struct FlowPhase: Codable, Sendable, Equatable {
         public let phaseType: String
         public let label: String?
         public let calls: [FlowCall]
@@ -661,14 +662,15 @@ public extension SmeltCAMPackageDescriptor {
         }
     }
 
-    struct FlowCall: Codable, Sendable, Equatable {
+  public struct FlowCall: Codable, Sendable, Equatable {
         public let callType: String
         public let nodeID: String?
         public let imported: ImportedExportRef?
         public let entrypoint: String?
 
         fileprivate var signature: String {
-            let target = nodeID
+      let target =
+        nodeID
                 ?? imported.map { "\($0.alias).\($0.exportID)" }
                 ?? "none"
             return "\(callType):\(target):\(entrypoint ?? "none")"
@@ -682,7 +684,7 @@ public extension SmeltCAMPackageDescriptor {
         }
     }
 
-    struct StopCondition: Codable, Sendable, Equatable {
+  public struct StopCondition: Codable, Sendable, Equatable {
         public let stopType: String
         public let value: Int?
 
@@ -696,7 +698,7 @@ public extension SmeltCAMPackageDescriptor {
         }
     }
 
-    struct TensorPatternRef: Codable, Sendable, Equatable {
+  public struct TensorPatternRef: Codable, Sendable, Equatable {
         public let sourceID: String?
         public let pattern: String
 
@@ -706,7 +708,7 @@ public extension SmeltCAMPackageDescriptor {
         }
     }
 
-    struct TensorTarget: Codable, Sendable, Equatable {
+  public struct TensorTarget: Codable, Sendable, Equatable {
         public let blockID: String
         public let pattern: String
 
@@ -716,21 +718,31 @@ public extension SmeltCAMPackageDescriptor {
         }
     }
 
-    struct TensorBinding: Codable, Sendable, Equatable {
+  public struct TensorBinding: Codable, Sendable, Equatable {
         public let sourceID: String
         public let tensorPattern: TensorPatternRef
         public let target: TensorTarget
         public let ownerBlockID: String
+    public let shape: [Int]?
+    public let sourceDType: String?
+    public let disposition: String?
+    public let storageAlias: String?
+    public let layoutOrdinal: Int?
 
         fileprivate init(tensor value: SmeltCAMIR.TensorMap) {
             sourceID = value.source
             tensorPattern = TensorPatternRef(pattern: value.selector)
             target = TensorTarget(target: value.target)
             ownerBlockID = value.owner
+      shape = value.shape
+      sourceDType = value.sourceDType
+      disposition = value.disposition?.rawValue
+      storageAlias = value.storageAlias
+      layoutOrdinal = value.layoutOrdinal
         }
     }
 
-    struct QuantStorage: Codable, Sendable, Equatable {
+  public struct QuantStorage: Codable, Sendable, Equatable {
         public let storageFormat: String
         public let groupSize: Int?
         public let computeDType: String?
@@ -742,7 +754,7 @@ public extension SmeltCAMPackageDescriptor {
         }
     }
 
-    struct QuantizationRule: Codable, Sendable, Equatable {
+  public struct QuantizationRule: Codable, Sendable, Equatable {
         public let tensorPattern: TensorPatternRef
         public let action: String
         public let storage: QuantStorage?
@@ -762,7 +774,7 @@ public extension SmeltCAMPackageDescriptor {
         }
     }
 
-    struct QuantCalibrationCorpus: Codable, Sendable, Equatable {
+  public struct QuantCalibrationCorpus: Codable, Sendable, Equatable {
         public let sourceID: String
         public let path: String?
         public let maxTokens: Int?
@@ -774,7 +786,7 @@ public extension SmeltCAMPackageDescriptor {
         }
     }
 
-    struct QuantCalibration: Codable, Sendable, Equatable {
+  public struct QuantCalibration: Codable, Sendable, Equatable {
         public let method: String
         public let corpus: QuantCalibrationCorpus
         public let captures: [String]
@@ -790,7 +802,7 @@ public extension SmeltCAMPackageDescriptor {
         }
     }
 
-    struct SourceQuantizationRule: Codable, Sendable, Equatable {
+  public struct SourceQuantizationRule: Codable, Sendable, Equatable {
         public let sourceID: String
         public let sourceDTypes: [String]
         public let action: String
@@ -808,7 +820,7 @@ public extension SmeltCAMPackageDescriptor {
         }
     }
 
-    struct ArtifactRequirement: Codable, Sendable, Equatable {
+  public struct ArtifactRequirement: Codable, Sendable, Equatable {
         public let artifactID: String
         public let role: String
         public let required: Bool
@@ -820,7 +832,7 @@ public extension SmeltCAMPackageDescriptor {
         }
     }
 
-    struct GateContract: Codable, Sendable, Equatable {
+  public struct GateContract: Codable, Sendable, Equatable {
         public let gateID: String
         public let from: GateEvent?
         public let to: GateEvent?
@@ -838,7 +850,7 @@ public extension SmeltCAMPackageDescriptor {
         }
     }
 
-    struct GateMeasurement: Codable, Sendable, Equatable {
+  public struct GateMeasurement: Codable, Sendable, Equatable {
         public let subject: String
         public let processMode: String
         public let cacheState: String
@@ -852,7 +864,7 @@ public extension SmeltCAMPackageDescriptor {
         }
     }
 
-    struct GateEvent: Codable, Sendable, Equatable {
+  public struct GateEvent: Codable, Sendable, Equatable {
         public let eventType: String
         public let flowID: String?
         public let exportID: String?
@@ -870,7 +882,7 @@ public extension SmeltCAMPackageDescriptor {
         }
     }
 
-    struct Comparison: Codable, Sendable, Equatable {
+  public struct Comparison: Codable, Sendable, Equatable {
         public let subject: String
         public let relation: String
         public let value: String
@@ -884,7 +896,7 @@ public extension SmeltCAMPackageDescriptor {
         }
     }
 
-    struct EvidenceRequirement: Codable, Sendable, Equatable {
+  public struct EvidenceRequirement: Codable, Sendable, Equatable {
         public let evidenceType: String
         public let tensor: String?
         public let sourceID: String?
@@ -901,8 +913,8 @@ public extension SmeltCAMPackageDescriptor {
     }
 }
 
-public extension SmeltCAMPackageDescriptor {
-    func validateDecoded() throws {
+extension SmeltCAMPackageDescriptor {
+  public func validateDecoded() throws {
         guard descriptorSchema == Self.currentDescriptorSchema else {
             throw SmeltCAMIRError.malformed(
                 "unsupported package descriptor schema '\(descriptorSchema)'"
@@ -939,7 +951,8 @@ public extension SmeltCAMPackageDescriptor {
         let importsByAlias = Dictionary(uniqueKeysWithValues: imports.map { ($0.alias, $0) })
         let nodesByID = Dictionary(uniqueKeysWithValues: graphNodes.map { ($0.nodeID, $0) })
         let exportInputPortsByName = Dictionary(grouping: exports.flatMap { $0.inputs }, by: \.portName)
-        let exportOutputPortsByName = Dictionary(grouping: exports.flatMap { $0.outputs }, by: \.portName)
+    let exportOutputPortsByName = Dictionary(
+      grouping: exports.flatMap { $0.outputs }, by: \.portName)
 
         for importedModule in imports {
             try requireDecodedUnique(
@@ -947,8 +960,10 @@ public extension SmeltCAMPackageDescriptor {
                 label: "export ABI for import \(importedModule.alias)"
             )
             for abi in importedModule.exportABI {
-                try validateDecodedPorts(abi.inputs, label: "input port for imported export \(abi.exportID)")
-                try validateDecodedPorts(abi.outputs, label: "output port for imported export \(abi.exportID)")
+        try validateDecodedPorts(
+          abi.inputs, label: "input port for imported export \(abi.exportID)")
+        try validateDecodedPorts(
+          abi.outputs, label: "output port for imported export \(abi.exportID)")
             }
             let computed = try decodedExportABISHA256(for: importedModule.exportABI)
             guard computed == importedModule.exportABISHA256 else {
@@ -961,7 +976,8 @@ public extension SmeltCAMPackageDescriptor {
         for export in exports {
             try validateDecodedPorts(export.inputs, label: "input port for export \(export.exportID)")
             try validateDecodedPorts(export.outputs, label: "output port for export \(export.exportID)")
-            try requireDecodedUnique(export.capabilities, label: "capability for export \(export.exportID)")
+      try requireDecodedUnique(
+        export.capabilities, label: "capability for export \(export.exportID)")
             try requireDecodedUnique(export.gates, label: "gate for export \(export.exportID)")
             for gate in export.gates where !gateIDs.contains(gate) {
                 throw SmeltCAMIRError.malformed(
@@ -982,7 +998,8 @@ public extension SmeltCAMPackageDescriptor {
                 )
             }
         }
-        for export in exports where !exportFlowBindings.contains(where: { $0.exportID == export.exportID }) {
+    for export in exports
+    where !exportFlowBindings.contains(where: { $0.exportID == export.exportID }) {
             throw SmeltCAMIRError.malformed("export '\(export.exportID)' has no flow binding")
         }
 
@@ -1149,7 +1166,8 @@ public extension SmeltCAMPackageDescriptor {
                     alias: imported.alias,
                     exportID: imported.exportID,
                     importsByAlias: importsByAlias
-                  ) else {
+        )
+      else {
                 throw SmeltCAMIRError.malformed(
                     "imported graph node '\(node.nodeID)' must reference an imported export"
                 )
@@ -1191,7 +1209,8 @@ public extension SmeltCAMPackageDescriptor {
                     alias: imported.alias,
                     exportID: imported.exportID,
                     importsByAlias: importsByAlias
-                  ) != nil else {
+        ) != nil
+      else {
                 throw SmeltCAMIRError.malformed("flow call references unknown imported export")
             }
         default:
@@ -1248,7 +1267,8 @@ public extension SmeltCAMPackageDescriptor {
 
         for name in expectedNames.sorted() {
             guard let projectedPort = projectedByName[name],
-                  let expectedPort = expectedByName[name] else {
+        let expectedPort = expectedByName[name]
+      else {
                 continue
             }
             if projectedPort.optional != expectedPort.optional {
@@ -1389,7 +1409,8 @@ public extension SmeltCAMPackageDescriptor {
         case "moduleInput":
             guard use == .source,
                   let name = endpoint.name,
-                  exportInputPortsByName[name] != nil else {
+        exportInputPortsByName[name] != nil
+      else {
                 throw SmeltCAMIRError.malformed(
                     "module input endpoint '\(decodedEndpointKey(endpoint))' is not available as a source"
                 )
@@ -1403,7 +1424,8 @@ public extension SmeltCAMPackageDescriptor {
         case "moduleOutput":
             guard use != .source,
                   let name = endpoint.name,
-                  exportOutputPortsByName[name] != nil else {
+        exportOutputPortsByName[name] != nil
+      else {
                 throw SmeltCAMIRError.malformed(
                     "module output endpoint '\(decodedEndpointKey(endpoint))' is not available as a sink"
                 )
@@ -1419,7 +1441,8 @@ public extension SmeltCAMPackageDescriptor {
         case "nodePort":
             guard let nodeID = endpoint.nodeID,
                   let portName = endpoint.portName,
-                  let node = nodesByID[nodeID] else {
+        let node = nodesByID[nodeID]
+      else {
                 throw SmeltCAMIRError.malformed(
                     "unknown node endpoint '\(decodedEndpointKey(endpoint))'"
                 )
@@ -1440,7 +1463,8 @@ public extension SmeltCAMPackageDescriptor {
                     alias: importAlias,
                     exportID: exportID,
                     importsByAlias: importsByAlias
-                  ) else {
+        )
+      else {
                 throw SmeltCAMIRError.malformed(
                     "unknown imported endpoint '\(decodedEndpointKey(endpoint))'"
                 )
@@ -1520,12 +1544,14 @@ public extension SmeltCAMPackageDescriptor {
         guard edge.to.endpointType == "graphValue" else { return nil }
         var resolved = fromType
         if let toType {
-            resolved = try resolved.map {
+      resolved =
+        try resolved.map {
                 try mergedDecodedCompatibleType($0, toType, context: "graph edge \(edge.signature)")
             } ?? toType
         }
         if let declared = edge.valueType {
-            resolved = try resolved.map {
+      resolved =
+        try resolved.map {
                 try mergedDecodedCompatibleType($0, declared, context: "graph edge \(edge.signature)")
             } ?? declared
         }
@@ -1626,7 +1652,8 @@ public extension SmeltCAMPackageDescriptor {
                   endpoint.nodeID == nil,
                   endpoint.portName == nil,
                   endpoint.importAlias == nil,
-                  endpoint.exportID == nil else {
+        endpoint.exportID == nil
+      else {
                 throw SmeltCAMIRError.malformed(
                     "malformed endpoint '\(decodedEndpointKey(endpoint))'"
                 )
@@ -1636,7 +1663,8 @@ public extension SmeltCAMPackageDescriptor {
                   endpoint.portName?.isEmpty == false,
                   endpoint.name == nil,
                   endpoint.importAlias == nil,
-                  endpoint.exportID == nil else {
+        endpoint.exportID == nil
+      else {
                 throw SmeltCAMIRError.malformed(
                     "malformed endpoint '\(decodedEndpointKey(endpoint))'"
                 )
@@ -1646,7 +1674,8 @@ public extension SmeltCAMPackageDescriptor {
                   endpoint.exportID?.isEmpty == false,
                   endpoint.portName?.isEmpty == false,
                   endpoint.name == nil,
-                  endpoint.nodeID == nil else {
+        endpoint.nodeID == nil
+      else {
                 throw SmeltCAMIRError.malformed(
                     "malformed endpoint '\(decodedEndpointKey(endpoint))'"
                 )

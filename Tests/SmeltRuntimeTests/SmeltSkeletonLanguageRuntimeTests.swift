@@ -121,11 +121,11 @@ struct SmeltSkeletonLanguageRuntimeTests {
         sequence: [Int],
         generatedHistory: [Int]
     ) throws -> Int {
-        let allowed = try SmeltRigGenerationPolicy.allowedNextTokens(
+    let allowed = try SmeltSkeletonGenerationPolicy.allowedNextTokens(
             sequence: sequence,
             mode: .sourceCompatible
         )
-        return try SmeltRigGenerationPolicy.sample(
+    return try SmeltSkeletonGenerationPolicy.sample(
             logits: logits,
             history: generatedHistory,
             allowedTokens: allowed,
@@ -151,7 +151,7 @@ struct SmeltSkeletonLanguageRuntimeTests {
     private func loadReference(_ path: String) throws -> ReferenceManifest {
         let data = try Data(contentsOf: URL(fileURLWithPath: "\(path)/manifest.json"))
         let manifest = try JSONDecoder().decode(ReferenceManifest.self, from: data)
-        #expect(manifest.schema == "smelt.tokenrig.qwen-reference.v1")
+    #expect(manifest.schema == "smelt.skintokens.language-reference.v1")
         #expect(manifest.sourceCommit == "273b691d35989d71cd17ff2895fdc735097b92d1")
         #expect(
             manifest.checkpointSHA256
@@ -205,7 +205,7 @@ struct SmeltSkeletonLanguageRuntimeTests {
 
     @Test("Canonical sidecar loads and runs checkpoint-backed prefill")
     func canonicalPrefillSmoke() throws {
-        guard let package = ProcessInfo.processInfo.environment["SMELT_RIG_PACKAGE"] else {
+    guard let package = ProcessInfo.processInfo.environment["SMELT_SKINNING_PACKAGE"] else {
             return
         }
         let runtime = try SmeltSkeletonLanguageRuntime(packagePath: package)
@@ -230,7 +230,7 @@ struct SmeltSkeletonLanguageRuntimeTests {
         }
         let hiddenSize = 896
         let referencePath = ProcessInfo.processInfo.environment[
-            "SMELT_RIG_LANGUAGE_REFERENCE"
+      "SMELT_SKINNING_LANGUAGE_REFERENCE"
         ]
         let referenceManifest = try referencePath.map(loadReference)
         let sequenceLength = referenceManifest?.sequenceLength ?? 2
@@ -284,7 +284,7 @@ struct SmeltSkeletonLanguageRuntimeTests {
             expected: expectedLogits
         )
         print(
-            "TokenRig Qwen source parity: hidden cosine=\(hiddenMetrics.cosine) "
+      "SkinTokens language source parity: hidden cosine=\(hiddenMetrics.cosine) "
                 + "relL2=\(hiddenMetrics.relativeL2) "
                 + "maxAbs=\(hiddenMetrics.maximumAbsoluteDifference); "
                 + "logits cosine=\(logitMetrics.cosine) "
@@ -346,7 +346,7 @@ struct SmeltSkeletonLanguageRuntimeTests {
                 expected: expectedStepLogits
             )
             print(
-                "TokenRig Qwen teacher step \(step): hidden cosine="
+        "SkinTokens language teacher step \(step): hidden cosine="
                     + "\(stepHiddenMetrics.cosine) relL2="
                     + "\(stepHiddenMetrics.relativeL2) maxAbs="
                     + "\(stepHiddenMetrics.maximumAbsoluteDifference); logits cosine="
@@ -406,9 +406,9 @@ struct SmeltSkeletonLanguageRuntimeTests {
                 actual: capture.layerOutputs[layer],
                 expected: expected
             )
-            if ProcessInfo.processInfo.environment["SMELT_RIG_DIAGNOSTICS"] == "1" {
+      if ProcessInfo.processInfo.environment["SMELT_SKINNING_DIAGNOSTICS"] == "1" {
                 print(
-                    "TokenRig Qwen prefill layer \(layer): exact="
+          "SkinTokens language prefill layer \(layer): exact="
                         + "\(layerMetrics.bitExactCount)/\(expected.count) relL2="
                         + "\(layerMetrics.relativeL2) maxAbs="
                         + "\(layerMetrics.maximumAbsoluteDifference)"
@@ -434,7 +434,7 @@ struct SmeltSkeletonLanguageRuntimeTests {
             }
         }
         print(
-            "TokenRig Qwen per-layer source parity: worstLayer=\(worstLayer) "
+      "SkinTokens language per-layer source parity: worstLayer=\(worstLayer) "
                 + "minimumCosine=\(worstCosine) "
                 + "maximumRelL2=\(worstRelativeL2) "
                 + "maximumAbs=\(worstMaximumAbsoluteDifference)"
@@ -474,10 +474,10 @@ struct SmeltSkeletonLanguageRuntimeTests {
     @Test("Long incremental cache preserves the source greedy trajectory")
     func longIncrementalCacheParity() throws {
         let environment = ProcessInfo.processInfo.environment
-        guard let package = environment["SMELT_RIG_PACKAGE"],
-              let referencePath = environment["SMELT_RIG_LANGUAGE_LONG_REFERENCE"]
+    guard let package = environment["SMELT_SKINNING_PACKAGE"],
+      let referencePath = environment["SMELT_SKINNING_LANGUAGE_LONG_REFERENCE"]
         else {
-            #expect(environment["SMELT_RIG_REQUIRE_FIXTURES"] != "1")
+      #expect(environment["SMELT_SKINNING_REQUIRE_FIXTURES"] != "1")
             return
         }
         let manifest = try loadReference(referencePath)
@@ -551,7 +551,8 @@ struct SmeltSkeletonLanguageRuntimeTests {
         #expect(initialToken == inputTokens[0])
 
         let checkpointSet = Set(checkpoints.filter { $0 <= maximumUpdate })
-        var firstDecisionMismatch: (
+    var firstDecisionMismatch:
+      (
             update: Int,
             expected: Int,
             actual: Int,
@@ -577,7 +578,8 @@ struct SmeltSkeletonLanguageRuntimeTests {
             sequence.append(inputToken)
             generatedHistory.append(inputToken)
             let layerTensorName = "incremental_\(update)_layer_outputs"
-            let captureLayers = checkpointSet.contains(update)
+      let captureLayers =
+        checkpointSet.contains(update)
                 && manifest.tensors[layerTensorName] != nil
             let decoded: SmeltSkeletonLanguageRuntime.DecodeOutput
             let layerCapture: SmeltTrunkLayerCapture?
@@ -694,7 +696,7 @@ struct SmeltSkeletonLanguageRuntimeTests {
                 worstLogitMaximumAbsoluteDifferenceUpdate = update
             }
             print(
-                "TokenRig Qwen long update \(update): hidden cosine="
+        "SkinTokens language long update \(update): hidden cosine="
                     + "\(hiddenMetrics.cosine) relL2=\(hiddenMetrics.relativeL2) "
                     + "maxAbs=\(hiddenMetrics.maximumAbsoluteDifference); "
                     + "logits cosine=\(logitMetrics.cosine) "
@@ -712,7 +714,7 @@ struct SmeltSkeletonLanguageRuntimeTests {
 
         if let firstDecisionMismatch {
             print(
-                "TokenRig Qwen first long-horizon decision mismatch: update="
+        "SkinTokens language first long-horizon decision mismatch: update="
                     + "\(firstDecisionMismatch.update) expected="
                     + "\(firstDecisionMismatch.expected) actual="
                     + "\(firstDecisionMismatch.actual) sourceMargin="
@@ -723,7 +725,7 @@ struct SmeltSkeletonLanguageRuntimeTests {
         }
         #expect(firstDecisionMismatch == nil)
         print(
-            "TokenRig Qwen long-horizon summary: updates=\(maximumUpdate) "
+      "SkinTokens language long-horizon summary: updates=\(maximumUpdate) "
                 + "decisions=\(maximumUpdate + 1) "
                 + "worstHiddenCosine=\(worstHiddenCosine) "
                 + "worstHiddenRelL2=\(worstHiddenRelativeL2) "
@@ -770,14 +772,14 @@ struct SmeltSkeletonLanguageRuntimeTests {
         let receiptJSON = try #require(
             String(data: receiptData, encoding: .utf8)
         )
-        print("RIG_U0_LONG_RECEIPT \(receiptJSON)")
+    print("SKINNING_U0_LONG_RECEIPT \(receiptJSON)")
     }
 
     @Test("Dense trunk decode bricks preserve BF16 boundaries")
     func decodeLayerPrimitiveParity() throws {
         let environment = ProcessInfo.processInfo.environment
-        guard let package = environment["SMELT_RIG_PACKAGE"],
-              let referencePath = environment["SMELT_RIG_LANGUAGE_LONG_REFERENCE"],
+    guard let package = environment["SMELT_SKINNING_PACKAGE"],
+      let referencePath = environment["SMELT_SKINNING_LANGUAGE_LONG_REFERENCE"],
               let updateText = environment["SMELT_DENSE_TRUNK_DECODE_REGION_UPDATE"],
               let update = Int(updateText),
               let layerText = environment["SMELT_DENSE_TRUNK_DECODE_REGION_LAYER"],
@@ -829,19 +831,45 @@ struct SmeltSkeletonLanguageRuntimeTests {
         let position = prefixLength + update - 1
         let cacheLength = position + 1
         let requests: [SmeltTrunkDispatchCaptureRequest] = [
-            .init(label: "\(prefix)_input_norm", afterDispatch: dispatchBase + 1, source: .slot("normOutBuf"), count: 896),
-            .init(label: "\(prefix)_q_projection", afterDispatch: dispatchBase + 2, source: .slot("attnQBuf"), count: 2_048),
-            .init(label: "\(prefix)_k_projection", afterDispatch: dispatchBase + 3, source: .slot("attnKBuf"), count: 1_024),
-            .init(label: "\(prefix)_v_projection", afterDispatch: dispatchBase + 2, source: .slotOffset("valCache_\(layer)", elementOffset: position * 1_024), count: 1_024),
-            .init(label: "\(prefix)_q_roped", afterDispatch: dispatchBase + 3, source: .slot("attnOutBuf"), count: 2_048),
-            .init(label: "\(prefix)_k_roped", afterDispatch: dispatchBase + 4, source: .slotOffset("keyCache_\(layer)", elementOffset: position * 1_024), count: 1_024),
-            .init(label: "\(prefix)_key_cache", afterDispatch: dispatchBase + 4, source: .slot("keyCache_\(layer)"), count: cacheLength * 1_024),
-            .init(label: "\(prefix)_value_cache", afterDispatch: dispatchBase + 4, source: .slot("valCache_\(layer)"), count: cacheLength * 1_024),
-            .init(label: "\(prefix)_attention_output", afterDispatch: dispatchBase + 5, source: .slot("attnGateBuf"), count: 2_048),
-            .init(label: "\(prefix)_attention_residual", afterDispatch: dispatchBase + 6, source: .alternate, count: 896),
-            .init(label: "\(prefix)_post_attention_norm", afterDispatch: dispatchBase + 7, source: .slot("normOutBuf"), count: 896),
-            .init(label: "\(prefix)_swiglu", afterDispatch: dispatchBase + 8, source: .slot("ffnIntBuf"), count: 3_072),
-            .init(label: "\(prefix)_layer_output", afterDispatch: dispatchBase + 9, source: .alternate, count: 896),
+      .init(
+        label: "\(prefix)_input_norm", afterDispatch: dispatchBase + 1, source: .slot("normOutBuf"),
+        count: 896),
+      .init(
+        label: "\(prefix)_q_projection", afterDispatch: dispatchBase + 2, source: .slot("attnQBuf"),
+        count: 2_048),
+      .init(
+        label: "\(prefix)_k_projection", afterDispatch: dispatchBase + 3, source: .slot("attnKBuf"),
+        count: 1_024),
+      .init(
+        label: "\(prefix)_v_projection", afterDispatch: dispatchBase + 2,
+        source: .slotOffset("valCache_\(layer)", elementOffset: position * 1_024), count: 1_024),
+      .init(
+        label: "\(prefix)_q_roped", afterDispatch: dispatchBase + 3, source: .slot("attnOutBuf"),
+        count: 2_048),
+      .init(
+        label: "\(prefix)_k_roped", afterDispatch: dispatchBase + 4,
+        source: .slotOffset("keyCache_\(layer)", elementOffset: position * 1_024), count: 1_024),
+      .init(
+        label: "\(prefix)_key_cache", afterDispatch: dispatchBase + 4,
+        source: .slot("keyCache_\(layer)"), count: cacheLength * 1_024),
+      .init(
+        label: "\(prefix)_value_cache", afterDispatch: dispatchBase + 4,
+        source: .slot("valCache_\(layer)"), count: cacheLength * 1_024),
+      .init(
+        label: "\(prefix)_attention_output", afterDispatch: dispatchBase + 5,
+        source: .slot("attnGateBuf"), count: 2_048),
+      .init(
+        label: "\(prefix)_attention_residual", afterDispatch: dispatchBase + 6, source: .alternate,
+        count: 896),
+      .init(
+        label: "\(prefix)_post_attention_norm", afterDispatch: dispatchBase + 7,
+        source: .slot("normOutBuf"), count: 896),
+      .init(
+        label: "\(prefix)_swiglu", afterDispatch: dispatchBase + 8, source: .slot("ffnIntBuf"),
+        count: 3_072),
+      .init(
+        label: "\(prefix)_layer_output", afterDispatch: dispatchBase + 9, source: .alternate,
+        count: 896),
         ]
         let actual = try runtime.decodeTeacherForcedCapturingDispatches(
             tokenID: inputTokens[update - 1],
@@ -953,8 +981,8 @@ struct SmeltSkeletonLanguageRuntimeTests {
     @Test("Dense trunk bricks preserve per-layer BF16 boundaries")
     func layerPrimitiveParity() throws {
         let environment = ProcessInfo.processInfo.environment
-        guard let package = environment["SMELT_RIG_PACKAGE"],
-              let referencePath = environment["SMELT_RIG_LANGUAGE_REGION_REFERENCE"]
+    guard let package = environment["SMELT_SKINNING_PACKAGE"],
+      let referencePath = environment["SMELT_SKINNING_LANGUAGE_REGION_REFERENCE"]
         else {
             return
         }
@@ -970,21 +998,51 @@ struct SmeltSkeletonLanguageRuntimeTests {
             tensorName: "input_embeddings"
         )
         var requests: [SmeltTrunkDispatchCaptureRequest] = [
-            .init(label: "\(prefix)_input_norm", afterDispatch: dispatchBase + 1, source: .slot("normOutBuf"), count: sequenceLength * hidden),
-            .init(label: "\(prefix)_q_projection", afterDispatch: dispatchBase + 2, source: .slot("attnQBuf"), count: sequenceLength * 2_048),
-            .init(label: "\(prefix)_k_projection", afterDispatch: dispatchBase + 3, source: .slot("attnKBuf"), count: sequenceLength * 1_024),
-            .init(label: "\(prefix)_v_projection", afterDispatch: dispatchBase + 4, source: .slot("valCache_\(layer)"), count: sequenceLength * 1_024),
-            .init(label: "\(prefix)_q_norm", afterDispatch: dispatchBase + 5, source: .slot("attnQBuf"), count: sequenceLength * 2_048),
-            .init(label: "\(prefix)_k_norm", afterDispatch: dispatchBase + 6, source: .slot("attnKBuf"), count: sequenceLength * 1_024),
-            .init(label: "\(prefix)_q_roped", afterDispatch: dispatchBase + 7, source: .slot("attnQBuf"), count: sequenceLength * 2_048),
-            .init(label: "\(prefix)_k_roped", afterDispatch: dispatchBase + 8, source: .slot("keyCache_\(layer)"), count: sequenceLength * 1_024),
-            .init(label: "\(prefix)_attention_output", afterDispatch: dispatchBase + 9, source: .slot("attnOutBuf"), count: sequenceLength * 2_048),
-            .init(label: "\(prefix)_o_projection", afterDispatch: dispatchBase + 10, source: .slot("normOutBuf"), count: sequenceLength * hidden),
-            .init(label: "\(prefix)_post_attention_norm", afterDispatch: dispatchBase + 12, source: .slot("normOutBuf"), count: sequenceLength * hidden),
-            .init(label: "\(prefix)_gate_projection", afterDispatch: dispatchBase + 13, source: .slot("ffnGateBuf"), count: sequenceLength * 3_072),
-            .init(label: "\(prefix)_up_projection", afterDispatch: dispatchBase + 14, source: .slot("ffnUpBuf"), count: sequenceLength * 3_072),
-            .init(label: "\(prefix)_swiglu", afterDispatch: dispatchBase + 15, source: .slot("ffnIntBuf"), count: sequenceLength * 3_072),
-            .init(label: "\(prefix)_down_projection", afterDispatch: dispatchBase + 16, source: .slot("normOutBuf"), count: sequenceLength * hidden),
+      .init(
+        label: "\(prefix)_input_norm", afterDispatch: dispatchBase + 1, source: .slot("normOutBuf"),
+        count: sequenceLength * hidden),
+      .init(
+        label: "\(prefix)_q_projection", afterDispatch: dispatchBase + 2, source: .slot("attnQBuf"),
+        count: sequenceLength * 2_048),
+      .init(
+        label: "\(prefix)_k_projection", afterDispatch: dispatchBase + 3, source: .slot("attnKBuf"),
+        count: sequenceLength * 1_024),
+      .init(
+        label: "\(prefix)_v_projection", afterDispatch: dispatchBase + 4,
+        source: .slot("valCache_\(layer)"), count: sequenceLength * 1_024),
+      .init(
+        label: "\(prefix)_q_norm", afterDispatch: dispatchBase + 5, source: .slot("attnQBuf"),
+        count: sequenceLength * 2_048),
+      .init(
+        label: "\(prefix)_k_norm", afterDispatch: dispatchBase + 6, source: .slot("attnKBuf"),
+        count: sequenceLength * 1_024),
+      .init(
+        label: "\(prefix)_q_roped", afterDispatch: dispatchBase + 7, source: .slot("attnQBuf"),
+        count: sequenceLength * 2_048),
+      .init(
+        label: "\(prefix)_k_roped", afterDispatch: dispatchBase + 8,
+        source: .slot("keyCache_\(layer)"), count: sequenceLength * 1_024),
+      .init(
+        label: "\(prefix)_attention_output", afterDispatch: dispatchBase + 9,
+        source: .slot("attnOutBuf"), count: sequenceLength * 2_048),
+      .init(
+        label: "\(prefix)_o_projection", afterDispatch: dispatchBase + 10,
+        source: .slot("normOutBuf"), count: sequenceLength * hidden),
+      .init(
+        label: "\(prefix)_post_attention_norm", afterDispatch: dispatchBase + 12,
+        source: .slot("normOutBuf"), count: sequenceLength * hidden),
+      .init(
+        label: "\(prefix)_gate_projection", afterDispatch: dispatchBase + 13,
+        source: .slot("ffnGateBuf"), count: sequenceLength * 3_072),
+      .init(
+        label: "\(prefix)_up_projection", afterDispatch: dispatchBase + 14,
+        source: .slot("ffnUpBuf"), count: sequenceLength * 3_072),
+      .init(
+        label: "\(prefix)_swiglu", afterDispatch: dispatchBase + 15, source: .slot("ffnIntBuf"),
+        count: sequenceLength * 3_072),
+      .init(
+        label: "\(prefix)_down_projection", afterDispatch: dispatchBase + 16,
+        source: .slot("normOutBuf"), count: sequenceLength * hidden),
         ]
         if layer == 0 {
             requests.append(

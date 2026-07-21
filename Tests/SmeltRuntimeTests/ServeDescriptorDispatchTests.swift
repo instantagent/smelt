@@ -5,6 +5,19 @@ import Metal
 import XCTest
 
 final class ServeDescriptorDispatchTests: XCTestCase {
+    func testPerformanceCommandsHaveCleanBreakToLabNamespace() throws {
+        let retired = try Self.runRawSmelt(["verify", "/tmp/model.smeltpkg"])
+        XCTAssertEqual(retired.status, 1)
+        XCTAssertTrue(retired.stderr.contains("Unknown command: verify"), retired.stderr)
+
+        let lab = try Self.runRawSmelt(["lab", "--help"])
+        XCTAssertEqual(lab.status, 0, lab.stderr)
+        XCTAssertTrue(lab.stdout.contains("smelt lab verify"), lab.stdout)
+        XCTAssertTrue(lab.stdout.contains("smelt lab bench verify"), lab.stdout)
+        XCTAssertTrue(lab.stdout.contains("smelt lab profile verify"), lab.stdout)
+        XCTAssertTrue(lab.stdout.contains("smelt lab sweep qmm"), lab.stdout)
+    }
+
     func testRunCAMTextExportPreflightsInventoryWithoutManifestBridge() throws {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("smelt-run-cam-text-conflict-\(UUID().uuidString)", isDirectory: true)
@@ -374,13 +387,29 @@ final class ServeDescriptorDispatchTests: XCTestCase {
         ).write(to: suitePath)
         let commandCases: [(name: String, verb: String, arguments: [String])] = [
             ("run", "run", ["run", package.path, "hello"]),
-            ("bench", "bench", ["bench", package.path, "--iterations", "1", "--warmup", "0"]),
+            (
+                "bench",
+                "lab bench decode",
+                ["bench", package.path, "--iterations", "1", "--warmup", "0"]
+            ),
             ("serve", "serve", ["serve", package.path, "--transport", "invalid"]),
-            ("trace inspect", "trace", ["trace", "inspect", package.path]),
-            ("trace record", "trace", ["trace", "record", package.path, "--case-text", "hello"]),
-            ("trace verify", "trace", ["trace", "verify", package.path, "--golden", tracePath.path]),
-            ("trace replay", "trace", ["trace", "replay", package.path, tracePath.path]),
-            ("trace suite", "trace", ["trace", "suite", suitePath.path, "--package", package.path]),
+            ("trace inspect", "lab trace", ["trace", "inspect", package.path]),
+            (
+                "trace record",
+                "lab trace",
+                ["trace", "record", package.path, "--case-text", "hello"]
+            ),
+            (
+                "trace verify",
+                "lab trace",
+                ["trace", "verify", package.path, "--golden", tracePath.path]
+            ),
+            ("trace replay", "lab trace", ["trace", "replay", package.path, tracePath.path]),
+            (
+                "trace suite",
+                "lab trace",
+                ["trace", "suite", suitePath.path, "--package", package.path]
+            ),
             (
                 "linger-worker",
                 "linger-worker",
@@ -1478,7 +1507,7 @@ final class ServeDescriptorDispatchTests: XCTestCase {
             (
                 "bench",
                 ["bench", package.path, "--iterations", "1", "--warmup", "0"],
-                "smelt bench: expected module descriptor but package has no module.json"
+                "smelt lab bench decode: expected module descriptor but package has no module.json"
             ),
             (
                 "serve",
@@ -1488,12 +1517,12 @@ final class ServeDescriptorDispatchTests: XCTestCase {
             (
                 "trace-inspect",
                 ["trace", "inspect", package.path],
-                "smelt trace: expected module descriptor but package has no module.json"
+                "smelt lab trace: expected module descriptor but package has no module.json"
             ),
             (
                 "trace-record",
                 ["trace", "record", package.path, "--case-text", "hello"],
-                "smelt trace: expected module descriptor but package has no module.json"
+                "smelt lab trace: expected module descriptor but package has no module.json"
             ),
             (
                 "linger-worker",
@@ -1511,7 +1540,6 @@ final class ServeDescriptorDispatchTests: XCTestCase {
             )
             XCTAssertFalse(result.stderr.contains("no run capability"), commandCase.name)
             XCTAssertFalse(result.stderr.contains("no bench capability"), commandCase.name)
-            XCTAssertFalse(result.stderr.contains("no bake capability"), commandCase.name)
             XCTAssertFalse(result.stderr.contains("Qwen"), commandCase.name)
             XCTAssertFalse(result.stderr.contains("Load failed"), commandCase.name)
             XCTAssertFalse(result.stderr.contains("Run failed"), commandCase.name)
@@ -1624,7 +1652,7 @@ final class ServeDescriptorDispatchTests: XCTestCase {
 
         XCTAssertEqual(result.status, 1)
         XCTAssertTrue(
-            result.stderr.contains("smelt trace: expected module descriptor but package has no module.json"),
+            result.stderr.contains("smelt lab trace: expected module descriptor but package has no module.json"),
             result.stderr
         )
         XCTAssertFalse(result.stderr.contains("runtime recording is not implemented"), result.stderr)
@@ -1653,7 +1681,7 @@ final class ServeDescriptorDispatchTests: XCTestCase {
 
         XCTAssertEqual(result.status, 1)
         XCTAssertTrue(
-            result.stderr.contains("smelt bench: expected module descriptor but package has no module.json"),
+            result.stderr.contains("smelt lab bench decode: expected module descriptor but package has no module.json"),
             result.stderr
         )
         XCTAssertFalse(
@@ -1682,7 +1710,7 @@ final class ServeDescriptorDispatchTests: XCTestCase {
             (
                 "bench",
                 ["bench", package.path, "--iterations", "1", "--warmup", "0"],
-                "smelt bench: expected module descriptor but package has no module.json"
+                "smelt lab bench decode: expected module descriptor but package has no module.json"
             ),
             (
                 "serve",
@@ -1692,7 +1720,7 @@ final class ServeDescriptorDispatchTests: XCTestCase {
             (
                 "trace",
                 ["trace", "record", package.path, "--case-text", "hello"],
-                "smelt trace: expected module descriptor but package has no module.json"
+                "smelt lab trace: expected module descriptor but package has no module.json"
             ),
             (
                 "linger-worker",
@@ -1761,7 +1789,7 @@ final class ServeDescriptorDispatchTests: XCTestCase {
         XCTAssertFalse(result.stderr.contains("expected llm package"), result.stderr)
     }
 
-    func testDispatchesCAMPrefillTableRequiresPrefillCapability() throws {
+    func testDispatchesCAMPrefillTableUsesRuntimeContractAndExactInventory() throws {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("smelt-dispatches-cam-prefill-\(UUID().uuidString)", isDirectory: true)
         let fast = root.appendingPathComponent("fake-cam-fast.smeltpkg", isDirectory: true)
@@ -1773,49 +1801,26 @@ final class ServeDescriptorDispatchTests: XCTestCase {
         try Self.writeCAMDescriptor("qwen35_fast.cam", to: fast)
         try Self.writeDispatchTable("dispatches.bin", to: fast)
 
-        let rejected = try Self.runSmelt([
+        let missingFastTable = try Self.runSmelt([
             "dispatches",
             fast.path,
-            "--prefill",
+            "--table", "prefill",
         ])
 
-        XCTAssertEqual(rejected.status, 1)
+        XCTAssertEqual(missingFastTable.status, 1)
         XCTAssertTrue(
-            rejected.stderr.contains("no CAM export satisfies dispatch table request"),
-            rejected.stderr
+            missingFastTable.stderr.contains("module capability files missing: prefill_dispatches.bin"),
+            missingFastTable.stderr
         )
-        XCTAssertFalse(rejected.stderr.contains("Failed to load"), rejected.stderr)
-        XCTAssertFalse(rejected.stderr.contains("expected llm package"), rejected.stderr)
+        XCTAssertFalse(missingFastTable.stderr.contains("Failed to load"), missingFastTable.stderr)
+        XCTAssertFalse(missingFastTable.stderr.contains("expected llm package"), missingFastTable.stderr)
 
         try Self.writeCAMDescriptor("qwen35_text.cam", to: text)
-
-        let rejectedWithoutAuthoredCapability = try Self.runSmelt([
-            "dispatches",
-            text.path,
-            "--prefill",
-        ])
-
-        XCTAssertEqual(rejectedWithoutAuthoredCapability.status, 1)
-        XCTAssertTrue(
-            rejectedWithoutAuthoredCapability.stderr.contains(
-                "no CAM export satisfies dispatch table request"
-            ),
-            rejectedWithoutAuthoredCapability.stderr
-        )
-        XCTAssertFalse(rejectedWithoutAuthoredCapability.stderr.contains("Failed to load"))
-
-        try Self.writeMutatedCAMDescriptor("qwen35_text.cam", to: text) { object in
-            try Self.appendExportCapability(
-                in: &object,
-                exportID: "generate",
-                capability: "inspect.prefill-dispatch-table"
-            )
-        }
 
         let missing = try Self.runSmelt([
             "dispatches",
             text.path,
-            "--prefill",
+            "--table", "prefill",
         ])
 
         XCTAssertEqual(missing.status, 1)
@@ -1830,13 +1835,36 @@ final class ServeDescriptorDispatchTests: XCTestCase {
         let accepted = try Self.runSmelt([
             "dispatches",
             text.path,
-            "--prefill",
+            "--table", "prefill",
             "--sequence",
         ])
 
         XCTAssertEqual(accepted.status, 0, accepted.stderr)
         XCTAssertTrue(accepted.stdout.contains("records=1"), accepted.stdout)
         XCTAssertTrue(accepted.stdout.contains("pipeline_0"), accepted.stdout)
+    }
+
+    func testLabInspectDispatchesReadsVerifyArgmaxTable() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("smelt-lab-dispatches-verify-\(UUID().uuidString)", isDirectory: true)
+        let package = root.appendingPathComponent("fake-cam-verify.smeltpkg", isDirectory: true)
+        try FileManager.default.createDirectory(at: package, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        try Self.writeCAMDescriptor("bonsai_27b_ternary.cam", to: package)
+        try Self.writeDispatchTable("prefill_verify_argmax_dispatches.bin", to: package)
+
+        let result = try Self.runRawSmelt([
+            "lab", "inspect", "dispatches", package.path,
+            "--table", "verify",
+            "--sequence-length", "4",
+            "--sequence",
+        ])
+
+        XCTAssertEqual(result.status, 0, result.stderr)
+        XCTAssertTrue(result.stdout.contains("prefill_verify_argmax_dispatches.bin"), result.stdout)
+        XCTAssertTrue(result.stdout.contains("records=1"), result.stdout)
+        XCTAssertTrue(result.stdout.contains("threadgroups=1"), result.stdout)
     }
 
     func testBenchLogprobsCAMRequiresAuthoredPrefillCapabilityBeforeRuntimeLoad() throws {
@@ -1859,7 +1887,7 @@ final class ServeDescriptorDispatchTests: XCTestCase {
         XCTAssertEqual(rejectedWithoutAuthoredCapability.status, 1)
         XCTAssertTrue(
             rejectedWithoutAuthoredCapability.stderr.contains(
-                "no CAM export satisfies bench-logprobs text request"
+                "no CAM export satisfies lab bench logprobs text request"
             ),
             rejectedWithoutAuthoredCapability.stderr
         )
@@ -2083,7 +2111,7 @@ final class ServeDescriptorDispatchTests: XCTestCase {
         XCTAssertEqual(rejectedWithoutDecodeInventory.status, 1)
         XCTAssertTrue(
             rejectedWithoutDecodeInventory.stderr.contains(
-                "no CAM export satisfies prefill text request"
+                "no CAM export satisfies lab prefill text request"
             ),
             rejectedWithoutDecodeInventory.stderr
         )
@@ -2160,7 +2188,7 @@ final class ServeDescriptorDispatchTests: XCTestCase {
         XCTAssertEqual(rejectedWithoutPlainPrefillCompile.status, 1)
         XCTAssertTrue(
             rejectedWithoutPlainPrefillCompile.stderr.contains(
-                "no CAM export satisfies prefill-kernels text request"
+                "no CAM export satisfies lab profile prefill text request"
             ),
             rejectedWithoutPlainPrefillCompile.stderr
         )
@@ -2712,7 +2740,7 @@ final class ServeDescriptorDispatchTests: XCTestCase {
             (
                 "bench",
                 ["bench", package.path, "--iterations", "1", "--warmup", "0"],
-                "smelt bench: no CAM export satisfies decode benchmark request"
+                "smelt lab bench decode: no CAM export satisfies decode benchmark request"
             ),
             (
                 "serve",
@@ -2722,7 +2750,7 @@ final class ServeDescriptorDispatchTests: XCTestCase {
             (
                 "trace",
                 ["trace", "record", package.path, "--case-text", "hello"],
-                "smelt trace: no CAM export satisfies trace text request"
+                "smelt lab trace: no CAM export satisfies trace text request"
             ),
             (
                 "linger-worker",
@@ -2757,7 +2785,7 @@ final class ServeDescriptorDispatchTests: XCTestCase {
             .write(to: package.appendingPathComponent("manifest.json"))
         try Self.mutatedCAMDescriptorData("qwen3_tts.cam") { object in
             var exports = try XCTUnwrap(object["exports"] as? [[String: Any]])
-            exports[0]["capabilities"] = ["run.synthesize", "bake.voice-defaults"]
+            exports[0]["capabilities"] = ["run.synthesize", "prepare.voice-defaults"]
             object["exports"] = exports
         }.write(to: package.appendingPathComponent(SmeltCAMPackageDescriptor.packageFileName))
 
@@ -2790,7 +2818,7 @@ final class ServeDescriptorDispatchTests: XCTestCase {
             .write(to: package.appendingPathComponent("manifest.json"))
         try Self.mutatedCAMDescriptorData("qwen3_tts.cam") { object in
             var exports = try XCTUnwrap(object["exports"] as? [[String: Any]])
-            exports[0]["capabilities"] = ["run.synthesize", "bake.voice-defaults"]
+            exports[0]["capabilities"] = ["run.synthesize", "prepare.voice-defaults"]
             object["exports"] = exports
         }.write(to: package.appendingPathComponent(SmeltCAMPackageDescriptor.packageFileName))
 
@@ -2824,7 +2852,7 @@ final class ServeDescriptorDispatchTests: XCTestCase {
             .write(to: package.appendingPathComponent("manifest.json"))
         try Self.mutatedCAMDescriptorData("qwen3_tts.cam") { object in
             var exports = try XCTUnwrap(object["exports"] as? [[String: Any]])
-            exports[0]["capabilities"] = ["run.synthesize", "bake.voice-defaults"]
+            exports[0]["capabilities"] = ["run.synthesize", "prepare.voice-defaults"]
             object["exports"] = exports
         }.write(to: package.appendingPathComponent(SmeltCAMPackageDescriptor.packageFileName))
         let identity = try Self.encodedCAMLingerIdentity(
@@ -3147,6 +3175,9 @@ final class ServeDescriptorDispatchTests: XCTestCase {
     private static func writeDispatchTable(_ name: String, to package: URL) throws {
         var record = SmeltDispatchRecord.empty()
         record.pipeline = 0
+        record.gridW = 1
+        record.gridH = 1
+        record.gridD = 1
         record.tgW = 1
         record.tgH = 1
         record.tgD = 1
@@ -3316,6 +3347,16 @@ final class ServeDescriptorDispatchTests: XCTestCase {
         _ arguments: [String],
         currentDirectory: URL? = nil
     ) throws -> (status: Int32, stdout: String, stderr: String) {
+        try runRawSmelt(
+            labRoutedArguments(arguments),
+            currentDirectory: currentDirectory
+        )
+    }
+
+    private static func runRawSmelt(
+        _ arguments: [String],
+        currentDirectory: URL? = nil
+    ) throws -> (status: Int32, stdout: String, stderr: String) {
         let process = Process()
         process.executableURL = try smeltExecutable()
         process.arguments = arguments
@@ -3333,6 +3374,30 @@ final class ServeDescriptorDispatchTests: XCTestCase {
             String(decoding: stdout.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self),
             String(decoding: stderr.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
         )
+    }
+
+    private static func labRoutedArguments(_ arguments: [String]) -> [String] {
+        guard let command = arguments.first else { return arguments }
+        let tail = Array(arguments.dropFirst())
+        switch command {
+        case "verify": return ["lab", "verify"] + tail
+        case "bench": return ["lab", "bench", "decode"] + tail
+        case "prefill-bench": return ["lab", "bench", "prefill"] + tail
+        case "mtp-bench": return ["lab", "bench", "speculative"] + tail
+        case "bench-logprobs": return ["lab", "bench", "logprobs"] + tail
+        case "profile": return ["lab", "profile", "decode"] + tail
+        case "kernels": return ["lab", "profile", "decode"] + tail + ["--kernels"]
+        case "prefill-kernels": return ["lab", "profile", "prefill"] + tail
+        case "dispatches": return ["lab", "inspect", "dispatches"] + tail
+        case "optimizer-report": return ["lab", "inspect", "cost"] + tail
+        case "kernel-lab": return ["lab", "kernel"] + tail
+        case "trace": return ["lab", "trace"] + tail
+        case "replay": return ["lab", "replay"] + tail
+        case "prefill": return ["lab", "prefill"] + tail
+        case "optimize-next": return ["lab", "optimize"] + tail
+        case "module-profile": return ["lab", "package-profile"] + tail
+        default: return arguments
+        }
     }
 
     private static func smeltExecutable() throws -> URL {

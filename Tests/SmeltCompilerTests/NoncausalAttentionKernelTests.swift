@@ -122,6 +122,41 @@ final class NoncausalAttentionKernelTests: XCTestCase {
         )
     }
 
+    private func encodeQ16(
+        _ encoder: MTLComputeCommandEncoder,
+        pipeline: MTLComputePipelineState,
+        q: MTLBuffer,
+        k: MTLBuffer,
+        v: MTLBuffer,
+        output: MTLBuffer,
+        queryTokens: Int,
+        keyValueTokens: Int,
+        heads: Int,
+        headDim: Int
+    ) {
+        encoder.setComputePipelineState(pipeline)
+        encoder.setBuffer(q, offset: 0, index: 0)
+        encoder.setBuffer(k, offset: 0, index: 1)
+        encoder.setBuffer(v, offset: 0, index: 2)
+        encoder.setBuffer(output, offset: 0, index: 3)
+        var queryTokens = UInt32(queryTokens)
+        var keyValueTokens = UInt32(keyValueTokens)
+        var heads = UInt32(heads)
+        var headDim = UInt32(headDim)
+        encoder.setBytes(&queryTokens, length: 4, index: 4)
+        encoder.setBytes(&keyValueTokens, length: 4, index: 5)
+        encoder.setBytes(&heads, length: 4, index: 6)
+        encoder.setBytes(&headDim, length: 4, index: 7)
+        encoder.dispatchThreadgroups(
+            MTLSize(
+                width: (Int(queryTokens) + 15) / 16,
+                height: Int(heads),
+                depth: 1
+            ),
+            threadsPerThreadgroup: MTLSize(width: 512, height: 1, depth: 1)
+        )
+    }
+
     private func encodeUpdate(
         _ encoder: MTLComputeCommandEncoder,
         pipeline: MTLComputePipelineState,
@@ -530,6 +565,99 @@ final class NoncausalAttentionKernelTests: XCTestCase {
                 "Q8_ATTENTION_STRESS queries=\(shape.queries) "
                     + "keys=\(shape.keys) repeats=\(repeatCount) mismatches=0"
             )
+        }
+    }
+
+    func testSixteenQueryTileIsBitExactWithIndependentQueries() throws {
+        let independent = try pipeline(
+            shaderFile: "neural_primitives_f32.metal",
+            functionName: "noncausal_attention_f32"
+        )
+        let q16 = try pipeline(
+            shaderFile: "neural_primitives_f32.metal",
+            functionName: "noncausal_attention_q16_f32"
+        )
+        let heads = 3
+        let headDim = 64
+        let hidden = heads * headDim
+        for shape in [
+            (queries: 16, keys: 5),
+            (queries: 17, keys: 33),
+            (queries: 388, keys: 388),
+            (queries: 512, keys: 17),
+        ] {
+            let q = try makeSharedBuffer(
+                device: device,
+                deterministicValues(
+                    count: shape.queries * hidden,
+                    seed: 631 + shape.queries
+                )
+            )
+            let k = try makeSharedBuffer(
+                device: device,
+                deterministicValues(
+                    count: shape.keys * hidden,
+                    seed: 673 + shape.keys
+                )
+            )
+            let v = try makeSharedBuffer(
+                device: device,
+                deterministicValues(
+                    count: shape.keys * hidden,
+                    seed: 711 + shape.keys
+                )
+            )
+            let expected = try makeSharedBuffer(
+                device: device,
+                count: shape.queries * hidden,
+                of: Float.self
+            )
+            let actual = try makeSharedBuffer(
+                device: device,
+                count: shape.queries * hidden,
+                of: Float.self
+            )
+            try runOnGPU(queue: queue) { encoder in
+                encodeGeneric(
+                    encoder,
+                    pipeline: independent,
+                    q: q,
+                    k: k,
+                    v: v,
+                    output: expected,
+                    queryTokens: shape.queries,
+                    keyValueTokens: shape.keys,
+                    heads: heads,
+                    headDim: headDim
+                )
+                encodeQ16(
+                    encoder,
+                    pipeline: q16,
+                    q: q,
+                    k: k,
+                    v: v,
+                    output: actual,
+                    queryTokens: shape.queries,
+                    keyValueTokens: shape.keys,
+                    heads: heads,
+                    headDim: headDim
+                )
+            }
+            let expectedValues = read(
+                expected,
+                count: shape.queries * hidden
+            )
+            let actualValues = read(
+                actual,
+                count: shape.queries * hidden
+            )
+            for index in expectedValues.indices {
+                XCTAssertEqual(
+                    actualValues[index].bitPattern,
+                    expectedValues[index].bitPattern,
+                    "Q=\(shape.queries) KV=\(shape.keys) index=\(index)"
+                )
+            }
         }
     }
 

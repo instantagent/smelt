@@ -87,8 +87,8 @@ final class CompilerPackageCleanupTests: XCTestCase {
             "manifest.json",
             "dispatches.bin",
             "prefill_dispatches.bin",
-            SmeltBakeArtifacts.prefixMeta,
-            SmeltBakeArtifacts.grammarMeta,
+            SmeltPreparedArtifacts.prefixMetadata,
+            SmeltPreparedArtifacts.grammarMetadata,
             SmeltPackageInterface.fileName,
             "tokenizer.bin",
         ] {
@@ -106,7 +106,7 @@ final class CompilerPackageCleanupTests: XCTestCase {
             withDestinationPath: metallibTarget.path
         )
         try fm.createSymbolicLink(
-            atPath: pkg.appendingPathComponent(SmeltBakeArtifacts.grammarTrie).path,
+            atPath: pkg.appendingPathComponent(SmeltPreparedArtifacts.grammarTrie).path,
             withDestinationPath: root.appendingPathComponent("missing.trie").path
         )
 
@@ -120,9 +120,9 @@ final class CompilerPackageCleanupTests: XCTestCase {
             "manifest.json",
             "dispatches.bin",
             "prefill_dispatches.bin",
-            SmeltBakeArtifacts.prefixMeta,
-            SmeltBakeArtifacts.grammarMeta,
-            SmeltBakeArtifacts.grammarTrie,
+            SmeltPreparedArtifacts.prefixMetadata,
+            SmeltPreparedArtifacts.grammarMetadata,
+            SmeltPreparedArtifacts.grammarTrie,
             SmeltPackageInterface.fileName,
             "tokenizer.bin",
             "model.metallib",
@@ -147,7 +147,7 @@ final class CompilerPackageCleanupTests: XCTestCase {
         try Data([2]).write(to: pkg.appendingPathComponent("tokenizer.json"))
         try Data([3]).write(to: pkg.appendingPathComponent("tokenizer.bin"))
         try Data([4]).write(to: pkg.appendingPathComponent("special_tokens.json"))
-        try Data([5]).write(to: pkg.appendingPathComponent(SmeltBakeArtifacts.grammarMeta))
+        try Data([5]).write(to: pkg.appendingPathComponent(SmeltPreparedArtifacts.grammarMetadata))
 
         try SmeltCompiler.removeStaleGeneratedPackageArtifacts(
             pkgPath: pkg.path,
@@ -159,7 +159,7 @@ final class CompilerPackageCleanupTests: XCTestCase {
         XCTAssertTrue(fm.fileExists(atPath: pkg.appendingPathComponent("tokenizer.bin").path))
         XCTAssertTrue(fm.fileExists(atPath: pkg.appendingPathComponent("special_tokens.json").path))
         XCTAssertFalse(fm.fileExists(
-            atPath: pkg.appendingPathComponent(SmeltBakeArtifacts.grammarMeta).path))
+            atPath: pkg.appendingPathComponent(SmeltPreparedArtifacts.grammarMetadata).path))
     }
 
     private func packagePathExistsOrIsSymlink(_ path: String) -> Bool {

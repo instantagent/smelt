@@ -7924,6 +7924,29 @@ kernel void NAME( \
     ); \
 }
 
+#define AGENT_DECLARE_AFFINE_MATVEC_FIXED_FULL_B8(NAME, ROWS, COLS) \
+kernel void NAME( \
+    device const uint8_t* weights  [[buffer(0)]], \
+    device const half*    scales   [[buffer(1)]], \
+    device const half*    biases   [[buffer(2)]], \
+    device const half*    input    [[buffer(3)]], \
+    device half*          output   [[buffer(4)]], \
+    constant uint&        actualBatch [[buffer(5)]], \
+    uint2 tgid       [[threadgroup_position_in_grid]], \
+    uint tid         [[thread_index_in_threadgroup]], \
+    uint simd_lane   [[thread_index_in_simdgroup]], \
+    uint simd_group  [[simdgroup_index_in_threadgroup]] \
+) { \
+    threadgroup half Xs[8 * (32 + 2)]; \
+    threadgroup float Ws[32 * (32 + 2)]; \
+    agent_affine_qmm_fixed_batched_full<ROWS, COLS, 64, 8, false>( \
+        weights, scales, biases, input, output, \
+        actualBatch, \
+        Xs, Ws, \
+        tgid, tid, simd_lane, simd_group \
+    ); \
+}
+
 #define AGENT_DECLARE_AFFINE_MATVEC_FIXED_FULL_PADDED_REFERENCE(NAME, ROWS, COLS) \
 kernel void NAME( \
     device const uint8_t* weights  [[buffer(0)]], \
@@ -7988,6 +8011,60 @@ kernel void NAME( \
         r3 = residualBase[outIndex3]; \
     } \
     agent_affine_qmm_fixed_batched_full<ROWS, COLS, 64, 16, false>( \
+        weights, scales, biases, input, matvecOutput, \
+        actualBatch, \
+        Xs, Ws, \
+        tgid, tid, simd_lane, simd_group \
+    ); \
+    if (valid) { \
+        outputBase[outIndex0] = matvecBase[outIndex0] + r0; \
+        outputBase[outIndex1] = matvecBase[outIndex1] + r1; \
+        outputBase[outIndex2] = matvecBase[outIndex2] + r2; \
+        outputBase[outIndex3] = matvecBase[outIndex3] + r3; \
+    } \
+}
+
+#define AGENT_DECLARE_FUSED_AFFINE_MATVEC_ADD_FIXED_FULL_B8(NAME, ROWS, COLS) \
+kernel void NAME( \
+    device const uint8_t* weights  [[buffer(0)]], \
+    device const half*    scales   [[buffer(1)]], \
+    device const half*    biases   [[buffer(2)]], \
+    device const half*    input    [[buffer(3)]], \
+    device half*          matvecOutput [[buffer(4)]], \
+    device const half*    residual [[buffer(5)]], \
+    device half*          output   [[buffer(6)]], \
+    constant uint&        actualBatch [[buffer(7)]], \
+    uint2 tgid       [[threadgroup_position_in_grid]], \
+    uint tid         [[thread_index_in_threadgroup]], \
+    uint simd_lane   [[thread_index_in_simdgroup]], \
+    uint simd_group  [[simdgroup_index_in_threadgroup]] \
+) { \
+    threadgroup half Xs[8 * (32 + 2)]; \
+    threadgroup float Ws[32 * (32 + 2)]; \
+    const uint batchBase = tgid.y * 8; \
+    const uint rowBase = tgid.x * 32; \
+    const short2 coord = AgentMMAFrag88f::getCoord(ushort(simd_lane)); \
+    const uint simdRowBase = (simd_group / 2) * 8; \
+    const uint simdColBase = (simd_group % 2) * 16; \
+    const bool valid = batchBase + simdRowBase + coord.y < actualBatch; \
+    const uint outIndex0 = (simdRowBase + coord.y) * ROWS + coord.x + 0; \
+    const uint outIndex1 = (simdRowBase + coord.y) * ROWS + coord.x + 1; \
+    const uint outIndex2 = (simdRowBase + coord.y) * ROWS + coord.x + 8; \
+    const uint outIndex3 = (simdRowBase + coord.y) * ROWS + coord.x + 9; \
+    device half* matvecBase = matvecOutput + batchBase * ROWS + rowBase + simdColBase; \
+    device half* outputBase = output + batchBase * ROWS + rowBase + simdColBase; \
+    device const half* residualBase = residual + batchBase * ROWS + rowBase + simdColBase; \
+    half r0 = half(0.0h); \
+    half r1 = half(0.0h); \
+    half r2 = half(0.0h); \
+    half r3 = half(0.0h); \
+    if (valid) { \
+        r0 = residualBase[outIndex0]; \
+        r1 = residualBase[outIndex1]; \
+        r2 = residualBase[outIndex2]; \
+        r3 = residualBase[outIndex3]; \
+    } \
+    agent_affine_qmm_fixed_batched_full<ROWS, COLS, 64, 8, false>( \
         weights, scales, biases, input, matvecOutput, \
         actualBatch, \
         Xs, Ws, \
@@ -8708,11 +8785,16 @@ AGENT_DECLARE_AFFINE_MATVEC_FIXED_FULL(affine_matvec_c1024_r2048_g64_batched_ful
 AGENT_DECLARE_AFFINE_MATVEC_FIXED_FULL(affine_matvec_c1024_r3584_g64_batched_full, 3584, 1024)
 AGENT_DECLARE_FUSED_AFFINE_MATVEC_ADD_FIXED_FULL(fused_affine_matvec_add_c2048_r1024_g64_batched_full, 1024, 2048)
 AGENT_DECLARE_FUSED_AFFINE_MATVEC_ADD_FIXED_FULL(fused_affine_matvec_add_c3584_r1024_g64_batched_full, 1024, 3584)
+AGENT_DECLARE_FUSED_AFFINE_MATVEC_ADD_FIXED_FULL_B8(fused_affine_matvec_add_c2048_r1024_g64_batched_full_b8, 1024, 2048)
+AGENT_DECLARE_FUSED_AFFINE_MATVEC_ADD_FIXED_FULL_B8(fused_affine_matvec_add_c3584_r1024_g64_batched_full_b8, 1024, 3584)
 AGENT_DECLARE_AFFINE_MATVEC_FIXED_FULL(affine_matvec_c1024_r4096_g64_batched_full, 4096, 1024)
 AGENT_DECLARE_AFFINE_MATVEC_FIXED_FULL(affine_matvec_c1024_r512_g64_batched_full, 512, 1024)
 AGENT_DECLARE_AFFINE_MATVEC_FIXED_FULL(affine_matvec_c1024_r6144_g64_batched_full, 6144, 1024)
 AGENT_DECLARE_AFFINE_MATVEC_FIXED_FULL_PADDED_REFERENCE(affine_matvec_c1024_r2048_g64_batched_full_padded_reference, 2048, 1024)
 AGENT_DECLARE_AFFINE_MATVEC_FIXED_FULL_PADDED_REFERENCE(affine_matvec_c2048_r2048_g64_batched_full_padded_reference, 2048, 2048)
+AGENT_DECLARE_AFFINE_MATVEC_FIXED_FULL_B8(affine_matvec_c1024_r2048_g64_batched_full_b8, 2048, 1024)
+AGENT_DECLARE_AFFINE_MATVEC_FIXED_FULL_B8(affine_matvec_c2048_r2048_g64_batched_full_b8, 2048, 2048)
+AGENT_DECLARE_AFFINE_MATVEC_FIXED_FULL_B8(affine_matvec_c2048_r1024_g64_batched_full_b8, 1024, 2048)
 AGENT_DECLARE_FUSED_AFFINE_GATE_UP_FIXED_FULL_PADDED_REFERENCE(fused_affine_gate_up_swiglu_c1024_r3584_g64_batched_full_padded_reference, 3584, 1024)
 AGENT_DECLARE_FUSED_AFFINE_GATE_UP_FIXED_FULL_PADDED_REFERENCE(fused_affine_gate_up_swiglu_c2048_r6144_g64_batched_full_padded_reference, 6144, 2048)
 AGENT_DECLARE_FUSED_AFFINE_GATE_UP_FIXED(fused_affine_gate_up_swiglu_c1024_r3584_g64_rows4_nocache_reference, 3584, 1024)
@@ -8782,6 +8864,8 @@ AGENT_DECLARE_NORM_SCALE_AFFINE_MATVEC_FIXED_FULL(norm_scale_affine_matvec_c3072
 #undef AGENT_DECLARE_LM_HEAD_ARGMAX_REDUCE
 #undef AGENT_DECLARE_NORM_SCALE_AFFINE_MATVEC_FIXED_ROWS4_GROUP
 #undef AGENT_DECLARE_AFFINE_MATVEC_FIXED_FULL
+#undef AGENT_DECLARE_AFFINE_MATVEC_FIXED_FULL_B8
+#undef AGENT_DECLARE_FUSED_AFFINE_MATVEC_ADD_FIXED_FULL_B8
 #undef AGENT_DECLARE_AFFINE_MATVEC_FIXED_FULL_PADDED_REFERENCE
 #undef AGENT_DECLARE_FUSED_AFFINE_GATE_UP_FIXED_FULL_PADDED_REFERENCE
 #undef AGENT_DECLARE_NORM_SCALE_AFFINE_MATVEC_FIXED_FULL_PADDED_REFERENCE

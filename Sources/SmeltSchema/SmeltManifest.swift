@@ -2341,7 +2341,7 @@ public struct SmeltInferenceManifest: Codable, Sendable {
     public let thinkEndToken: Int32?
     /// Token to inject after </think> during think-skip (typically newline).
     public let thinkSkipSuffix: Int32?
-    /// Prompt renderer baked into the package (e.g. "chatml", "channel-turns").
+    /// Prompt renderer packaged with the model (e.g. "chatml", "channel-turns").
     /// Both `smelt run` and `smelt serve` read this so prompt rendering is a
     /// package property, not a per-entry-point model-name guess. nil means raw
     /// prompt concatenation unless an explicit CLI template is supplied.

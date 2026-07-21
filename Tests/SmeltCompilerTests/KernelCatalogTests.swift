@@ -165,6 +165,8 @@ struct KernelCatalogTests {
             (.affineMatvecC8192R2048G64BatchedFull, "affine_matvec_c8192_r2048_g64_batched_full"),
             (.fusedAffineMatvecAddC2048R1024G64BatchedFull, "fused_affine_matvec_add_c2048_r1024_g64_batched_full"),
             (.fusedAffineMatvecAddC3584R1024G64BatchedFull, "fused_affine_matvec_add_c3584_r1024_g64_batched_full"),
+            (.fusedAffineMatvecAddC2048R1024G64BatchedFullB8, "fused_affine_matvec_add_c2048_r1024_g64_batched_full_b8"),
+            (.fusedAffineMatvecAddC3584R1024G64BatchedFullB8, "fused_affine_matvec_add_c3584_r1024_g64_batched_full_b8"),
             (.fusedAffineMatvecAddC2048R2048G64BatchedFull, "fused_affine_matvec_add_c2048_r2048_g64_batched_full"),
             (.fusedAffineMatvecAddC6144R2048G64BatchedFull, "fused_affine_matvec_add_c6144_r2048_g64_batched_full"),
             (.fusedAffineMatvecAddC8192R2048G64BatchedFull, "fused_affine_matvec_add_c8192_r2048_g64_batched_full"),

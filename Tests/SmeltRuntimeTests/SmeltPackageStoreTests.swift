@@ -1,4 +1,5 @@
 import Darwin
+import CryptoKit
 import Foundation
 import Testing
 
@@ -39,6 +40,68 @@ struct SmeltPackageStoreTests {
         #expect(stat(second.packageURL.appendingPathComponent("weights.bin").path, &secondMetadata) == 0)
         #expect(firstMetadata.st_dev == secondMetadata.st_dev)
         #expect(firstMetadata.st_ino == secondMetadata.st_ino)
+    }
+
+    @Test
+    func distinctPackagesWithIdenticalWeightsShareBlobInodeOnInstall() throws {
+        let temporary = FileManager.default.temporaryDirectory.appendingPathComponent(
+            "smelt-package-dedup-\(UUID().uuidString)",
+            isDirectory: true
+        )
+        let sourceA = temporary.appendingPathComponent("a.smeltpkg", isDirectory: true)
+        let sourceB = temporary.appendingPathComponent("b.smeltpkg", isDirectory: true)
+        let store = temporary.appendingPathComponent("store", isDirectory: true)
+        let cas = temporary.appendingPathComponent("cas", isDirectory: true)
+        for source in [sourceA, sourceB] {
+            try FileManager.default.createDirectory(
+                at: source,
+                withIntermediateDirectories: true
+            )
+        }
+        let weights = Data(repeating: 0x5a, count: 1024 * 1024 + 1)
+        let checksum = SHA256.hash(data: weights)
+            .map { String(format: "%02x", $0) }
+            .joined()
+        try weights.write(to: sourceA.appendingPathComponent("weights.bin"))
+        try weights.write(to: sourceB.appendingPathComponent("weights.bin"))
+        for (source, variant) in [(sourceA, "a"), (sourceB, "b")] {
+            let manifest = """
+            {"version":1,"package_variant":"\(variant)","checksums":{"weights_bin":"\(checksum)"}}
+            """
+            try Data(manifest.utf8).write(
+                to: source.appendingPathComponent("manifest.json")
+            )
+        }
+        setenv("SMELT_PACKAGE_STORE_DIR", store.path, 1)
+        setenv("SMELT_CAS_DIR", cas.path, 1)
+        defer {
+            unsetenv("SMELT_PACKAGE_STORE_DIR")
+            unsetenv("SMELT_CAS_DIR")
+            try? FileManager.default.removeItem(at: temporary)
+        }
+
+        let installedA = try SmeltPackageStore.install(packagePath: sourceA.path)
+        let installedB = try SmeltPackageStore.install(packagePath: sourceB.path)
+
+        #expect(installedA.identity != installedB.identity)
+        let weightsA = installedA.packageURL.appendingPathComponent("weights.bin")
+        let weightsB = installedB.packageURL.appendingPathComponent("weights.bin")
+        var linkA = stat()
+        var linkB = stat()
+        #expect(lstat(weightsA.path, &linkA) == 0)
+        #expect(lstat(weightsB.path, &linkB) == 0)
+        #expect(linkA.st_mode & S_IFMT == S_IFLNK)
+        #expect(linkB.st_mode & S_IFMT == S_IFLNK)
+        var blobA = stat()
+        var blobB = stat()
+        #expect(stat(weightsA.path, &blobA) == 0)
+        #expect(stat(weightsB.path, &blobB) == 0)
+        #expect(blobA.st_dev == blobB.st_dev)
+        #expect(blobA.st_ino == blobB.st_ino)
+
+        var sourceMetadata = stat()
+        #expect(lstat(sourceA.appendingPathComponent("weights.bin").path, &sourceMetadata) == 0)
+        #expect(sourceMetadata.st_mode & S_IFMT == S_IFREG)
     }
 
     @Test

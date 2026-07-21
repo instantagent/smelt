@@ -573,7 +573,7 @@ public enum SmeltOptimizerReportGenerator {
         lines.append("")
         guard options.includeTimings else {
             lines.append(
-                "Not collected. Run `smelt optimizer-report <package> --profile-timings` to add profiling-mode per-kernel GPU timing to this report."
+                "Not collected. Run `smelt lab inspect cost <package> --profile-timings` to add profiling-mode per-kernel GPU timing to this report."
             )
             lines.append("")
             return
@@ -634,7 +634,7 @@ public enum SmeltOptimizerReportGenerator {
         lines.append("")
         guard !comparisons.isEmpty else {
             lines.append(
-                "No paired graph-plan evidence was supplied. Run `smelt-probe compare-decode-plans` and pass its JSON with `--plan-comparison`."
+                "No paired graph-plan evidence was supplied. Run `smelt lab probe compare-decode-plans` and pass its JSON with `--plan-comparison`."
             )
             lines.append("")
             return
@@ -1138,7 +1138,7 @@ public enum SmeltOptimizerReportGenerator {
             lines.append("")
             lines.append("Likely files: \(likelyStructuralFiles(for: kernel.name).map { "`\($0)`" }.joined(separator: ", ")).")
             lines.append("")
-            lines.append("Done when: `smelt optimizer-report --profile-timings` shows lower timing for this kernel on the same package shape, and the relevant CAM gate suite still passes parity, structure, and performance gates.")
+            lines.append("Done when: `smelt lab inspect cost --profile-timings` shows lower timing for this kernel on the same package shape, and the relevant CAM gate suite still passes parity, structure, and performance gates.")
             lines.append("")
         }
     }
@@ -1681,7 +1681,7 @@ public struct SmeltOptimizerAgentTask: Sendable {
             "",
             "Likely files: \(likelyFiles.map { "`\($0)`" }.joined(separator: ", ")).",
             "",
-            "Correctness gates: rebuild the package if package-affecting inputs changed, run `smelt optimizer-report` again, and run the relevant CAM gate suite before trusting the speedup.",
+            "Correctness gates: rebuild the package if package-affecting inputs changed, run `smelt lab inspect cost` again, and run the relevant CAM gate suite before trusting the speedup.",
             "",
             "Done when: this task ID disappears from the optimizer report and the CAM gate suite still passes parity, structure, and performance gates.",
             "",

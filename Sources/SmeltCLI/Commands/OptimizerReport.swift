@@ -44,8 +44,8 @@ func requireCAMOptimizerReportAdmissionOrExit(
     )
 }
 
-func runOptimizerReportCommand() {
-    let optimizerReportUsage = "Usage: smelt optimizer-report <model.smeltpkg> [--output FILE] [--verify-weights] [--top-pipelines N] [--max-smelt-tasks N] [--profile-timings] [--timing-iterations N] [--timing-decode-position N] [--timing-prefill-tokens N[,M...]] [--timing-top-kernels N] [--plan-comparison FILE] [--frozen-cost] [--frozen-cost-table decode|prefill|prefill-verify-argmax] [--frozen-cost-sequence-length N] [--frozen-cost-json FILE] [--frozen-cost-baseline FILE] [--frozen-cost-delta-json FILE] [--frozen-cost-calibration FILE | --frozen-cost-calibrate FILE] [--frozen-cost-calibration-warmup N] [--frozen-cost-calibration-iterations N] [--frozen-cost-position N] [--frozen-cost-top-dispatches N]\n"
+func runOptimizerReportCommand(_ args: [String]) {
+    let optimizerReportUsage = "Usage: smelt lab inspect cost <model.smeltpkg> [--output FILE] [--verify-weights] [--top-pipelines N] [--max-smelt-tasks N] [--profile-timings] [--timing-iterations N] [--timing-decode-position N] [--timing-prefill-tokens N[,M...]] [--timing-top-kernels N] [--plan-comparison FILE] [--frozen-cost] [--frozen-cost-table decode|prefill|prefill-verify-argmax] [--frozen-cost-sequence-length N] [--frozen-cost-json FILE] [--frozen-cost-baseline FILE] [--frozen-cost-delta-json FILE] [--frozen-cost-calibration FILE | --frozen-cost-calibrate FILE] [--frozen-cost-calibration-warmup N] [--frozen-cost-calibration-iterations N] [--frozen-cost-position N] [--frozen-cost-top-dispatches N]\n"
     var packagePath: String?
     var outputPath: String?
     var verifyWeights = false
@@ -287,7 +287,7 @@ func runOptimizerReportCommand() {
     }
     let camContext = requireCAMOptimizerReportAdmissionOrExit(
         packagePath: resolvedPackagePath,
-        verb: "optimizer-report"
+        verb: "lab inspect cost"
     )
 
     do {
@@ -343,7 +343,7 @@ func runOptimizerReportCommand() {
                 let construction = requireCAMTextRuntimePlanOrExit(
                     packagePath: resolvedPackagePath,
                     request: calibrationRequest,
-                    verb: "optimizer-report",
+                    verb: "lab inspect cost",
                     requireAuthoredInventory: true
                 )
                 let runtime = try construction.makeRuntime(contextLimit: nil)

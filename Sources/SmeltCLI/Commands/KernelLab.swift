@@ -143,6 +143,21 @@ private struct KernelLabCase {
     let buffers: [String: Int]
     let baseline: KernelLabVariant
     let candidate: KernelLabVariant
+    let comparisonBuffer: String?
+
+    init(
+        name: String,
+        buffers: [String: Int],
+        baseline: KernelLabVariant,
+        candidate: KernelLabVariant,
+        comparisonBuffer: String? = nil
+    ) {
+        self.name = name
+        self.buffers = buffers
+        self.baseline = baseline
+        self.candidate = candidate
+        self.comparisonBuffer = comparisonBuffer
+    }
 }
 
 private struct KernelLabStats {
@@ -150,8 +165,8 @@ private struct KernelLabStats {
     let p95Us: Double
 }
 
-func runKernelLabCommand() {
-    let usage = "Usage: smelt kernel-lab [model.smeltpkg] [--case all|package-replay|qwen08-*|vibe3b-gate-up-*] [--transform identity|unfuse-affine-residual-add|unfuse-signed-gate-up|specialize-attention-d256-h24-kv4|fuse-rope-kv-cache-update|fuse-kv-affine-pair|fuse-norm-scale-gate-up|fuse-lmhead-argmax|skip-matching-dispatches|substitute-pipeline] [--filter SUBSTRING] [--to-pipeline NAME] [--state reset|primed] [--library source|package] [--shader-dir DIR] [--iterations N] [--warmup N] [--position N]\n"
+func runKernelLabCommand(_ args: [String]) {
+    let usage = "Usage: smelt lab kernel [model.smeltpkg] [--case all|package-replay|qwen08-*|vibe3b-gate-up-*] [--transform identity|unfuse-affine-residual-add|unfuse-signed-gate-up|specialize-attention-d256-h24-kv4|fuse-rope-kv-cache-update|fuse-kv-affine-pair|fuse-norm-scale-gate-up|fuse-lmhead-argmax|skip-matching-dispatches|substitute-pipeline] [--filter SUBSTRING] [--to-pipeline NAME] [--state reset|primed] [--library source|package] [--shader-dir DIR] [--iterations N] [--warmup N] [--position N]\n"
     if args.contains("--help") || args.contains("-h") {
         fputs(usage, stdout)
         exit(0)
@@ -161,20 +176,20 @@ func runKernelLabCommand() {
         exit(1)
     }
 
-    let packagePath = parseKernelLabPackagePath()
-    let caseName = parseArg("--case", default: "all")
+    let packagePath = parseKernelLabPackagePath(args)
+    let caseName = parseArg(args, "--case", default: "all")
     let libraryMode = KernelLabLibraryMode(
-        rawValue: parseArg("--library", default: "source")
+        rawValue: parseArg(args, "--library", default: "source")
     ) ?? .source
-    let shaderDir = parseArg("--shader-dir", default: "Resources/Shaders")
-    let iterations = max(1, Int(parseArg("--iterations", default: "100")) ?? 100)
-    let warmup = max(0, Int(parseArg("--warmup", default: "10")) ?? 10)
-    let position = Int32(parseArg("--position", default: "10")) ?? 10
-    let transformName = parseArg("--transform", default: "identity")
-    let filter = parseArg("--filter", default: "")
-    let toPipeline = parseArg("--to-pipeline", default: "")
+    let shaderDir = parseArg(args, "--shader-dir", default: "Resources/Shaders")
+    let iterations = max(1, Int(parseArg(args, "--iterations", default: "100")) ?? 100)
+    let warmup = max(0, Int(parseArg(args, "--warmup", default: "10")) ?? 10)
+    let position = Int32(parseArg(args, "--position", default: "10")) ?? 10
+    let transformName = parseArg(args, "--transform", default: "identity")
+    let filter = parseArg(args, "--filter", default: "")
+    let toPipeline = parseArg(args, "--to-pipeline", default: "")
     let stateMode = KernelPackageReplayStateMode(
-        rawValue: parseArg("--state", default: "reset")
+        rawValue: parseArg(args, "--state", default: "reset")
     ) ?? .reset
 
     do {
@@ -182,7 +197,7 @@ func runKernelLabCommand() {
             requireCAMTextRuntimePlanOrExit(
                 packagePath: $0,
                 request: .kernelLabPackage,
-                verb: "kernel-lab",
+                verb: "lab kernel",
                 requireAuthoredInventory: true
             )
         }
@@ -220,7 +235,7 @@ func runKernelLabCommand() {
             libraryMode: libraryMode,
             shaderDir: shaderDir
         )
-        let cases = try labCases(named: caseName)
+        let cases = try labCases(named: caseName, arguments: args)
         fputs(
             "Kernel lab: package=\(packagePath ?? "<none>") library=\(libraryMode.rawValue) iterations=\(iterations) warmup=\(warmup)\n\n",
             stderr
@@ -234,13 +249,14 @@ func runKernelLabCommand() {
     }
 }
 
-private func parseKernelLabPackagePath() -> String? {
+private func parseKernelLabPackagePath(_ args: [String]) -> String? {
     let valueFlags: Set<String> = [
         "--case",
         "--library",
         "--shader-dir",
         "--iterations",
         "--warmup",
+        "--batches",
         "--position",
         "--transform",
         "--filter",
@@ -2116,7 +2132,7 @@ private final class KernelLab {
 
         var matvec = try readSource(root.appendingPathComponent("lut_matvec.metal"))
 
-        let marker = "#undef SMELT_DECLARE_AFFINE_MATVEC_FIXED_ROWS4"
+        let marker = "#undef AGENT_DECLARE_AFFINE_MATVEC_FIXED_ROWS4"
         guard let range = matvec.range(of: marker) else {
             throw KernelLabError.missingInsertionPoint(marker)
         }
@@ -2210,7 +2226,7 @@ private final class KernelLab {
             .map(String.init)
             .filter { line in
                 let trimmed = line.trimmingCharacters(in: .whitespaces)
-                guard trimmed.hasPrefix("SMELT_DECLARE_"),
+                guard trimmed.hasPrefix("AGENT_DECLARE_"),
                       let open = trimmed.firstIndex(of: "("),
                       let comma = trimmed[trimmed.index(after: open)...]
                         .firstIndex(of: ",")
@@ -2249,10 +2265,10 @@ private final class KernelLab {
 
     fileprivate static func labDeclaration(for functionName: String) -> String? {
         if let shape = parseAffineMatvecArgmaxShape(functionName) {
-            return "SMELT_DECLARE_AFFINE_MATVEC_ARGMAX_FIXED_BATCHED_GROUP(\(functionName), \(shape.rows), \(shape.cols), \(shape.groupSize), \(shape.batchTile))\n"
+            return "AGENT_DECLARE_AFFINE_MATVEC_ARGMAX_FIXED_BATCHED_GROUP(\(functionName), \(shape.rows), \(shape.cols), \(shape.groupSize), \(shape.batchTile))\n"
         }
         if let rows = parseLMHeadArgmaxReduceRows(functionName) {
-            return "SMELT_DECLARE_LM_HEAD_ARGMAX_REDUCE(\(functionName), \(rows))\n"
+            return "AGENT_DECLARE_LM_HEAD_ARGMAX_REDUCE(\(functionName), \(rows))\n"
         }
         if let shape = parseFusedDualAffineMatvecAddShape(functionName) {
             return fusedDualAffineMatvecAddRows4Declaration(functionName, shape)
@@ -2267,9 +2283,9 @@ private final class KernelLab {
             }
             switch shape.rowTile {
             case 4:
-                return "SMELT_DECLARE_AFFINE_MATVEC_FIXED_ROWS4_GROUP(\(functionName), \(shape.rows), \(shape.cols), \(shape.groupSize))\n"
+                return "AGENT_DECLARE_AFFINE_MATVEC_FIXED_ROWS4_GROUP(\(functionName), \(shape.rows), \(shape.cols), \(shape.groupSize))\n"
             case 8:
-                return "SMELT_DECLARE_AFFINE_MATVEC_FIXED_ROWS8_GROUP(\(functionName), \(shape.rows), \(shape.cols), \(shape.groupSize))\n"
+                return "AGENT_DECLARE_AFFINE_MATVEC_FIXED_ROWS8_GROUP(\(functionName), \(shape.rows), \(shape.cols), \(shape.groupSize))\n"
             default:
                 return nil
             }
@@ -2278,22 +2294,22 @@ private final class KernelLab {
             case 4:
                 switch shape.variant {
                 case .threadgroupInput:
-                    return "SMELT_DECLARE_FUSED_AFFINE_MATVEC_ADD_FIXED_ROWS4_TGINPUT_GROUP(\(functionName), \(shape.rows), \(shape.cols), \(shape.groupSize))\n"
+                    return "AGENT_DECLARE_FUSED_AFFINE_MATVEC_ADD_FIXED_ROWS4_TGINPUT_GROUP(\(functionName), \(shape.rows), \(shape.cols), \(shape.groupSize))\n"
                 case .singleRowSimdgroup:
-                    return "SMELT_DECLARE_FUSED_AFFINE_MATVEC_ADD_FIXED_ROWS4_SG1_GROUP(\(functionName), \(shape.rows), \(shape.cols), \(shape.groupSize))\n"
+                    return "AGENT_DECLARE_FUSED_AFFINE_MATVEC_ADD_FIXED_ROWS4_SG1_GROUP(\(functionName), \(shape.rows), \(shape.cols), \(shape.groupSize))\n"
                 case .scaleBiasCache:
-                    return "SMELT_DECLARE_FUSED_AFFINE_MATVEC_ADD_FIXED_ROWS4_SBCACHE_GROUP(\(functionName), \(shape.rows), \(shape.cols), \(shape.groupSize))\n"
+                    return "AGENT_DECLARE_FUSED_AFFINE_MATVEC_ADD_FIXED_ROWS4_SBCACHE_GROUP(\(functionName), \(shape.rows), \(shape.cols), \(shape.groupSize))\n"
                 case .standard:
-                    return "SMELT_DECLARE_FUSED_AFFINE_MATVEC_ADD_FIXED_ROWS4_GROUP(\(functionName), \(shape.rows), \(shape.cols), \(shape.groupSize))\n"
+                    return "AGENT_DECLARE_FUSED_AFFINE_MATVEC_ADD_FIXED_ROWS4_GROUP(\(functionName), \(shape.rows), \(shape.cols), \(shape.groupSize))\n"
                 case .exp2Activation:
                     return nil
                 }
             case 8:
                 return fusedAffineMatvecAddRows8Declaration(functionName, shape)
             case 16:
-                return "SMELT_DECLARE_FUSED_AFFINE_MATVEC_ADD_FIXED_ROWS16_GROUP(\(functionName), \(shape.rows), \(shape.cols), \(shape.groupSize))\n"
+                return "AGENT_DECLARE_FUSED_AFFINE_MATVEC_ADD_FIXED_ROWS16_GROUP(\(functionName), \(shape.rows), \(shape.cols), \(shape.groupSize))\n"
             case 32:
-                return "SMELT_DECLARE_FUSED_AFFINE_MATVEC_ADD_FIXED_ROWS32_GROUP(\(functionName), \(shape.rows), \(shape.cols), \(shape.groupSize))\n"
+                return "AGENT_DECLARE_FUSED_AFFINE_MATVEC_ADD_FIXED_ROWS32_GROUP(\(functionName), \(shape.rows), \(shape.cols), \(shape.groupSize))\n"
             default:
                 return nil
             }
@@ -2302,11 +2318,11 @@ private final class KernelLab {
             case 4:
                 switch shape.variant {
                 case .threadgroupInput:
-                    return "SMELT_DECLARE_FUSED_AFFINE_GATE_UP_FIXED_ROWS4_TGINPUT_GROUP(\(functionName), \(shape.rows), \(shape.cols), \(shape.groupSize))\n"
+                    return "AGENT_DECLARE_FUSED_AFFINE_GATE_UP_FIXED_ROWS4_TGINPUT_GROUP(\(functionName), \(shape.rows), \(shape.cols), \(shape.groupSize))\n"
                 case .exp2Activation:
-                    return "SMELT_DECLARE_FUSED_AFFINE_GATE_UP_FIXED_ROWS4_EXP2_GROUP(\(functionName), \(shape.rows), \(shape.cols), \(shape.groupSize))\n"
+                    return "AGENT_DECLARE_FUSED_AFFINE_GATE_UP_FIXED_ROWS4_EXP2_GROUP(\(functionName), \(shape.rows), \(shape.cols), \(shape.groupSize))\n"
                 case .scaleBiasCache:
-                    return "SMELT_DECLARE_FUSED_AFFINE_GATE_UP_FIXED_ROWS4_SBCACHE_GROUP(\(functionName), \(shape.rows), \(shape.cols), \(shape.groupSize))\n"
+                    return "AGENT_DECLARE_FUSED_AFFINE_GATE_UP_FIXED_ROWS4_SBCACHE_GROUP(\(functionName), \(shape.rows), \(shape.cols), \(shape.groupSize))\n"
                 case .standard:
                     return fusedGateUpSwigluDeclaration(functionName, shape)
                 case .singleRowSimdgroup:
@@ -2315,9 +2331,9 @@ private final class KernelLab {
             case 8:
                 return fusedGateUpSwigluDeclaration(functionName, shape)
             case 16:
-                return "SMELT_DECLARE_FUSED_AFFINE_GATE_UP_FIXED_ROWS16_GROUP(\(functionName), \(shape.rows), \(shape.cols), \(shape.groupSize))\n"
+                return "AGENT_DECLARE_FUSED_AFFINE_GATE_UP_FIXED_ROWS16_GROUP(\(functionName), \(shape.rows), \(shape.cols), \(shape.groupSize))\n"
             case 32:
-                return "SMELT_DECLARE_FUSED_AFFINE_GATE_UP_FIXED_ROWS32_GROUP(\(functionName), \(shape.rows), \(shape.cols), \(shape.groupSize))\n"
+                return "AGENT_DECLARE_FUSED_AFFINE_GATE_UP_FIXED_ROWS32_GROUP(\(functionName), \(shape.rows), \(shape.cols), \(shape.groupSize))\n"
             default:
                 return nil
             }
@@ -2575,23 +2591,23 @@ private final class KernelLab {
 
     private static let labMatvecDeclarations = """
 
-SMELT_DECLARE_FUSED_AFFINE_MATVEC_ADD_FIXED_ROWS4_GROUP(fused_affine_matvec_add_c3584_r1024_g64_rows4, 1024, 3584, 64)
-SMELT_DECLARE_FUSED_AFFINE_MATVEC_ADD_FIXED_ROWS4_GROUP(fused_affine_matvec_add_c2048_r1024_g64_rows4, 1024, 2048, 64)
-SMELT_DECLARE_NORM_SCALE_AFFINE_MATVEC_FIXED_ROWS4_GROUP(norm_scale_affine_matvec_c1024_r6144_g64_rows4, 6144, 1024, 64)
-SMELT_DECLARE_AFFINE_MATVEC_FIXED_ROWS8_GROUP(affine_matvec_c1024_r2048_g64_rows8, 2048, 1024, 64)
-SMELT_DECLARE_AFFINE_MATVEC_FIXED_ROWS8_GROUP(affine_matvec_c1024_r6144_g64_rows8, 6144, 1024, 64)
-SMELT_DECLARE_AFFINE_MATVEC_FIXED_ROWS8_GROUP(affine_matvec_c2048_r1024_g64_rows8, 1024, 2048, 64)
-SMELT_DECLARE_AFFINE_MATVEC_FIXED_ROWS8_GROUP(affine_matvec_c3584_r1024_g64_rows8, 1024, 3584, 64)
-SMELT_DECLARE_AFFINE_MATVEC_FIXED_ROWS8_GROUP(affine_matvec_c1024_r248320_g64_rows8, 248320, 1024, 64)
-SMELT_DECLARE_AFFINE_MATVEC_FIXED_ROWS8_GROUP(affine_matvec_c2048_r2048_g64_rows8, 2048, 2048, 64)
-SMELT_DECLARE_AFFINE_MATVEC_FIXED_FULL(affine_matvec_c1024_r248320_g64_batched_full, 248320, 1024)
-SMELT_DECLARE_AFFINE_MATVEC_ARGMAX_FIXED_BATCHED_GROUP(affine_matvec_argmax_c1024_r248320_g64_b1, 248320, 1024, 64, 1)
-SMELT_DECLARE_AFFINE_MATVEC_ARGMAX_FIXED_BATCHED_GROUP(affine_matvec_argmax_c1024_r248320_g64_b4, 248320, 1024, 64, 4)
-SMELT_DECLARE_LM_HEAD_ARGMAX_REDUCE(lm_head_argmax_reduce_r248320, 248320)
-SMELT_DECLARE_AFFINE_MATVEC_ARGMAX_FIXED_BATCHED_GROUP(affine_matvec_argmax_c2048_r151936_g64_b1, 151936, 2048, 64, 1)
-SMELT_DECLARE_LM_HEAD_ARGMAX_REDUCE(lm_head_argmax_reduce_r151936, 151936)
-SMELT_DECLARE_FUSED_AFFINE_MATVEC_ADD_FIXED_ROWS4_GROUP(fused_affine_matvec_add_c11008_r2048_g64_rows4, 2048, 11008, 64)
-SMELT_DECLARE_FUSED_AFFINE_MATVEC_ADD_FIXED_ROWS4_GROUP(fused_affine_matvec_add_c2048_r256_g64_rows4, 256, 2048, 64)
+AGENT_DECLARE_FUSED_AFFINE_MATVEC_ADD_FIXED_ROWS4_GROUP(fused_affine_matvec_add_c3584_r1024_g64_rows4, 1024, 3584, 64)
+AGENT_DECLARE_FUSED_AFFINE_MATVEC_ADD_FIXED_ROWS4_GROUP(fused_affine_matvec_add_c2048_r1024_g64_rows4, 1024, 2048, 64)
+AGENT_DECLARE_NORM_SCALE_AFFINE_MATVEC_FIXED_ROWS4_GROUP(norm_scale_affine_matvec_c1024_r6144_g64_rows4, 6144, 1024, 64)
+AGENT_DECLARE_AFFINE_MATVEC_FIXED_ROWS8_GROUP(affine_matvec_c1024_r2048_g64_rows8, 2048, 1024, 64)
+AGENT_DECLARE_AFFINE_MATVEC_FIXED_ROWS8_GROUP(affine_matvec_c1024_r6144_g64_rows8, 6144, 1024, 64)
+AGENT_DECLARE_AFFINE_MATVEC_FIXED_ROWS8_GROUP(affine_matvec_c2048_r1024_g64_rows8, 1024, 2048, 64)
+AGENT_DECLARE_AFFINE_MATVEC_FIXED_ROWS8_GROUP(affine_matvec_c3584_r1024_g64_rows8, 1024, 3584, 64)
+AGENT_DECLARE_AFFINE_MATVEC_FIXED_ROWS8_GROUP(affine_matvec_c1024_r248320_g64_rows8, 248320, 1024, 64)
+AGENT_DECLARE_AFFINE_MATVEC_FIXED_ROWS8_GROUP(affine_matvec_c2048_r2048_g64_rows8, 2048, 2048, 64)
+AGENT_DECLARE_AFFINE_MATVEC_FIXED_FULL(affine_matvec_c1024_r248320_g64_batched_full, 248320, 1024)
+AGENT_DECLARE_AFFINE_MATVEC_ARGMAX_FIXED_BATCHED_GROUP(affine_matvec_argmax_c1024_r248320_g64_b1, 248320, 1024, 64, 1)
+AGENT_DECLARE_AFFINE_MATVEC_ARGMAX_FIXED_BATCHED_GROUP(affine_matvec_argmax_c1024_r248320_g64_b4, 248320, 1024, 64, 4)
+AGENT_DECLARE_LM_HEAD_ARGMAX_REDUCE(lm_head_argmax_reduce_r248320, 248320)
+AGENT_DECLARE_AFFINE_MATVEC_ARGMAX_FIXED_BATCHED_GROUP(affine_matvec_argmax_c2048_r151936_g64_b1, 151936, 2048, 64, 1)
+AGENT_DECLARE_LM_HEAD_ARGMAX_REDUCE(lm_head_argmax_reduce_r151936, 151936)
+AGENT_DECLARE_FUSED_AFFINE_MATVEC_ADD_FIXED_ROWS4_GROUP(fused_affine_matvec_add_c11008_r2048_g64_rows4, 2048, 11008, 64)
+AGENT_DECLARE_FUSED_AFFINE_MATVEC_ADD_FIXED_ROWS4_GROUP(fused_affine_matvec_add_c2048_r256_g64_rows4, 256, 2048, 64)
 kernel void fused_affine_matvec_add_c11008_r2048_g64_rows8(
     device const uint8_t* weights  [[buffer(0)]],
     device const half*    scales   [[buffer(1)]],
@@ -2684,13 +2700,13 @@ kernel void fused_affine_gate_up_swiglu_c2048_r11008_g64_rows4_hacc(
         tgid, simd_lane, simd_group
     );
 }
-SMELT_DECLARE_FUSED_AFFINE_GATE_UP_FIXED_FULL(fused_affine_gate_up_swiglu_c2048_r11008_g64_batched_full, 11008, 2048)
+AGENT_DECLARE_FUSED_AFFINE_GATE_UP_FIXED_FULL(fused_affine_gate_up_swiglu_c2048_r11008_g64_batched_full, 11008, 2048)
 
 """
 
     private static let labVibeLMHeadRows8Declaration = """
 
-SMELT_DECLARE_AFFINE_MATVEC_FIXED_ROWS8_GROUP(affine_matvec_c2048_r151936_g64_rows8, 151936, 2048, 64)
+AGENT_DECLARE_AFFINE_MATVEC_FIXED_ROWS8_GROUP(affine_matvec_c2048_r151936_g64_rows8, 151936, 2048, 64)
 
 """
 
@@ -2720,7 +2736,7 @@ kernel void fused_affine_gate_up_swiglu_c2048_r11008_g64_rows4_sg1(
 """
 
     func run(_ testCase: KernelLabCase, iterations: Int, warmup: Int) throws {
-        let buffers = try makeBuffers(testCase.buffers)
+        let buffers = try makeBuffers(testCase.buffers, caseName: testCase.name)
         let dispatches = testCase.baseline.dispatches + testCase.candidate.dispatches
         for dispatch in dispatches {
             try makePipeline(dispatch)
@@ -2731,13 +2747,40 @@ kernel void fused_affine_gate_up_swiglu_c2048_r11008_g64_rows4_sg1(
             _ = try runVariant(testCase.candidate, buffers: buffers)
         }
 
+        if let comparisonBuffer = testCase.comparisonBuffer,
+           let output = buffers[comparisonBuffer]
+        {
+            memset(output.contents(), 0, output.length)
+            _ = try runVariant(testCase.baseline, buffers: buffers)
+            let baselineOutput = Data(
+                bytes: output.contents(), count: output.length)
+            memset(output.contents(), 0, output.length)
+            _ = try runVariant(testCase.candidate, buffers: buffers)
+            let candidateOutput = Data(
+                bytes: output.contents(), count: output.length)
+            guard baselineOutput == candidateOutput else {
+                let first = zip(baselineOutput, candidateOutput).enumerated().first {
+                    $0.element.0 != $0.element.1
+                }
+                throw KernelLabError.invalidPackage(
+                    "\(testCase.name) output parity failed at byte "
+                        + "\(first?.offset ?? min(baselineOutput.count, candidateOutput.count))"
+                )
+            }
+        }
+
         var baselineSamples: [Double] = []
         var candidateSamples: [Double] = []
         baselineSamples.reserveCapacity(iterations)
         candidateSamples.reserveCapacity(iterations)
-        for _ in 0..<iterations {
-            baselineSamples.append(try runVariant(testCase.baseline, buffers: buffers))
-            candidateSamples.append(try runVariant(testCase.candidate, buffers: buffers))
+        for iteration in 0..<iterations {
+            if iteration.isMultiple(of: 2) {
+                baselineSamples.append(try runVariant(testCase.baseline, buffers: buffers))
+                candidateSamples.append(try runVariant(testCase.candidate, buffers: buffers))
+            } else {
+                candidateSamples.append(try runVariant(testCase.candidate, buffers: buffers))
+                baselineSamples.append(try runVariant(testCase.baseline, buffers: buffers))
+            }
         }
 
         let baseline = try stats(name: testCase.baseline.name, samples: baselineSamples)
@@ -2761,7 +2804,10 @@ kernel void fused_affine_gate_up_swiglu_c2048_r11008_g64_rows4_sg1(
         )
     }
 
-    private func makeBuffers(_ specs: [String: Int]) throws -> [String: MTLBuffer] {
+    private func makeBuffers(
+        _ specs: [String: Int],
+        caseName: String
+    ) throws -> [String: MTLBuffer] {
         var result: [String: MTLBuffer] = [:]
         for (name, bytes) in specs {
             guard let buffer = device.makeBuffer(
@@ -2772,9 +2818,40 @@ kernel void fused_affine_gate_up_swiglu_c2048_r11008_g64_rows4_sg1(
             }
             memset(buffer.contents(), 0, buffer.length)
             buffer.label = "kernel-lab.\(name)"
+            if caseName.hasPrefix("qwen-qmm-") {
+                initializeQMMBuffer(buffer, name: name)
+            }
             result[name] = buffer
         }
         return result
+    }
+
+    private func initializeQMMBuffer(_ buffer: MTLBuffer, name: String) {
+        if name == "weights" {
+            let bytes = buffer.contents().bindMemory(
+                to: UInt8.self, capacity: buffer.length)
+            for index in 0..<buffer.length {
+                bytes[index] = UInt8(truncatingIfNeeded: index &* 73 &+ 19)
+            }
+            return
+        }
+        guard name == "scales" || name == "biases" || name == "input"
+            || name == "residual"
+        else {
+            return
+        }
+        let count = buffer.length / MemoryLayout<UInt16>.stride
+        let halves = buffer.contents().bindMemory(to: UInt16.self, capacity: count)
+        for index in 0..<count {
+            switch name {
+            case "scales":
+                halves[index] = 0x2c00 // 0.0625
+            case "input", "residual":
+                halves[index] = index.isMultiple(of: 3) ? 0x3800 : 0xb400
+            default:
+                halves[index] = 0
+            }
+        }
     }
 
     private func makePipeline(_ dispatch: KernelLabDispatch) throws {
@@ -2928,7 +3005,7 @@ kernel void fused_affine_gate_up_swiglu_c2048_r11008_g64_rows4_sg1(
     }
 }
 
-private func labCases(named name: String) throws -> [KernelLabCase] {
+private func labCases(named name: String, arguments args: [String]) throws -> [KernelLabCase] {
     let cases = [
         qwen08ResidualAddCase(),
         qwen08ResidualAddC2048Case(),
@@ -2968,6 +3045,39 @@ private func labCases(named name: String) throws -> [KernelLabCase] {
     ]
     if name == "all" {
         return cases
+    }
+    if name == "qmm-sweep" {
+        let batchArgument = parseArg(args, "--batches", default: "")
+        let parsedBatchSizes = batchArgument.split(separator: ",").map {
+            Int($0.trimmingCharacters(in: .whitespaces))
+        }
+        let batchSizes = batchArgument.isEmpty
+            ? [1, 2, 3, 4, 8, 12, 16, 32, 64]
+            : parsedBatchSizes.compactMap { $0 }
+        guard !batchSizes.isEmpty,
+              parsedBatchSizes.allSatisfy({ $0 != nil }),
+              batchSizes.allSatisfy({ $0 > 0 && $0 <= 64 })
+        else {
+            throw KernelLabError.invalidPackage(
+                "qmm sweep --batches must be a comma-separated list in 1...64"
+            )
+        }
+        let paddingCases = batchSizes.flatMap { batch in
+            [
+                qwenQMMNoPadCase(rows: 2_048, cols: 1_024, batchSize: batch),
+                qwenQMMNoPadCase(rows: 2_048, cols: 2_048, batchSize: batch),
+            ]
+        }
+        let halfTileCases = batchSizes.filter { $0 <= 8 }.flatMap { batch in
+            [
+                qwenQMMB8Case(rows: 2_048, cols: 1_024, batchSize: batch),
+                qwenQMMB8Case(rows: 2_048, cols: 2_048, batchSize: batch),
+                qwenQMMB8Case(rows: 1_024, cols: 2_048, batchSize: batch),
+                qwenQMMFusedAddB8Case(rows: 1_024, cols: 2_048, batchSize: batch),
+                qwenQMMFusedAddB8Case(rows: 1_024, cols: 3_584, batchSize: batch),
+            ]
+        }
+        return paddingCases + halfTileCases
     }
     guard let match = cases.first(where: { $0.name == name }) else {
         throw KernelLabError.unknownCase(name)
@@ -3079,7 +3189,125 @@ private func qwenQMMNoPadCase(
                     )
                 ),
             ]
-        )
+        ),
+        comparisonBuffer: "output"
+    )
+}
+
+private func qwenQMMB8Case(
+    rows: Int,
+    cols: Int,
+    batchSize: Int
+) -> KernelLabCase {
+    let group = 64
+    let functionBase = "affine_matvec_c\(cols)_r\(rows)_g64_batched_full"
+    let buffers = [
+        "weights": packedU4Bytes(rows: rows, cols: cols),
+        "scales": scaleBiasBytes(rows: rows, cols: cols, group: group),
+        "biases": scaleBiasBytes(rows: rows, cols: cols, group: group),
+        "input": halfBytes(cols * batchSize),
+        "output": halfBytes(rows * batchSize),
+    ]
+    let bindings = [
+        0: "weights", 1: "scales", 2: "biases", 3: "input", 4: "output",
+    ]
+    let constants: [Int: KernelLabConstant] = [
+        5: .uint32(UInt32(batchSize)),
+    ]
+    return KernelLabCase(
+        name: "qwen-qmm-b8-c\(cols)-r\(rows)-b\(batchSize)",
+        buffers: buffers,
+        baseline: KernelLabVariant(
+            name: "qmm-production-b16",
+            dispatches: [
+                KernelLabDispatch(
+                    function: functionBase,
+                    buffers: bindings,
+                    constants: constants,
+                    grid: .threadgroups2D(
+                        width: (rows + 31) / 32,
+                        height: (batchSize + 15) / 16,
+                        threadsPerThreadgroup: 128
+                    )
+                ),
+            ]
+        ),
+        candidate: KernelLabVariant(
+            name: "qmm-half-batch-tile-b8",
+            dispatches: [
+                KernelLabDispatch(
+                    function: functionBase + "_b8",
+                    buffers: bindings,
+                    constants: constants,
+                    grid: .threadgroups2D(
+                        width: (rows + 31) / 32,
+                        height: (batchSize + 7) / 8,
+                        threadsPerThreadgroup: 64
+                    )
+                ),
+            ]
+        ),
+        comparisonBuffer: "output"
+    )
+}
+
+private func qwenQMMFusedAddB8Case(
+    rows: Int,
+    cols: Int,
+    batchSize: Int
+) -> KernelLabCase {
+    let group = 64
+    let functionBase = "fused_affine_matvec_add_c\(cols)_r\(rows)_g64_batched_full"
+    let buffers = [
+        "weights": packedU4Bytes(rows: rows, cols: cols),
+        "scales": scaleBiasBytes(rows: rows, cols: cols, group: group),
+        "biases": scaleBiasBytes(rows: rows, cols: cols, group: group),
+        "input": halfBytes(cols * batchSize),
+        "matvecOutput": halfBytes(rows * batchSize),
+        "residual": halfBytes(rows * batchSize),
+        "output": halfBytes(rows * batchSize),
+    ]
+    let bindings = [
+        0: "weights", 1: "scales", 2: "biases", 3: "input",
+        4: "matvecOutput", 5: "residual", 6: "output",
+    ]
+    let constants: [Int: KernelLabConstant] = [
+        7: .uint32(UInt32(batchSize)),
+    ]
+    return KernelLabCase(
+        name: "qwen-qmm-fused-add-b8-c\(cols)-r\(rows)-b\(batchSize)",
+        buffers: buffers,
+        baseline: KernelLabVariant(
+            name: "fused-add-production-b16",
+            dispatches: [
+                KernelLabDispatch(
+                    function: functionBase,
+                    buffers: bindings,
+                    constants: constants,
+                    grid: .threadgroups2D(
+                        width: (rows + 31) / 32,
+                        height: (batchSize + 15) / 16,
+                        threadsPerThreadgroup: 128
+                    )
+                ),
+            ]
+        ),
+        candidate: KernelLabVariant(
+            name: "fused-add-half-batch-tile-b8",
+            dispatches: [
+                KernelLabDispatch(
+                    function: functionBase + "_b8",
+                    buffers: bindings,
+                    constants: constants,
+                    grid: .threadgroups2D(
+                        width: (rows + 31) / 32,
+                        height: (batchSize + 7) / 8,
+                        threadsPerThreadgroup: 64
+                    )
+                ),
+            ]
+        ),
+        comparisonBuffer: "output"
     )
 }
 

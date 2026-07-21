@@ -78,13 +78,13 @@ public final class SmeltTextGenerator: @unchecked Sendable {
                 tokenizer: tokenizer,
                 template: template
             ) + inputIDs
-        } else if let baked = model.bakedPrefixTokenIds {
-            inputIDs = buildInputIdsApplyingBakedPrefix(
+        } else if let prepared = model.preparedPrefixTokenIds {
+            inputIDs = buildInputIdsApplyingPreparedPrefix(
                 prompt: rendered.prompt,
                 tokenizer: tokenizer,
-                unbakedInputIds: inputIDs,
-                bakedPrefixTokenIds: baked,
-                continuation: model.bakedPrefixContinuation,
+                fullInputIds: inputIDs,
+                preparedPrefixTokenIds: prepared,
+                continuation: model.preparedPrefixContinuation,
                 template: template,
                 thinkingPolicy: thinkingPolicy
             )

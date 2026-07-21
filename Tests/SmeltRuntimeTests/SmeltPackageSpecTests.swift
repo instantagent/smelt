@@ -136,12 +136,12 @@ import Testing
     @Test func runtimeDescriptorRoutesAreGraphAuthored() {
         #expect(routes(for: .tokenFeedbackText).map(\.signature) == [
             "tokenizer:native:none",
-            "trunk:compiled:baked-inline",
+            "trunk:compiled:compiled-inline",
             "text-head:native:none",
         ])
         #expect(routes(for: .qwen3TTSCompiledTrunkNativeFrontEnd).map(\.signature) == [
             "tts-frontend:native:none",
-            "talker:compiled:baked-sidecar",
+            "talker:compiled:compiled-sidecar",
             "codec-head:native:none",
             "mtp-head:native:internal-sidecar",
             "codec-decoder:compiled:runtime-emit",
@@ -518,7 +518,7 @@ import Testing
                 forbiddenPipelines: ["fallback_kernel"],
                 requiredFiles: ["manifest.json", "weights.bin"],
                 forbiddenFiles: ["debug.trace"],
-                requiredRoutes: ["talker:compiled:baked-sidecar"]
+                requiredRoutes: ["talker:compiled:compiled-sidecar"]
             )
         )).validate()
     }
@@ -1024,7 +1024,7 @@ import Testing
                 forbiddenPipelines: ["fallback_kernel"],
                 requiredRoutes: [
                     "tts-frontend:native:none",
-                    "talker:compiled:baked-sidecar",
+                    "talker:compiled:compiled-sidecar",
                 ]
             )
         )

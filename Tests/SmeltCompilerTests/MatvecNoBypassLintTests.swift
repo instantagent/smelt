@@ -33,7 +33,10 @@ private enum SwiftSourceScanner {
         var i = 0
         func blank(_ from: Int, _ to: Int) {
             var k = from
-            while k < to { if out[k] != "\n" { out[k] = " " }; k += 1 }
+      while k < to {
+        if out[k] != "\n" { out[k] = " " }
+        k += 1
+      }
         }
         while i < n {
             let c = out[i]
@@ -41,7 +44,9 @@ private enum SwiftSourceScanner {
             if c == "/", i + 1 < n, out[i + 1] == "/" {
                 var j = i
                 while j < n, out[j] != "\n" { j += 1 }
-                blank(i, j); i = j; continue
+        blank(i, j)
+        i = j
+        continue
             }
             // Block comment — Swift allows NESTING (/* /* */ */), so depth-count to the balanced
             // close, not the first */ (else a nested comment could leak fake code to the scanner).
@@ -49,12 +54,20 @@ private enum SwiftSourceScanner {
                 var j = i + 2
                 var depth = 1
                 while j + 1 < n, depth > 0 {
-                    if out[j] == "/", out[j + 1] == "*" { depth += 1; j += 2 }
-                    else if out[j] == "*", out[j + 1] == "/" { depth -= 1; j += 2 }
-                    else { j += 1 }
+          if out[j] == "/", out[j + 1] == "*" {
+            depth += 1
+            j += 2
+          } else if out[j] == "*", out[j + 1] == "/" {
+            depth -= 1
+            j += 2
+          } else {
+            j += 1
+          }
                 }
                 let end = min(j, n)
-                blank(i, end); i = end; continue
+        blank(i, end)
+        i = end
+        continue
             }
             // Raw string literal: #"..."#, ##"..."##, #"""..."""# (the # count balances the close).
             // Raw strings may contain unescaped " and braces, so they must be matched by their
@@ -62,22 +75,30 @@ private enum SwiftSourceScanner {
             if c == "#" {
                 var hashes = 0
                 var p = i
-                while p < n, out[p] == "#" { hashes += 1; p += 1 }
+        while p < n, out[p] == "#" {
+          hashes += 1
+          p += 1
+        }
                 if p < n, out[p] == "\"" {
                     let triple = p + 2 < n && out[p + 1] == "\"" && out[p + 2] == "\""
                     let openLen = triple ? 3 : 1
-                    let closer = Array(String(repeating: "\"", count: openLen)
+          let closer = Array(
+            String(repeating: "\"", count: openLen)
                         + String(repeating: "#", count: hashes))
                     let contentStart = p + openLen
                     var j = contentStart
                     while j + closer.count <= n {
                         var m = true
-                        for t in 0..<closer.count where out[j + t] != closer[t] { m = false; break }
+            for t in 0..<closer.count where out[j + t] != closer[t] {
+              m = false
+              break
+            }
                         if m { break }
                         j += 1
                     }
                     blank(contentStart, j)
-                    i = min(n, j + closer.count); continue
+          i = min(n, j + closer.count)
+          continue
                 }
             }
             // Multiline string.
@@ -85,7 +106,9 @@ private enum SwiftSourceScanner {
                 var j = i + 3
                 while j + 2 < n, !(out[j] == "\"" && out[j + 1] == "\"" && out[j + 2] == "\"") { j += 1 }
                 let end = min(j + 3, n)
-                blank(i + 3, max(i + 3, end - 3)); i = end; continue
+        blank(i + 3, max(i + 3, end - 3))
+        i = end
+        continue
             }
             // Single-line string (with \-escapes).
             if c == "\"" {
@@ -94,14 +117,20 @@ private enum SwiftSourceScanner {
                     if out[j] == "\\" { j += 2 } else { j += 1 }
                 }
                 let end = min(j + 1, n)
-                blank(i + 1, max(i + 1, end - 1)); i = end; continue
+        blank(i + 1, max(i + 1, end - 1))
+        i = end
+        continue
             }
             i += 1
         }
         return out
     }
 
-    struct FuncRegion { let name: String; let bodyStart: Int; let bodyEnd: Int }
+  struct FuncRegion {
+    let name: String
+    let bodyStart: Int
+    let bodyEnd: Int
+  }
 
     /// Every `func NAME` in the neutralized source, with the char range of its body `{ ... }`.
     /// Bodies nest; a token is attributed to the SMALLEST (innermost) region containing it.
@@ -117,7 +146,8 @@ private enum SwiftSourceScanner {
                 while j < n, chars[j] == " " || chars[j] == "\n" || chars[j] == "\t" { j += 1 }
                 var name = ""
                 while j < n, chars[j].isLetter || chars[j].isNumber || chars[j] == "_" {
-                    name.append(chars[j]); j += 1
+          name.append(chars[j])
+          j += 1
                 }
                 // Skip the balanced parameter list (...) so a default-closure argument `= { }` is
                 // not mistaken for the body brace (codex U1d review #6).
@@ -129,7 +159,10 @@ private enum SwiftSourceScanner {
                             pd += 1
                         } else if chars[j] == ")" {
                             pd -= 1
-                            if pd == 0 { j += 1; break }
+              if pd == 0 {
+                j += 1
+                break
+              }
                         }
                         j += 1
                     }
@@ -141,8 +174,12 @@ private enum SwiftSourceScanner {
                     var depth = 0
                     var k = j
                     while k < n {
-                        if chars[k] == "{" { depth += 1 }
-                        else if chars[k] == "}" { depth -= 1; if depth == 0 { break } }
+            if chars[k] == "{" {
+              depth += 1
+            } else if chars[k] == "}" {
+              depth -= 1
+              if depth == 0 { break }
+            }
                         k += 1
                     }
                     regions.append(FuncRegion(name: name, bodyStart: bodyStart, bodyEnd: k))
@@ -185,7 +222,9 @@ private enum SwiftSourceScanner {
 
     /// Every `.<caseName>` member-access in the neutralized source whose caseName is in `cases`,
     /// returned as (caseName, charIndex). Matches both `.case` and `Type.case` forms (the `.`).
-    static func memberAccesses(_ chars: [Character], cases: Set<String>) -> [(name: String, index: Int)] {
+  static func memberAccesses(_ chars: [Character], cases: Set<String>) -> [(
+    name: String, index: Int
+  )] {
         let n = chars.count
         var hits: [(String, Int)] = []
         var i = 0
@@ -194,7 +233,8 @@ private enum SwiftSourceScanner {
                 var j = i + 1
                 var name = ""
                 while j < n, chars[j].isLetter || chars[j].isNumber || chars[j] == "_" {
-                    name.append(chars[j]); j += 1
+          name.append(chars[j])
+          j += 1
                 }
                 if cases.contains(name) { hits.append((name, i)) }
                 i = max(i + 1, j)
@@ -227,7 +267,8 @@ private func isMatvecPipelineName(_ name: String) -> Bool {
 private let extraMatvecCaseNames: Set<String> = ["clusterSparseLMHead"]
 
 private let matvecPipelineCaseNames: Set<String> =
-    Set(SmeltPipeline.allCases.map { "\($0)" }
+  Set(
+    SmeltPipeline.allCases.map { "\($0)" }
         .filter { isMatvecPipelineName($0) || extraMatvecCaseNames.contains($0) })
 
 // MARK: - The allowlist (role-split, file-qualified)
@@ -247,7 +288,7 @@ private let allowlistedPlannerFiles: Set<String> = [
     "SmeltFusionPlanner.swift",          // shape → specialized matvec route (+ constructs them)
     "SmeltKernelShapeRegistry.swift",    // shape → pipeline maps
     "SmeltDispatchOptimizer.swift",      // classifies + rewrites/fuses recorded matvec dispatches
-    "SmeltRigPackageBuilder.swift",      // rig package pipeline inventory (kept DRY w/ the catalog)
+  "SmeltComponentPackageBuilder.swift",  // component pipeline inventory (kept DRY)
     "Qwen3TTSPackageBuilder.swift",      // ttsPipelines DECLARATION (kept DRY w/ the catalog)
 ]
 
@@ -441,9 +482,11 @@ private func bypassesIn(_ s: ScannedSource) -> [Bypass] {
 
 @Test func matvecPipelineSetIsSaneAndNonEmpty() {
     // Known matvec kernels MUST be in the set...
-    for c in ["fp16Matvec", "affineMatvec", "gemvF32", "gemmBF16WF32", "gemvU4F32",
+  for c in [
+    "fp16Matvec", "affineMatvec", "gemvF32", "gemmBF16WF32", "gemvU4F32",
               "fusedLutMatvec", "fusedAffineGateUpSwiglu", "fusedDualLutMatvec",
-              "gemvQKVBF16WF32", "tqhMatvec", "clusterSparseLMHead"] {
+    "gemvQKVBF16WF32", "tqhMatvec", "clusterSparseLMHead",
+  ] {
         #expect(matvecPipelineCaseNames.contains(c), "expected matvec: \(c)")
     }
     // ...and known NON-matvec kernels must NOT be (or the guard would over/under-reach).
@@ -467,14 +510,18 @@ private func bypassesIn(_ s: ScannedSource) -> [Bypass] {
         if !allowlistedPlannerFiles.contains(s.fileName) {
             for hit in SwiftSourceScanner.memberAccesses(s.chars, cases: matvecPipelineCaseNames) {
                 if let fn = SwiftSourceScanner.enclosingFunction(s.regions, hit.index),
-                   allowlistedFunctions.contains("\(s.fileName):\(fn)") { guardedRefs += 1 }
+          allowlistedFunctions.contains("\(s.fileName):\(fn)")
+        {
+          guardedRefs += 1
+        }
             }
         }
     }
     let report = allBypasses.map(\.description).joined(separator: "\n")
     #expect(allBypasses.isEmpty, "matvec no-bypass violations:\n\(report)")
     // Non-vacuity: the scan actually saw matvec emissions inside allowlisted helpers.
-    #expect(guardedRefs >= 15, "expected the scan to find guarded matvec emissions, got \(guardedRefs)")
+  #expect(
+    guardedRefs >= 15, "expected the scan to find guarded matvec emissions, got \(guardedRefs)")
 }
 
 // MARK: - Invariant (b): no dtype-routing to matvec emitters outside the gateway
@@ -548,7 +595,9 @@ private func dtypeRoutingBypassesIn(_ s: ScannedSource) -> [Bypass] {
     for s in scannedProductionSources() {
         bypasses += dtypeRoutingBypassesIn(s)
     }
-    let report = bypasses.map { "\($0.file): \($0.function ?? "?")() routes a quant dtype to a matvec emitter" }
+  let report = bypasses.map {
+    "\($0.file): \($0.function ?? "?")() routes a quant dtype to a matvec emitter"
+  }
         .joined(separator: "\n")
     #expect(bypasses.isEmpty, "quant-dtype matvec-routing bypasses:\n\(report)")
 }
@@ -597,7 +646,8 @@ private func dtypeRoutingBypassesIn(_ s: ScannedSource) -> [Bypass] {
         }
     }
     """
-    #expect(dtypeRoutingBypassesIn(ScannedSource(fileName: "TopLevelEmitter.swift", text: ok)).isEmpty)
+  #expect(
+    dtypeRoutingBypassesIn(ScannedSource(fileName: "TopLevelEmitter.swift", text: ok)).isEmpty)
 }
 
 // MARK: - Invariant (c): matvec ROUTE PROVIDERS used only inside gateway-routed helpers
@@ -643,7 +693,8 @@ private func routeProviderBypassesIn(_ src: ScannedSource) -> [Bypass] {
     }
     let report = bypasses.map { "\($0.file): \($0.function ?? "file scope")() uses \($0.caseName)" }
         .joined(separator: "\n")
-    #expect(bypasses.isEmpty, "matvec route-provider used outside a gateway-routed helper:\n\(report)")
+  #expect(
+    bypasses.isEmpty, "matvec route-provider used outside a gateway-routed helper:\n\(report)")
 }
 
 @Test func lintFlagsAliasedRouteEmission() {

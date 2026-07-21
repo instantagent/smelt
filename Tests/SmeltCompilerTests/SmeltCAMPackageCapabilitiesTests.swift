@@ -15,7 +15,7 @@ import Testing
         #expect(run.outputPorts.map(Self.portShape) == ["text[encoding=utf8]"])
         #expect(run.selectedInputPorts.map(Self.portShape) == ["text[encoding=utf8]"])
         #expect(run.selectedOutputPorts.map(Self.portShape) == ["text[encoding=utf8]"])
-        #expect(Set(run.authoredCapabilities) == ["bake.prompt-prefix", "run.generate"])
+        #expect(Set(run.authoredCapabilities) == ["prepare.prompt-prefix", "run.generate"])
         #expect(run.matchedGateIDs == ["startup"])
         #expect(run.matchedGateContracts.map(\.gateID) == run.matchedGateIDs)
 
@@ -39,10 +39,10 @@ import Testing
         #expect(serve.exportID == "generate")
         #expect(serve.flowID == "generate")
 
-        let bake = try capabilities.resolve(.bakeTextPromptPrefix)
-        #expect(bake.exportID == "generate")
-        #expect(bake.flowID == "generate")
-        #expect(Set(bake.authoredCapabilities) == ["bake.prompt-prefix", "run.generate"])
+        let preparation = try capabilities.resolve(.prepareTextPromptPrefix)
+        #expect(preparation.exportID == "generate")
+        #expect(preparation.flowID == "generate")
+        #expect(Set(preparation.authoredCapabilities) == ["prepare.prompt-prefix", "run.generate"])
 
         let trace = try capabilities.resolve(.traceTextGenerate)
         #expect(trace.exportID == "generate")
@@ -69,7 +69,7 @@ import Testing
         ])
         #expect(run.selectedOutputPorts.map(\.portName) == ["text"])
         #expect(run.selectedOutputPorts.map(Self.portShape) == ["text[encoding=utf8]"])
-        #expect(Set(run.authoredCapabilities) == ["bake.prompt-prefix", "run.generate"])
+        #expect(Set(run.authoredCapabilities) == ["prepare.prompt-prefix", "run.generate"])
         #expect(run.matchedGateIDs == ["startup"])
 
         let bench = try capabilities.resolve(Self.twoTextBench)
@@ -89,7 +89,7 @@ import Testing
 
         #expect(try capabilities.resolve(Self.twoTextServe).exportID == "review")
         #expect(try capabilities.resolve(Self.twoTextTrace).flowID == "review")
-        #expect(try capabilities.resolve(Self.twoTextBake).exportID == "review")
+        #expect(try capabilities.resolve(Self.twoTextPreparation).exportID == "review")
 
         for request in Self.textRequests {
             #expect(throws: SmeltCAMPackageCapabilitiesError.self) {
@@ -147,7 +147,7 @@ import Testing
         #expect(audio.selectedInputPorts.map(Self.portShape) == ["text[encoding=utf8]"])
         #expect(audio.selectedOutputPorts.map(Self.portShape) == ["pcm[dtype=f32,rate=24khz]"])
         #expect(Set(audio.authoredCapabilities) == [
-            "bake.voice-defaults",
+            "prepare.voice-defaults",
             "run.stream",
             "run.synthesize",
         ])
@@ -174,11 +174,11 @@ import Testing
         #expect(serve.exportID == "synth")
         #expect(serve.flowID == "synth")
 
-        let bake = try capabilities.resolve(.bakeVoiceDefaults)
-        #expect(bake.exportID == "synth")
-        #expect(bake.flowID == "synth")
-        #expect(Set(bake.authoredCapabilities) == [
-            "bake.voice-defaults",
+        let preparation = try capabilities.resolve(.prepareVoiceDefaults)
+        #expect(preparation.exportID == "synth")
+        #expect(preparation.flowID == "synth")
+        #expect(Set(preparation.authoredCapabilities) == [
+            "prepare.voice-defaults",
             "run.stream",
             "run.synthesize",
         ])
@@ -257,38 +257,17 @@ import Testing
         let kernelLabPackage = try fast.resolve(.kernelLabPackage)
         #expect(kernelLabPackage.exportID == "generate")
         #expect(kernelLabPackage.matchedGateIDs == ["startup", "inventory"])
-        #expect(throws: SmeltCAMPackageCapabilitiesError.noMatchingExport(
-            "inspect prefill dispatch table"
-        )) {
-            _ = try fast.resolve(.inspectPrefillDispatchTable)
-        }
+        let fastPrefill = try fast.resolve(.inspectPrefillDispatchTable)
+        #expect(fastPrefill.exportID == "generate")
+        #expect(fastPrefill.matchedGateIDs == ["startup", "inventory"])
 
         let text = try Self.capabilities("qwen35_text.cam")
-        #expect(throws: SmeltCAMPackageCapabilitiesError.noMatchingExport(
-            "inspect prefill dispatch table"
-        )) {
-            _ = try text.resolve(.inspectPrefillDispatchTable)
-        }
-
-        let textWithPrefillCapability = try Self.capabilitiesFromDescriptorMutation("qwen35_text.cam") {
-            object in
-            try Self.appendExportCapability(
-                in: &object,
-                exportID: "generate",
-                capability: "inspect.prefill-dispatch-table"
-            )
-        }
-        let prefill = try textWithPrefillCapability.resolve(.inspectPrefillDispatchTable)
+        let prefill = try text.resolve(.inspectPrefillDispatchTable)
         #expect(prefill.exportID == "generate")
         #expect(prefill.matchedGateIDs == ["startup", "inventory"])
 
         let missingPrefillFile = try Self.capabilitiesFromDescriptorMutation("qwen35_text.cam") {
             object in
-            try Self.appendExportCapability(
-                in: &object,
-                exportID: "generate",
-                capability: "inspect.prefill-dispatch-table"
-            )
             try Self.replaceGateRequirements(
                 in: &object,
                 gateID: "inventory",
@@ -328,11 +307,6 @@ import Testing
 
         let missingPrefillCompile = try Self.capabilitiesFromDescriptorMutation("qwen35_text.cam") {
             object in
-            try Self.appendExportCapability(
-                in: &object,
-                exportID: "generate",
-                capability: "inspect.prefill-dispatch-table"
-            )
             var compile = try #require(object["compileRequirements"] as? [[String: Any]])
             compile.removeAll { ($0["key"] as? String) == "prefill" }
             object["compileRequirements"] = compile
@@ -434,6 +408,50 @@ import Testing
         }
         #expect(throws: SmeltCAMPackageCapabilitiesError.noMatchingExport("bench prefill")) {
             _ = try malformedPrefillCompile.resolve(.benchPrefill)
+        }
+    }
+
+    @Test func verifyArgmaxLabRequestsRequireVerifyCompileContractAndTable() throws {
+        let bonsai = try Self.capabilities("bonsai_27b_ternary.cam")
+        #expect(try bonsai.resolve(.profileVerifyArgmax).exportID == "generate")
+        #expect(try bonsai.resolve(.inspectVerifyArgmaxDispatchTable).exportID == "generate")
+
+        let plainPrefillWithVerifyFile = try Self.capabilitiesFromDescriptorMutation(
+            "qwen35_text.cam"
+        ) { object in
+            try Self.replaceGateRequirements(
+                in: &object,
+                gateID: "inventory",
+                requirements: [[
+                    "subject": "package-files",
+                    "relation": "include",
+                    "value": "manifest.json,weights.bin,model.metallib,SmeltGenerated.swift,dispatches.bin,prefill_dispatches.bin,prefill_verify_argmax_dispatches.bin,tokenizer.json,tokenizer.bin,module.json",
+                ]]
+            )
+        }
+        #expect(throws: SmeltCAMPackageCapabilitiesError.noMatchingExport(
+            "profile verify argmax"
+        )) {
+            _ = try plainPrefillWithVerifyFile.resolve(.profileVerifyArgmax)
+        }
+
+        let verifyWithoutTable = try Self.capabilitiesFromDescriptorMutation(
+            "bonsai_27b_ternary.cam"
+        ) { object in
+            try Self.replaceGateRequirements(
+                in: &object,
+                gateID: "inventory",
+                requirements: [[
+                    "subject": "package-files",
+                    "relation": "include",
+                    "value": "manifest.json,weights.bin,model.metallib,SmeltGenerated.swift,dispatches.bin,prefill_dispatches.bin,tokenizer.json,tokenizer.bin,module.json",
+                ]]
+            )
+        }
+        #expect(throws: SmeltCAMPackageCapabilitiesError.noMatchingExport(
+            "inspect verify argmax dispatch table"
+        )) {
+            _ = try verifyWithoutTable.resolve(.inspectVerifyArgmaxDispatchTable)
         }
     }
 
@@ -672,7 +690,7 @@ import Testing
                 endpoint: ["endpointType": "moduleOutput", "name": "debug_text"]
             )
         }
-        try Self.expectRuntimeAudioRejectsButBakeResolves(wrongPublicOutput)
+        try Self.expectRuntimeAudioRejectsButPreparationResolves(wrongPublicOutput)
 
         let wrongEndpointType = try Self.capabilitiesFromDescriptorMutation("qwen3_tts.cam") {
             object in
@@ -686,7 +704,7 @@ import Testing
                 ]
             )
         }
-        try Self.expectRuntimeAudioRejectsButBakeResolves(wrongEndpointType)
+        try Self.expectRuntimeAudioRejectsButPreparationResolves(wrongEndpointType)
 
         let wrongFromEvent = try Self.capabilitiesFromDescriptorMutation("qwen3_tts.cam") {
             object in
@@ -701,7 +719,7 @@ import Testing
                 ]
             )
         }
-        try Self.expectRuntimeAudioRejectsButBakeResolves(wrongFromEvent)
+        try Self.expectRuntimeAudioRejectsButPreparationResolves(wrongFromEvent)
 
         let wrongToEvent = try Self.capabilitiesFromDescriptorMutation("qwen3_tts.cam") {
             object in
@@ -719,7 +737,7 @@ import Testing
                 ]
             )
         }
-        try Self.expectRuntimeAudioRejectsButBakeResolves(wrongToEvent)
+        try Self.expectRuntimeAudioRejectsButPreparationResolves(wrongToEvent)
 
         let missingElapsedRequirement = try Self.capabilitiesFromDescriptorMutation(
             "qwen3_tts.cam"
@@ -732,7 +750,7 @@ import Testing
                 ]
             )
         }
-        try Self.expectRuntimeAudioRejectsButBakeResolves(missingElapsedRequirement)
+        try Self.expectRuntimeAudioRejectsButPreparationResolves(missingElapsedRequirement)
 
         let missingDurationPredicate = try Self.capabilitiesFromDescriptorMutation(
             "qwen3_tts.cam"
@@ -745,7 +763,7 @@ import Testing
                 ]
             )
         }
-        try Self.expectRuntimeAudioRejectsButBakeResolves(missingDurationPredicate)
+        try Self.expectRuntimeAudioRejectsButPreparationResolves(missingDurationPredicate)
 
         let wrongFormatPredicate = try Self.capabilitiesFromDescriptorMutation("qwen3_tts.cam") {
             object in
@@ -758,7 +776,7 @@ import Testing
                 ]
             )
         }
-        try Self.expectRuntimeAudioRejectsButBakeResolves(wrongFormatPredicate)
+        try Self.expectRuntimeAudioRejectsButPreparationResolves(wrongFormatPredicate)
     }
 
     @Test func runtimeAudioGateThresholdsAreDefinedByCAM() throws {
@@ -800,7 +818,7 @@ import Testing
                 + "export=generate;"
                 + "flow=generate;"
                 + "gates=startup;"
-                + "capabilities=bake.prompt-prefix%2Crun.generate;"
+                + "capabilities=prepare.prompt-prefix%2Crun.generate;"
                 + "inputs=prompt%3Atext%7Bencoding%3Dutf8%7D%3Arequired;"
                 + "outputs=text%3Atext%7Bencoding%3Dutf8%7D%3Arequired"
         )
@@ -818,7 +836,7 @@ import Testing
                 + "export=synth;"
                 + "flow=synth;"
                 + "gates=startup;"
-                + "capabilities=bake.voice-defaults%2Crun.stream%2Crun.synthesize;"
+                + "capabilities=prepare.voice-defaults%2Crun.stream%2Crun.synthesize;"
                 + "inputs=speaker%3Avoice-id%7B%7D%3Aoptional%2Ctext%3Atext%7Bencoding%3Dutf8%7D%3Arequired;"
                 + "outputs=audio%3Apcm%7Bdtype%3Df32%2Crate%3D24khz%7D%3Arequired"
         )
@@ -1136,17 +1154,17 @@ import Testing
             (
                 "qwen35_text.cam",
                 .runText,
-                "c7b1221b7de086406897bd1a0e3d9e62bac6b41d9f5caa472b8f03246d835c0d"
+                "61cf7390a5610d27053de9ada937b9a087bd5ee7448a468d646220d70ec78ccb"
             ),
             (
                 "qwen3_tts.cam",
                 .runAudio,
-                "7f46b0c185e2d3d14b70cf7cb92f2dba544192d1fcf1c9ae8eccfdeb238bf64b"
+                "1c404f02cec0755956ab465f1f8fce87014707729359302967ea5769b6da0fcc"
             ),
             (
                 "ds4_heavy_quant.cam",
                 .runText,
-                "716381b60c13f75b2851b0019ddf02169dde6288dc02dfe38fd89ee9c19f42ba"
+                "dfc5172de2cae76a6aa028394b74d2a9a7536c2494d364549dbb8bdaad413454"
             ),
         ]
 
@@ -1196,7 +1214,7 @@ import Testing
         #expect(speech.configuredGraphFeatureSet.contains("graph.codebooks"))
         #expect(speech.configuredGraphFeatureSet.contains("graph.feedback"))
         #expect(speech.configuredGraphFeatureSet.contains("artifact.role.sidecar"))
-        #expect(speech.configuredGraphFeatureSet.contains("artifact.role.baked-inline"))
+        #expect(speech.configuredGraphFeatureSet.contains("artifact.role.compiled-inline"))
         #expect(speech.featureSet.contains("io.pcm"))
         #expect(speech.featureSet.contains("gate.subject.duration"))
         #expect(speech.featureSet.contains("gate.subject.format"))
@@ -1240,7 +1258,7 @@ import Testing
         let aliases = try [
             capabilities.resolve(.serveText),
             capabilities.resolve(.traceTextGenerate),
-            capabilities.resolve(.bakeTextPromptPrefix),
+            capabilities.resolve(.prepareTextPromptPrefix),
         ].map { try capabilities.runtimeAssemblyFeatureContract(for: $0) }
         for alias in aliases {
             #expect(alias.configuredGraphFeatureSet == baseline.configuredGraphFeatureSet)
@@ -1339,7 +1357,7 @@ import Testing
         #expect(audioContract.gateRequirements == [
             "audio-rate:==:24khz:none",
             "package-files:include:manifest.json,weights.bin,model.metallib,trunk,trunk-mtp,vocab.json,merges.txt,tokenizer_config.json,config.json,module.json:none",
-            "release-surface-ids:include:gate.startup-audio,bake.voice-defaults,gate.audio-contract,correctness.stream-parity,release.verify:none",
+            "release-surface-ids:include:gate.startup-audio,gate.audio-contract,correctness.stream-parity,release.verify:none",
         ])
         #expect(audioContract.selectedOutputName == "audio")
         #expect(audioContract.selectedOutput == "pcm[dtype=f32,rate=24khz]")
@@ -1647,7 +1665,7 @@ import Testing
     @Test func audioDeliveryRequiresStreamingExportFact() throws {
         var object = try Self.descriptorJSONObject("qwen3_tts.cam")
         var exports = try #require(object["exports"] as? [[String: Any]])
-        exports[0]["capabilities"] = ["run.synthesize", "bake.voice-defaults"]
+        exports[0]["capabilities"] = ["run.synthesize", "prepare.voice-defaults"]
         object["exports"] = exports
         let descriptor = try Self.decodeDescriptor(object)
         try descriptor.validateDecoded()
@@ -1655,7 +1673,7 @@ import Testing
         let capabilities = try SmeltCAMPackageCapabilities(descriptor: descriptor)
         _ = try capabilities.resolve(.runAudio)
         _ = try capabilities.resolve(.traceTextSynthesize)
-        _ = try capabilities.resolve(.bakeVoiceDefaults)
+        _ = try capabilities.resolve(.prepareVoiceDefaults)
         #expect(throws: SmeltCAMPackageCapabilitiesError.self) {
             _ = try capabilities.resolve(.serveAudio)
         }
@@ -1734,7 +1752,7 @@ import Testing
         exports[0]["capabilities"] = []
         object["exports"] = exports
         let descriptor = try Self.decodeDescriptor(object)
-        #expect(Set(descriptor.capabilities) == ["bake.prompt-prefix", "run.generate"])
+        #expect(Set(descriptor.capabilities) == ["prepare.prompt-prefix", "run.generate"])
         try descriptor.validateDecoded()
 
         let capabilities = try SmeltCAMPackageCapabilities(descriptor: descriptor)
@@ -1742,11 +1760,11 @@ import Testing
             _ = try capabilities.resolve(.runText)
         }
         #expect(throws: SmeltCAMPackageCapabilitiesError.self) {
-            _ = try capabilities.resolve(.bakeTextPromptPrefix)
+            _ = try capabilities.resolve(.prepareTextPromptPrefix)
         }
     }
 
-    @Test func runOnlyExportDoesNotSatisfyBakeRequest() throws {
+    @Test func runOnlyExportDoesNotSatisfyPreparationRequest() throws {
         var object = try Self.descriptorJSONObject("qwen35_text.cam")
         var exports = try #require(object["exports"] as? [[String: Any]])
         exports[0]["capabilities"] = ["run.generate"]
@@ -1757,7 +1775,7 @@ import Testing
         let capabilities = try SmeltCAMPackageCapabilities(descriptor: descriptor)
         _ = try capabilities.resolve(.runText)
         #expect(throws: SmeltCAMPackageCapabilitiesError.self) {
-            _ = try capabilities.resolve(.bakeTextPromptPrefix)
+            _ = try capabilities.resolve(.prepareTextPromptPrefix)
         }
     }
 
@@ -2117,7 +2135,7 @@ import Testing
         .runText,
         .benchDecode,
         .serveText,
-        .bakeTextPromptPrefix,
+        .prepareTextPromptPrefix,
         .traceTextGenerate,
     ]
 
@@ -2150,11 +2168,11 @@ import Testing
         requiredAnyExportFacts: ["run.generate"]
     )
 
-    private static let twoTextBake = SmeltCAMCapabilityRequest.exactTextToText(
-        name: "bake prompt-prefix with two required text inputs",
+    private static let twoTextPreparation = SmeltCAMCapabilityRequest.exactTextToText(
+        name: "prepare prompt-prefix with two required text inputs",
         requiredTextInputCount: 2,
         requiredInputNames: ["candidate", "context"],
-        requiredAnyExportFacts: ["bake.prompt-prefix"]
+        requiredAnyExportFacts: ["prepare.prompt-prefix"]
     )
 
     private static let twoTextRequests: [SmeltCAMCapabilityRequest] = [
@@ -2162,14 +2180,14 @@ import Testing
         twoTextBench,
         twoTextServe,
         twoTextTrace,
-        twoTextBake,
+        twoTextPreparation,
     ]
 
     private static let audioRequests: [SmeltCAMCapabilityRequest] = [
         .runAudio,
         .serveAudioStream,
         .serveAudio,
-        .bakeVoiceDefaults,
+        .prepareVoiceDefaults,
         .traceAudioSynthesis,
         .traceTextSynthesize,
     ]
@@ -2312,7 +2330,7 @@ import Testing
         return try SmeltCAMPackageCapabilities(descriptor: decodeDescriptor(object))
     }
 
-    private static func expectRuntimeAudioRejectsButBakeResolves(
+    private static func expectRuntimeAudioRejectsButPreparationResolves(
         _ capabilities: SmeltCAMPackageCapabilities
     ) throws {
         for request in runtimeAudioRequests {
@@ -2320,7 +2338,7 @@ import Testing
                 _ = try capabilities.resolve(request)
             }
         }
-        #expect(try capabilities.resolve(.bakeVoiceDefaults).exportID == "synth")
+        #expect(try capabilities.resolve(.prepareVoiceDefaults).exportID == "synth")
     }
 
     private static func mutatePortAttributes(

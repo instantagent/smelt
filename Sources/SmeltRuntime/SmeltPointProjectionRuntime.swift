@@ -1,7 +1,7 @@
 import Foundation
 import Metal
 
-/// The two point-feature projections that start the rig model's neural graph.
+/// The two point-feature projections that start the skinning component's neural graph.
 public enum SmeltPointProjection: Sendable, Equatable {
     case mesh
     case condition
@@ -50,14 +50,14 @@ public final class SmeltPointProjectionRuntime {
     /// command-buffer limit while preserving independent row semantics.
     static let maximumRowsPerCommandBuffer = 1_024
 
-    private let artifact: SmeltRigArtifact
+  private let artifact: SmeltComponentArtifact
     private let device: MTLDevice
     private let queue: MTLCommandQueue
     private let fourier: MTLComputePipelineState
     private let appendFeatures: MTLComputePipelineState
     private let dense: MTLComputePipelineState
 
-    public init(artifact: SmeltRigArtifact, device: MTLDevice? = nil) throws {
+  public init(artifact: SmeltComponentArtifact, device: MTLDevice? = nil) throws {
         let device = try device ?? Self.requireDevice()
         guard let queue = device.makeCommandQueue() else {
             throw SmeltPointProjectionRuntimeError.commandQueueCreationFailed
@@ -80,7 +80,7 @@ public final class SmeltPointProjectionRuntime {
     }
 
     /// Projects interleaved `[x,y,z,nx,ny,nz]` rows through the authored
-    /// rig model input layer. The returned row-major activations stay FP32.
+  /// skinning component input layer. The returned row-major activations stay FP32.
     public func project(
         pointNormals: [Float],
         projection: SmeltPointProjection
@@ -92,18 +92,18 @@ public final class SmeltPointProjectionRuntime {
         let fourierDim = 51
         let inputDim = 54
         let outputDim = projection.outputDimension
-        let input = try makeBuffer(pointNormals, label: "rig.point-normals")
+    let input = try makeBuffer(pointNormals, label: "skinning.point-normals")
         let fourierOutput = try makeBuffer(
             count: rows * fourierDim,
-            label: "rig.fourier"
+      label: "skinning.fourier"
         )
         let projectedInput = try makeBuffer(
             count: rows * inputDim,
-            label: "rig.point-features"
+      label: "skinning.point-features"
         )
         let output = try makeBuffer(
             count: rows * outputDim,
-            label: "rig.point-projection"
+      label: "skinning.point-projection"
         )
         let weight = try artifact.makeWeightBuffer(
             device: device,
@@ -123,7 +123,7 @@ public final class SmeltPointProjectionRuntime {
                 queue.makeCommandBuffer(),
                 .commandBufferCreationFailed
             )
-            commandBuffer.label = "rig.point-projection.rows.\(rowStart)..<\(rowStart + rowCount)"
+      commandBuffer.label = "skinning.point-projection.rows.\(rowStart)..<\(rowStart + rowCount)"
             let encoder = try require(
                 commandBuffer.makeComputeCommandEncoder(),
                 .commandEncoderCreationFailed
@@ -252,10 +252,12 @@ public final class SmeltPointProjectionRuntime {
     }
 
     private func makeBuffer(count: Int, label: String) throws -> MTLBuffer {
-        guard let buffer = device.makeBuffer(
+    guard
+      let buffer = device.makeBuffer(
             length: count * MemoryLayout<Float>.stride,
             options: .storageModeShared
-        ) else {
+      )
+    else {
             throw SmeltPointProjectionRuntimeError.bufferCreationFailed(label)
         }
         buffer.label = label

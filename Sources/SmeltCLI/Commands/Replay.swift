@@ -1,24 +1,24 @@
 import Foundation
 import SmeltRuntime
 
-func runReplayCommand() {
+func runReplayCommand(_ args: [String]) {
     guard args.count >= 3 else {
         fputs(
-            "Usage: smelt replay <trace.jsonl> [--package <model.smeltpkg>]"
+            "Usage: smelt lab replay <trace.jsonl> [--package <model.smeltpkg>]"
                 + " [--failure-bundle <dir>]\n",
             stderr
         )
         exit(1)
     }
     let tracePath = args[2]
-    let packagePath = parseArg("--package", default: "")
-    let failureBundleDir = parseArg("--failure-bundle", default: "")
+    let packagePath = parseArg(args, "--package", default: "")
+    let failureBundleDir = parseArg(args, "--failure-bundle", default: "")
     let construction: CAMTextRuntimeConstruction?
     if !packagePath.isEmpty {
         construction = requireCAMTextRuntimePlanOrExit(
             packagePath: packagePath,
             request: .runText,
-            verb: "replay",
+            verb: "lab replay",
             requireAuthoredInventory: true
         )
     } else {

@@ -12,7 +12,7 @@ import SmeltModuleAuthoring
 
 func qwen35Text() -> SmeltCAMIR {
     qwen35TextGen(
-        id: "qwen35_text", repo: "Qwen/Qwen3.5-2B", elapsedMs: "115", bakePromptPrefix: true,
+        id: "qwen35_text", repo: "Qwen/Qwen3.5-2B", elapsedMs: "115", preparePromptPrefix: true,
         toolTranscriptCodec: SmeltToolTranscriptCodecName.xmlFunctionParameters,
         trunk: qwen35Trunk(
             hiddenSize: 2048, ffnDim: 6144,
@@ -24,7 +24,7 @@ func qwen35Text() -> SmeltCAMIR {
 
 func qwen35Fast() -> SmeltCAMIR {
     qwen35TextGen(
-        id: "qwen35_fast", repo: "Qwen/Qwen3.5-0.8B", elapsedMs: "100", bakePromptPrefix: false,
+        id: "qwen35_fast", repo: "Qwen/Qwen3.5-0.8B", elapsedMs: "100", preparePromptPrefix: false,
         toolTranscriptCodec: SmeltToolTranscriptCodecName.xmlFunctionParameters,
         trunk: qwen35Trunk(
             hiddenSize: 1024, ffnDim: 3584,
@@ -37,7 +37,7 @@ func qwen35Fast() -> SmeltCAMIR {
 func qwen36TwentySevenB() -> SmeltCAMIR {
     qwen35TextGen(
         id: "qwen36_27b", repo: "Qwen/Qwen3.6-27B", elapsedMs: "2000",
-        bakePromptPrefix: true, verifyArgmax: true,
+        preparePromptPrefix: true, verifyArgmax: true,
         toolTranscriptCodec: SmeltToolTranscriptCodecName.xmlFunctionParameters,
         trunk: qwen35Trunk(
             hiddenSize: 5_120, ffnDim: 17_408,
@@ -56,7 +56,7 @@ func qwen36TwentySevenBMTP() -> SmeltCAMIR {
         id: "qwen36_27b_mtp",
         repo: "Qwen/Qwen3.6-27B",
         elapsedMs: "500",
-        bakePromptPrefix: false,
+        preparePromptPrefix: false,
         trunk: qwen36MTPTrunk(),
         quantization: qwen36MTPQuantRules(),
         checkpointMap: "hf.qwen-mtp",
@@ -93,7 +93,7 @@ private func bonsaiTwentySevenB(
         repo: repo,
         revision: revision,
         elapsedMs: "2000",
-        bakePromptPrefix: true,
+        preparePromptPrefix: true,
         verifyArgmax: true,
         verifyTokenCapacity: format == .ternary2 ? 32 : nil,
         promptFormat: SmeltPromptTemplateName.chatML,
@@ -129,8 +129,8 @@ private func bonsaiTwentySevenB(
 }
 
 func qwen35FourB() -> SmeltCAMIR {
-    let textCapabilities = ["bake.prompt-prefix", "run.generate"]
-    let multimodalCapabilities = ["bake.prompt-prefix", "run.generate.multimodal"]
+    let textCapabilities = ["prepare.prompt-prefix", "run.generate"]
+    let multimodalCapabilities = ["prepare.prompt-prefix", "run.generate.multimodal"]
     let trunk = qwen35Trunk(
         hiddenSize: 2560, ffnDim: 9216,
         deltaHeads: 32, deltaProjections: ["qkv": 8192, "z": 4096, "a": 32, "b": 32],
@@ -206,7 +206,7 @@ func qwen35FourB() -> SmeltCAMIR {
 }
 
 func qwen35Reasoner() -> SmeltCAMIR {
-    let caps = ["bake.prompt-prefix", "run.generate"]
+    let caps = ["prepare.prompt-prefix", "run.generate"]
     let frontNodes: [IR.GraphNode] = [
         IR.GraphNode(
             id: "prompt_builder",
@@ -258,7 +258,7 @@ func qwen35Reasoner() -> SmeltCAMIR {
 
 private func qwen35TextGen(
     id: String, repo: String, revision: String = "main",
-    elapsedMs: String, bakePromptPrefix: Bool,
+    elapsedMs: String, preparePromptPrefix: Bool,
     verifyArgmax: Bool = false,
     verifyTokenCapacity: Int? = nil,
     promptFormat: String = SmeltPromptTemplateName.chatML,
@@ -268,7 +268,7 @@ private func qwen35TextGen(
     checkpointMap: String = "hf.qwen",
     compile: [IR.Constraint]? = nil
 ) -> SmeltCAMIR {
-    let caps = bakePromptPrefix ? ["bake.prompt-prefix", "run.generate"] : ["run.generate"]
+    let caps = preparePromptPrefix ? ["prepare.prompt-prefix", "run.generate"] : ["run.generate"]
     let includePrefill = compile?.contains { $0.key == "prefill" } ?? true
     let frontEdges: [IR.GraphEdge] = [
         IR.GraphEdge(from: .moduleInput("prompt"), to: .node("tokenizer", "prompt"), type: textType()),
@@ -474,7 +474,7 @@ private func qwen35MultimodalNodes() -> [IR.GraphNode] {
             ],
             outputs: [port("hidden", bareType("hidden"))],
             annotations: [
-                annot("artifact", "baked-inline"),
+                annot("artifact", "compiled-inline"),
                 annot("feedback", "tokens"),
                 annot("state", "kv-cache,conv-state,rec-state"),
                 annot("tag", "decode-core"),
@@ -800,7 +800,7 @@ private func trunkNode() -> IR.GraphNode {
         inputs: [port("tokens", bareType("tokens"))],
         outputs: [port("hidden", bareType("hidden"))],
         annotations: [
-            annot("artifact", "baked-inline"),
+            annot("artifact", "compiled-inline"),
             annot("feedback", "tokens"),
             annot("state", "kv-cache,conv-state,rec-state"),
         ]

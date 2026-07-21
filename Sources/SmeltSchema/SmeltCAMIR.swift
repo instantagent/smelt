@@ -6,6 +6,7 @@ public struct SmeltCAMIR: Codable, Sendable, Equatable {
 
     public let schemaVersion: Int
     public let module: Module
+  public let run: SmeltPackageRunContract?
     public let imports: [Import]
     public let exports: [Export]
     public let exportBindings: [ExportBinding]
@@ -27,6 +28,7 @@ public struct SmeltCAMIR: Codable, Sendable, Equatable {
     public init(
         schemaVersion: Int = Self.currentSchemaVersion,
         module: Module,
+    run: SmeltPackageRunContract? = nil,
         imports: [Import] = [],
         exports: [Export],
         exportBindings: [ExportBinding],
@@ -47,6 +49,7 @@ public struct SmeltCAMIR: Codable, Sendable, Equatable {
     ) {
         self.schemaVersion = schemaVersion
         self.module = module
+    self.run = run
         self.imports = imports
         self.exports = exports
         self.exportBindings = exportBindings
@@ -127,6 +130,14 @@ public struct SmeltCAMIR: Codable, Sendable, Equatable {
         let exportInputPortsByName = Dictionary(grouping: exports.flatMap { $0.inputs }, by: \.name)
         let exportOutputPortsByName = Dictionary(grouping: exports.flatMap { $0.outputs }, by: \.name)
 
+    if let run {
+      try run.validate()
+      guard exportIDs.contains(run.export) else {
+        throw SmeltCAMIRError.malformed(
+          "run contract references unknown export '\(run.export)'"
+        )
+      }
+    }
         for `import` in imports {
             try `import`.validateExportABI()
         }
@@ -213,7 +224,8 @@ public struct SmeltCAMIR: Codable, Sendable, Equatable {
                 }
                 guard let imported = node.imported,
                       let importedModule = importByAlias[imported.alias],
-                      let importedExport = importedModule.export(named: imported.export) else {
+          let importedExport = importedModule.export(named: imported.export)
+        else {
                     throw SmeltCAMIRError.malformed(
                         "imported graph node '\(node.id)' must reference an imported export"
                     )
@@ -344,6 +356,23 @@ public struct SmeltCAMIR: Codable, Sendable, Equatable {
                     "tensor map targets unknown block '\(tensor.target.block)'"
                 )
             }
+      if let shape = tensor.shape, shape.isEmpty || shape.contains(where: { $0 <= 0 }) {
+        throw SmeltCAMIRError.malformed(
+          "tensor map '\(tensor.selector.pattern)' has an invalid shape"
+        )
+      }
+      if tensor.disposition != nil {
+        guard tensor.shape != nil, tensor.sourceDType?.isEmpty == false else {
+          throw SmeltCAMIRError.malformed(
+            "tensor map '\(tensor.selector.pattern)' with a disposition requires shape and source dtype"
+          )
+        }
+      }
+      if let layoutOrdinal = tensor.layoutOrdinal, layoutOrdinal < 0 {
+        throw SmeltCAMIRError.malformed(
+          "tensor map '\(tensor.selector.pattern)' has a negative layout ordinal"
+        )
+      }
         }
 
         try validateGates(
@@ -375,6 +404,7 @@ public struct SmeltCAMIR: Codable, Sendable, Equatable {
         SmeltCAMIR(
             schemaVersion: schemaVersion,
             module: module,
+      run: run,
             imports: imports.map { $0.canonicalized() }.sorted { $0.sortKey < $1.sortKey },
             exports: exports.map { $0.canonicalized() }.sorted { $0.sortKey < $1.sortKey },
             exportBindings: exportBindings.sorted { $0.sortKey < $1.sortKey },
@@ -388,7 +418,9 @@ public struct SmeltCAMIR: Codable, Sendable, Equatable {
             backendConstraints: backendConstraints.sorted { $0.sortKey < $1.sortKey },
             tensors: tensors.sorted { $0.sortKey < $1.sortKey },
             quantization: quantization.map { $0.canonicalized() }.sorted { $0.sortKey < $1.sortKey },
-            sourceQuantization: sourceQuantization.map { $0.canonicalized() }.sorted { $0.sortKey < $1.sortKey },
+      sourceQuantization: sourceQuantization.map { $0.canonicalized() }.sorted {
+        $0.sortKey < $1.sortKey
+      },
             compile: compile.sorted { $0.sortKey < $1.sortKey },
             artifacts: artifacts.sorted { $0.sortKey < $1.sortKey },
             gates: gates.map { $0.canonicalized() }.sorted { $0.sortKey < $1.sortKey }
@@ -397,7 +429,8 @@ public struct SmeltCAMIR: Codable, Sendable, Equatable {
 
     public func canonicalJSONData(prettyPrinted: Bool = false) throws -> Data {
         let encoder = JSONEncoder()
-        encoder.outputFormatting = prettyPrinted
+    encoder.outputFormatting =
+      prettyPrinted
             ? [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
             : [.sortedKeys, .withoutEscapingSlashes]
         return try encoder.encode(try validated())
@@ -439,7 +472,8 @@ public struct SmeltCAMIR: Codable, Sendable, Equatable {
                     )
                 }
             }
-            try requireUnique(gate.measurements.map(\.subject), label: "measurement subject for gate \(gate.id)")
+      try requireUnique(
+        gate.measurements.map(\.subject), label: "measurement subject for gate \(gate.id)")
             let requirementSubjects = Set(gate.requirements.map(\.subject))
             for measurement in gate.measurements {
                 try measurement.validate(label: "gate \(gate.id) measurement")
@@ -535,7 +569,8 @@ public struct SmeltCAMIR: Codable, Sendable, Equatable {
             if rule.action != .default, !quantRuleTargetsAnyTensor(rule) {
                 guard rule.resolution == .sourceDeferred,
                       let source = rule.source,
-                      sourceIDs.contains(source) else {
+          sourceIDs.contains(source)
+        else {
                     throw SmeltCAMIRError.malformed(
                         "quant rule '\(rule.selector.pattern)' targets no tensors"
                     )
@@ -569,7 +604,8 @@ public struct SmeltCAMIR: Codable, Sendable, Equatable {
             for rhs in quantization.dropFirst(index + 1)
             where lhs.overlaps(rhs)
                 && lhs.action != .default
-                && rhs.action != .default {
+        && rhs.action != .default
+      {
                 guard let lhsPriority = lhs.priority, let rhsPriority = rhs.priority else {
                     throw SmeltCAMIRError.malformed(
                         "overlapping quant rules '\(lhs.selector.pattern)' and "
@@ -639,7 +675,8 @@ public struct SmeltCAMIR: Codable, Sendable, Equatable {
         case .imported:
             guard let imported = call.imported,
                   let importedModule = importByAlias[imported.alias],
-                  importedModule.export(named: imported.export) != nil else {
+        importedModule.export(named: imported.export) != nil
+      else {
                 throw SmeltCAMIRError.malformed("flow call references unknown imported export")
             }
         }
@@ -694,7 +731,8 @@ public struct SmeltCAMIR: Codable, Sendable, Equatable {
 
         for name in expectedNames.sorted() {
             guard let projectedPort = projectedByName[name],
-                  let expectedPort = expectedByName[name] else {
+        let expectedPort = expectedByName[name]
+      else {
                 continue
             }
             if projectedPort.optional != expectedPort.optional {
@@ -734,7 +772,8 @@ public struct SmeltCAMIR: Codable, Sendable, Equatable {
         case .moduleInput:
             guard use == .source,
                   let name = endpoint.name,
-                  exportInputPortsByName[name] != nil else {
+        exportInputPortsByName[name] != nil
+      else {
                 throw SmeltCAMIRError.malformed(
                     "module input endpoint '\(endpoint.sortKey)' is not available as a source"
                 )
@@ -748,7 +787,8 @@ public struct SmeltCAMIR: Codable, Sendable, Equatable {
         case .moduleOutput:
             guard use != .source,
                   let name = endpoint.name,
-                  exportOutputPortsByName[name] != nil else {
+        exportOutputPortsByName[name] != nil
+      else {
                 throw SmeltCAMIRError.malformed(
                     "module output endpoint '\(endpoint.sortKey)' is not available as a sink"
                 )
@@ -777,7 +817,8 @@ public struct SmeltCAMIR: Codable, Sendable, Equatable {
                   let export = endpoint.export,
                   let port = endpoint.port,
                   let imported = importByAlias[alias],
-                  let abi = imported.export(named: export) else {
+        let abi = imported.export(named: export)
+      else {
                 throw SmeltCAMIRError.malformed(
                     "unknown imported endpoint '\(endpoint.sortKey)'"
                 )
@@ -824,12 +865,14 @@ public struct SmeltCAMIR: Codable, Sendable, Equatable {
         guard case .graphValue = edge.to.kind else { return nil }
         var resolved = fromType
         if let toType {
-            resolved = try resolved.map {
+      resolved =
+        try resolved.map {
                 try mergedCompatibleType($0, toType, context: "graph edge \(edge.sortKey)")
             } ?? toType
         }
         if let declared = edge.type {
-            resolved = try resolved.map {
+      resolved =
+        try resolved.map {
                 try mergedCompatibleType($0, declared, context: "graph edge \(edge.sortKey)")
             } ?? declared
         }
@@ -909,7 +952,9 @@ public struct SmeltCAMIR: Codable, Sendable, Equatable {
         return merged
     }
 
-    private func mergedCompatibleType(_ lhs: TypeRef, _ rhs: TypeRef, context: String) throws -> TypeRef {
+  private func mergedCompatibleType(_ lhs: TypeRef, _ rhs: TypeRef, context: String) throws
+    -> TypeRef
+  {
         guard lhs.name == rhs.name else {
             throw SmeltCAMIRError.malformed(
                 "\(context) connects incompatible value types \(formatType(lhs)) and \(formatType(rhs))"
@@ -976,8 +1021,8 @@ public enum SmeltCAMIRError: Error, CustomStringConvertible, Equatable {
     }
 }
 
-public extension SmeltCAMIR {
-    struct Module: Codable, Sendable, Equatable {
+extension SmeltCAMIR {
+  public struct Module: Codable, Sendable, Equatable {
         public let id: String
         public let version: String?
 
@@ -987,7 +1032,7 @@ public extension SmeltCAMIR {
         }
     }
 
-    struct Import: Codable, Sendable, Equatable {
+  public struct Import: Codable, Sendable, Equatable {
         public let alias: String
         public let moduleID: String
         public let canonicalURI: String?
@@ -1040,7 +1085,8 @@ public extension SmeltCAMIR {
             try container.encode(moduleID, forKey: .moduleID)
             try container.encode(irSHA256, forKey: .irSHA256)
             try container.encode(exportABISHA256, forKey: .exportABISHA256)
-            try container.encode(exportABI.map { $0.canonicalized() }.sorted { $0.sortKey < $1.sortKey }, forKey: .exportABI)
+      try container.encode(
+        exportABI.map { $0.canonicalized() }.sorted { $0.sortKey < $1.sortKey }, forKey: .exportABI)
             if !parameters.isEmpty {
                 try container.encode(parameters, forKey: .parameters)
             }
@@ -1077,8 +1123,10 @@ public extension SmeltCAMIR {
         private func validateImportedExports(_ exports: [Export]) throws {
             try requireUniqueExportABIValues(exports.map(\.id), label: "export ABI for import \(alias)")
             for export in exports {
-                try validateImportedPorts(export.inputs, label: "input port for imported export \(export.id)")
-                try validateImportedPorts(export.outputs, label: "output port for imported export \(export.id)")
+        try validateImportedPorts(
+          export.inputs, label: "input port for imported export \(export.id)")
+        try validateImportedPorts(
+          export.outputs, label: "output port for imported export \(export.id)")
             }
         }
 
@@ -1101,7 +1149,7 @@ public extension SmeltCAMIR {
         }
     }
 
-    struct TypeRef: Codable, Sendable, Equatable {
+  public struct TypeRef: Codable, Sendable, Equatable {
         public let name: String
         public let attributes: [String: String]
 
@@ -1111,7 +1159,7 @@ public extension SmeltCAMIR {
         }
     }
 
-    struct Port: Codable, Sendable, Equatable {
+  public struct Port: Codable, Sendable, Equatable {
         public let name: String
         public let type: TypeRef
         public let optional: Bool
@@ -1125,7 +1173,7 @@ public extension SmeltCAMIR {
         fileprivate var sortKey: String { name }
     }
 
-    struct Export: Codable, Sendable, Equatable {
+  public struct Export: Codable, Sendable, Equatable {
         public let id: String
         public let inputs: [Port]
         public let outputs: [Port]
@@ -1159,7 +1207,7 @@ public extension SmeltCAMIR {
         }
     }
 
-    struct ExportBinding: Codable, Sendable, Equatable {
+  public struct ExportBinding: Codable, Sendable, Equatable {
         public let export: String
         public let flow: String
 
@@ -1171,7 +1219,7 @@ public extension SmeltCAMIR {
         fileprivate var sortKey: String { export }
     }
 
-    struct Source: Codable, Sendable, Equatable {
+  public struct Source: Codable, Sendable, Equatable {
         public let id: String
         public let kind: String
         public let locator: String
@@ -1224,7 +1272,7 @@ public extension SmeltCAMIR {
         }
     }
 
-    enum BlockOperator: String, Codable, Sendable {
+  public enum BlockOperator: String, Codable, Sendable {
         case transformer
         case codecDecoder = "codec-decoder"
         case codecHead = "codec-head"
@@ -1236,7 +1284,7 @@ public extension SmeltCAMIR {
         case adapter
     }
 
-    struct Block: Codable, Sendable, Equatable {
+  public struct Block: Codable, Sendable, Equatable {
         public let id: String
         public let operatorName: BlockOperator
         public let shape: BlockShape
@@ -1275,7 +1323,7 @@ public extension SmeltCAMIR {
         }
     }
 
-    struct BlockShape: Codable, Sendable, Equatable {
+  public struct BlockShape: Codable, Sendable, Equatable {
         public let derivation: ShapeDerivation?
         public let transformer: TransformerShape?
         public let codecDecoder: CodecDecoderShape?
@@ -1311,7 +1359,7 @@ public extension SmeltCAMIR {
         }
     }
 
-    struct ShapeDerivation: Codable, Sendable, Equatable {
+  public struct ShapeDerivation: Codable, Sendable, Equatable {
         public let source: String
         public let authority: String?
 
@@ -1321,7 +1369,7 @@ public extension SmeltCAMIR {
         }
     }
 
-    struct BlockRequirement: Codable, Sendable, Equatable {
+  public struct BlockRequirement: Codable, Sendable, Equatable {
         public let key: String
         public let value: String?
         public let optional: Bool
@@ -1335,7 +1383,7 @@ public extension SmeltCAMIR {
         fileprivate var sortKey: String { "\(key)=\(value ?? "")=\(optional)" }
     }
 
-    struct TransformerShape: Codable, Sendable, Equatable {
+  public struct TransformerShape: Codable, Sendable, Equatable {
         public let hiddenSize: Int?
         public let layers: LayerPattern?
         public let delta: DeltaShape?
@@ -1434,7 +1482,8 @@ public extension SmeltCAMIR {
                         )
                     }
                     if variant.attention.qkNormMode != nil,
-                       variant.attention.qkNorm == nil {
+            variant.attention.qkNorm == nil
+          {
                         throw SmeltCAMIRError.malformed(
                             "block '\(blockID)' role '\(variant.role.rawValue)' declares qk-norm-mode without qk-norm"
                         )
@@ -1447,11 +1496,14 @@ public extension SmeltCAMIR {
                 )
             }
             if let denseLayerCount {
-                let layerCount = layers?.count ?? layers?.repeatCount.map {
+        let layerCount =
+          layers?.count
+          ?? layers?.repeatCount.map {
                     $0 * (layers?.roles.count ?? 0)
                 }
                 guard denseLayerCount >= 0,
-                      layerCount.map({ denseLayerCount <= $0 }) ?? true else {
+          layerCount.map({ denseLayerCount <= $0 }) ?? true
+        else {
                     throw SmeltCAMIRError.malformed(
                         "block '\(blockID)' dense-layer-count is outside its layer pattern"
                     )
@@ -1461,7 +1513,8 @@ public extension SmeltCAMIR {
                 var sites = Set<ShortConvolutionSite>()
                 for convolution in shortConvolutions {
                     guard convolution.kernelSize > 0,
-                          sites.insert(convolution.site).inserted else {
+            sites.insert(convolution.site).inserted
+          else {
                         throw SmeltCAMIRError.malformed(
                             "block '\(blockID)' has an invalid or duplicate short-convolution site"
                         )
@@ -1509,11 +1562,14 @@ public extension SmeltCAMIR {
                             }
                             previousEnd = end
                         }
-                        let layerCount = layers?.count ?? layers?.repeatCount.map {
+            let layerCount =
+              layers?.count
+              ?? layers?.repeatCount.map {
                             $0 * (layers?.roles.count ?? 0)
                         }
                         if let layerCount,
-                           previousEnd > layerCount {
+              previousEnd > layerCount
+            {
                             throw SmeltCAMIRError.malformed(
                                 "block '\(blockID)' projection bank '\(bank.id)' activation-view span exceeds \(layerCount) layers"
                             )
@@ -1522,7 +1578,8 @@ public extension SmeltCAMIR {
                     var localEndpoints = Set<ProjectionEndpoint>()
                     for endpoint in bank.outputs {
                         guard localEndpoints.insert(endpoint).inserted,
-                              bankedEndpoints.insert(endpoint).inserted else {
+              bankedEndpoints.insert(endpoint).inserted
+            else {
                             throw SmeltCAMIRError.malformed(
                                 "block '\(blockID)' projection endpoint '\(endpoint.rawValue)' is banked more than once"
                             )
@@ -1538,7 +1595,7 @@ public extension SmeltCAMIR {
         }
     }
 
-    enum ProjectionSource: String, Codable, Sendable, Hashable {
+  public enum ProjectionSource: String, Codable, Sendable, Hashable {
         case deltaInput
         case deltaOutput
         case attentionInput
@@ -1548,7 +1605,7 @@ public extension SmeltCAMIR {
         case lmHeadInput
     }
 
-    enum ProjectionEndpoint: String, Codable, Sendable, Hashable {
+  public enum ProjectionEndpoint: String, Codable, Sendable, Hashable {
         case deltaQKV
         case deltaZ
         case deltaA
@@ -1584,7 +1641,7 @@ public extension SmeltCAMIR {
         }
     }
 
-    enum ProjectionActivationView: String, Codable, Sendable, Hashable {
+  public enum ProjectionActivationView: String, Codable, Sendable, Hashable {
         case signedBitplanesI2
         case signedBitplanesI3
         case signedBitplanesI4
@@ -1602,7 +1659,7 @@ public extension SmeltCAMIR {
         }
     }
 
-    struct ProjectionBank: Codable, Sendable, Equatable {
+  public struct ProjectionBank: Codable, Sendable, Equatable {
         public let id: String
         public let source: ProjectionSource
         /// Authored order defines the physical row order when a backend packs
@@ -1642,7 +1699,7 @@ public extension SmeltCAMIR {
         }
     }
 
-    struct ActivationViewLayerSpan: Codable, Sendable, Equatable {
+  public struct ActivationViewLayerSpan: Codable, Sendable, Equatable {
         public let start: Int
         public let count: Int
 
@@ -1652,7 +1709,7 @@ public extension SmeltCAMIR {
         }
     }
 
-    struct LayerPattern: Codable, Sendable, Equatable {
+  public struct LayerPattern: Codable, Sendable, Equatable {
         public let count: Int?
         public let roles: [LayerRole]
         public let repeatCount: Int?
@@ -1664,14 +1721,14 @@ public extension SmeltCAMIR {
         }
     }
 
-    enum LayerRole: String, Codable, Sendable, Hashable {
+  public enum LayerRole: String, Codable, Sendable, Hashable {
         case delta
         case attention
         case sliding
         case global
     }
 
-    struct DeltaShape: Codable, Sendable, Equatable {
+  public struct DeltaShape: Codable, Sendable, Equatable {
         public let heads: Int
         public let headDim: Int
         public let convKernel: Int?
@@ -1699,7 +1756,7 @@ public extension SmeltCAMIR {
         }
     }
 
-    struct AttentionShape: Codable, Sendable, Equatable {
+  public struct AttentionShape: Codable, Sendable, Equatable {
         public let qHeads: Int
         public let kvHeads: Int
         public let headDim: Int
@@ -1742,7 +1799,7 @@ public extension SmeltCAMIR {
     /// A learned content-conditioned relative-position bias. The projected
     /// query state selects a bias value by backward distance; distances beyond
     /// `extent` contribute no bias.
-    struct RelativePositionShape: Codable, Sendable, Equatable {
+  public struct RelativePositionShape: Codable, Sendable, Equatable {
         public let projectionDim: Int
         public let extent: Int
         public let contentConditioned: Bool
@@ -1764,12 +1821,12 @@ public extension SmeltCAMIR {
         }
     }
 
-    enum AttentionScaling: String, Codable, Sendable {
+  public enum AttentionScaling: String, Codable, Sendable {
         case inverseSquareRootHeadDim = "inverse-sqrt-head-dim"
         case inverseHeadDim = "inverse-head-dim"
     }
 
-    struct RoleAttentionShape: Codable, Sendable, Equatable {
+  public struct RoleAttentionShape: Codable, Sendable, Equatable {
         public let role: LayerRole
         public let attention: AttentionShape
 
@@ -1781,7 +1838,7 @@ public extension SmeltCAMIR {
         fileprivate var sortKey: String { role.rawValue }
     }
 
-    struct RopeShape: Codable, Sendable, Equatable {
+  public struct RopeShape: Codable, Sendable, Equatable {
         public let kind: RopeKind
         public let theta: Int?
 
@@ -1791,17 +1848,17 @@ public extension SmeltCAMIR {
         }
     }
 
-    enum RopeKind: String, Codable, Sendable {
+  public enum RopeKind: String, Codable, Sendable {
         case neox
         case yarn
     }
 
-    enum NormKind: String, Codable, Sendable {
+  public enum NormKind: String, Codable, Sendable {
         case rms
         case layer
     }
 
-    struct FFNShape: Codable, Sendable, Equatable {
+  public struct FFNShape: Codable, Sendable, Equatable {
         public let dim: Int
         public let activation: Activation
 
@@ -1811,14 +1868,14 @@ public extension SmeltCAMIR {
         }
     }
 
-    enum Activation: String, Codable, Sendable {
+  public enum Activation: String, Codable, Sendable {
         case swiglu
         case geglu
         case gelu
         case silu
     }
 
-    struct RouterShape: Codable, Sendable, Equatable {
+  public struct RouterShape: Codable, Sendable, Equatable {
         public let topK: Int
         public let experts: Int
         public let sharedExperts: Int?
@@ -1852,17 +1909,17 @@ public extension SmeltCAMIR {
         }
     }
 
-    enum RouterActivation: String, Codable, Sendable {
+  public enum RouterActivation: String, Codable, Sendable {
         case sigmoid
         case softmax
     }
 
-    enum RouterNormalization: String, Codable, Sendable {
+  public enum RouterNormalization: String, Codable, Sendable {
         case selected
         case selectedAndShared = "selected-and-shared"
     }
 
-    struct ExpertShape: Codable, Sendable, Equatable {
+  public struct ExpertShape: Codable, Sendable, Equatable {
         public let ffn: FFNShape
 
         public init(ffn: FFNShape) {
@@ -1870,19 +1927,19 @@ public extension SmeltCAMIR {
         }
     }
 
-    enum ShortConvolutionSite: String, Codable, Sendable, Hashable {
+  public enum ShortConvolutionSite: String, Codable, Sendable, Hashable {
         case attentionKey = "attention-key"
         case attentionValue = "attention-value"
         case attentionBranchOutput = "attention-branch-output"
         case ffnBranchOutput = "ffn-branch-output"
     }
 
-    enum ShortConvolutionResidual: String, Codable, Sendable {
+  public enum ShortConvolutionResidual: String, Codable, Sendable {
         case none
         case addInput = "add-input"
     }
 
-    struct ShortConvolutionShape: Codable, Sendable, Equatable {
+  public struct ShortConvolutionShape: Codable, Sendable, Equatable {
         public let site: ShortConvolutionSite
         public let kernelSize: Int
         public let residual: ShortConvolutionResidual
@@ -1898,7 +1955,7 @@ public extension SmeltCAMIR {
         }
     }
 
-    struct NormShape: Codable, Sendable, Equatable {
+  public struct NormShape: Codable, Sendable, Equatable {
         public let kind: NormKind
         public let eps: String?
         public let mode: NormMode?
@@ -1910,12 +1967,12 @@ public extension SmeltCAMIR {
         }
     }
 
-    enum NormMode: String, Codable, Sendable {
+  public enum NormMode: String, Codable, Sendable {
         case weight
         case onePlusWeight = "one-plus-weight"
     }
 
-    struct VocabShape: Codable, Sendable, Equatable {
+  public struct VocabShape: Codable, Sendable, Equatable {
         public let size: Int
         public let tiedHead: Bool
 
@@ -1925,7 +1982,7 @@ public extension SmeltCAMIR {
         }
     }
 
-    struct PerLayerInputShape: Codable, Sendable, Equatable {
+  public struct PerLayerInputShape: Codable, Sendable, Equatable {
         public let hiddenSize: Int
         public let vocabSize: Int
 
@@ -1935,7 +1992,7 @@ public extension SmeltCAMIR {
         }
     }
 
-    struct CodecDecoderShape: Codable, Sendable, Equatable {
+  public struct CodecDecoderShape: Codable, Sendable, Equatable {
         public let codebooks: Int?
         public let streaming: Bool
 
@@ -1945,7 +2002,7 @@ public extension SmeltCAMIR {
         }
     }
 
-    struct FrontendShape: Codable, Sendable, Equatable {
+  public struct FrontendShape: Codable, Sendable, Equatable {
         public let speakerConditioning: Bool
 
         public init(speakerConditioning: Bool = false) {
@@ -1953,14 +2010,14 @@ public extension SmeltCAMIR {
         }
     }
 
-    enum GraphImplementation: String, Codable, Sendable {
+  public enum GraphImplementation: String, Codable, Sendable {
         case native
         case compiled
         case imported
         case adapter
     }
 
-    struct ImportedExportRef: Codable, Sendable, Equatable {
+  public struct ImportedExportRef: Codable, Sendable, Equatable {
         public let alias: String
         public let export: String
 
@@ -1972,7 +2029,7 @@ public extension SmeltCAMIR {
         fileprivate var sortKey: String { "\(alias).\(export)" }
     }
 
-    struct GraphNode: Codable, Sendable, Equatable {
+  public struct GraphNode: Codable, Sendable, Equatable {
         public let id: String
         public let implementation: GraphImplementation
         public let block: String?
@@ -2018,7 +2075,7 @@ public extension SmeltCAMIR {
         }
     }
 
-    struct EndpointRef: Codable, Sendable, Equatable {
+  public struct EndpointRef: Codable, Sendable, Equatable {
         public enum Kind: String, Codable, Sendable {
             case moduleInput
             case moduleOutput
@@ -2085,24 +2142,27 @@ public extension SmeltCAMIR {
             switch kind {
             case .moduleInput, .moduleOutput, .graphValue:
                 guard name?.isEmpty == false, node == nil, port == nil,
-                      importAlias == nil, export == nil else {
+          importAlias == nil, export == nil
+        else {
                     throw SmeltCAMIRError.malformed("malformed endpoint '\(sortKey)'")
                 }
             case .nodePort:
                 guard node?.isEmpty == false, port?.isEmpty == false,
-                      name == nil, importAlias == nil, export == nil else {
+          name == nil, importAlias == nil, export == nil
+        else {
                     throw SmeltCAMIRError.malformed("malformed endpoint '\(sortKey)'")
                 }
             case .importedPort:
                 guard importAlias?.isEmpty == false, export?.isEmpty == false,
-                      port?.isEmpty == false, name == nil, node == nil else {
+          port?.isEmpty == false, name == nil, node == nil
+        else {
                     throw SmeltCAMIRError.malformed("malformed endpoint '\(sortKey)'")
                 }
             }
         }
     }
 
-    struct GraphEdge: Codable, Sendable, Equatable {
+  public struct GraphEdge: Codable, Sendable, Equatable {
         public let from: EndpointRef
         public let to: EndpointRef
         public let type: TypeRef?
@@ -2116,7 +2176,7 @@ public extension SmeltCAMIR {
         fileprivate var sortKey: String { "\(from.sortKey)->\(to.sortKey)" }
     }
 
-    struct FeedbackEdge: Codable, Sendable, Equatable {
+  public struct FeedbackEdge: Codable, Sendable, Equatable {
         public let from: EndpointRef
         public let to: EndpointRef
 
@@ -2128,17 +2188,17 @@ public extension SmeltCAMIR {
         fileprivate var sortKey: String { "\(from.sortKey)->\(to.sortKey)" }
     }
 
-    enum FlowPhaseRole: String, Codable, Sendable {
+  public enum FlowPhaseRole: String, Codable, Sendable {
         case setup
         case step
     }
 
-    enum FlowCallKind: String, Codable, Sendable {
+  public enum FlowCallKind: String, Codable, Sendable {
         case node
         case imported
     }
 
-    struct FlowCall: Codable, Sendable, Equatable {
+  public struct FlowCall: Codable, Sendable, Equatable {
         public let kind: FlowCallKind
         public let node: String?
         public let imported: ImportedExportRef?
@@ -2173,7 +2233,7 @@ public extension SmeltCAMIR {
         }
     }
 
-    struct Flow: Codable, Sendable, Equatable {
+  public struct Flow: Codable, Sendable, Equatable {
         public let id: String
         public let phases: [FlowPhase]
         public let emit: [EndpointRef]
@@ -2203,7 +2263,7 @@ public extension SmeltCAMIR {
         }
     }
 
-    struct FlowPhase: Codable, Sendable, Equatable {
+  public struct FlowPhase: Codable, Sendable, Equatable {
         public let role: FlowPhaseRole
         public let label: String?
         public let calls: [FlowCall]
@@ -2215,7 +2275,7 @@ public extension SmeltCAMIR {
         }
     }
 
-    enum StopKind: String, Codable, Sendable {
+  public enum StopKind: String, Codable, Sendable {
         case eosToken = "eos-token"
         case maxSteps = "max-steps"
         case maxFrames = "max-frames"
@@ -2223,7 +2283,7 @@ public extension SmeltCAMIR {
         case codecEOS = "codec-eos"
     }
 
-    struct StopCondition: Codable, Sendable, Equatable {
+  public struct StopCondition: Codable, Sendable, Equatable {
         public let kind: StopKind
         public let value: Int?
 
@@ -2235,7 +2295,7 @@ public extension SmeltCAMIR {
         fileprivate var sortKey: String { "\(kind.rawValue)=\(value ?? -1)" }
     }
 
-    struct Constraint: Codable, Sendable, Equatable {
+  public struct Constraint: Codable, Sendable, Equatable {
         public let key: String
         public let value: String
 
@@ -2247,7 +2307,7 @@ public extension SmeltCAMIR {
         fileprivate var sortKey: String { "\(key)=\(value)" }
     }
 
-    struct TensorSelector: Codable, Sendable, Equatable {
+  public struct TensorSelector: Codable, Sendable, Equatable {
         public let source: String?
         public let pattern: String
 
@@ -2300,7 +2360,7 @@ public extension SmeltCAMIR {
         }
     }
 
-    struct TensorTarget: Codable, Sendable, Equatable {
+  public struct TensorTarget: Codable, Sendable, Equatable {
         public let block: String
         public let selector: String
 
@@ -2312,35 +2372,63 @@ public extension SmeltCAMIR {
         fileprivate var sortKey: String { "\(block).\(selector)" }
     }
 
-    struct TensorMap: Codable, Sendable, Equatable {
+  public struct TensorMap: Codable, Sendable, Equatable {
+    public enum Disposition: String, Codable, Sendable {
+      case carried
+      case trainingOnly = "training-only"
+    }
+
         public let source: String
         public let selector: TensorSelector
         public let target: TensorTarget
         public let owner: String
+    public let shape: [Int]?
+    public let sourceDType: String?
+    public let disposition: Disposition?
+    public let storageAlias: String?
+    public let layoutOrdinal: Int?
 
-        public init(source: String, selector: TensorSelector, target: TensorTarget, owner: String) {
+    public init(
+      source: String,
+      selector: TensorSelector,
+      target: TensorTarget,
+      owner: String,
+      shape: [Int]? = nil,
+      sourceDType: String? = nil,
+      disposition: Disposition? = nil,
+      storageAlias: String? = nil,
+      layoutOrdinal: Int? = nil
+    ) {
             self.source = source
             self.selector = selector
             self.target = target
             self.owner = owner
+      self.shape = shape
+      self.sourceDType = sourceDType
+      self.disposition = disposition
+      self.storageAlias = storageAlias
+      self.layoutOrdinal = layoutOrdinal
         }
 
-        fileprivate var sortKey: String { "\(target.sortKey)|\(source)|\(selector.sortKey)" }
+    fileprivate var sortKey: String {
+      let ordinal = layoutOrdinal.map { String(format: "%020d", $0) } ?? "~"
+      return "\(source)|\(ordinal)|\(target.sortKey)|\(selector.sortKey)"
+    }
     }
 
-    enum QuantAction: String, Codable, Sendable {
+  public enum QuantAction: String, Codable, Sendable {
         case `default`
         case preserve
         case store
         case quantize
     }
 
-    enum QuantResolution: String, Codable, Sendable {
+  public enum QuantResolution: String, Codable, Sendable {
         case declaredTensor = "declared-tensor"
         case sourceDeferred = "source-deferred"
     }
 
-    enum QuantStorageFormat: String, Codable, Sendable {
+  public enum QuantStorageFormat: String, Codable, Sendable {
         case affineU4 = "affine-u4"
         case lutU4 = "lut-u4"
         case binary1 = "binary-1"
@@ -2351,7 +2439,7 @@ public extension SmeltCAMIR {
         case fp16
     }
 
-    struct QuantStorage: Codable, Sendable, Equatable {
+  public struct QuantStorage: Codable, Sendable, Equatable {
         public let format: QuantStorageFormat
         public let groupSize: Int?
         public let computeDType: String?
@@ -2371,12 +2459,12 @@ public extension SmeltCAMIR {
         }
     }
 
-    enum QuantMethod: String, Codable, Sendable {
+  public enum QuantMethod: String, Codable, Sendable {
         case gptq
         case imatrix
     }
 
-    struct QuantCalibrationCorpus: Codable, Sendable, Equatable {
+  public struct QuantCalibrationCorpus: Codable, Sendable, Equatable {
         public let source: String
         public let path: String?
         public let maxTokens: Int?
@@ -2388,7 +2476,7 @@ public extension SmeltCAMIR {
         }
     }
 
-    struct QuantCalibration: Codable, Sendable, Equatable {
+  public struct QuantCalibration: Codable, Sendable, Equatable {
         public let method: QuantMethod
         public let corpus: QuantCalibrationCorpus
         public let captures: [String]
@@ -2420,7 +2508,7 @@ public extension SmeltCAMIR {
         }
     }
 
-    struct QuantRule: Codable, Sendable, Equatable {
+  public struct QuantRule: Codable, Sendable, Equatable {
         public let selector: TensorSelector
         public let action: QuantAction
         public let storage: QuantStorage?
@@ -2473,12 +2561,12 @@ public extension SmeltCAMIR {
         }
     }
 
-    enum SourceQuantizationAction: String, Codable, Sendable {
+  public enum SourceQuantizationAction: String, Codable, Sendable {
         case preserve
         case dequant
     }
 
-    struct SourceQuantizationRule: Codable, Sendable, Equatable {
+  public struct SourceQuantizationRule: Codable, Sendable, Equatable {
         public let source: String
         public let sourceDTypes: [String]
         public let action: SourceQuantizationAction
@@ -2518,7 +2606,7 @@ public extension SmeltCAMIR {
         }
     }
 
-    struct ArtifactRole: Codable, Sendable, Equatable {
+  public struct ArtifactRole: Codable, Sendable, Equatable {
         public let id: String
         public let role: String
         public let required: Bool
@@ -2532,13 +2620,13 @@ public extension SmeltCAMIR {
         fileprivate var sortKey: String { id }
     }
 
-    enum GateEventKind: String, Codable, Sendable {
+  public enum GateEventKind: String, Codable, Sendable {
         case flowAccepted = "flow.accepted"
         case emit
         case input
     }
 
-    struct GateEvent: Codable, Sendable, Equatable {
+  public struct GateEvent: Codable, Sendable, Equatable {
         public let kind: GateEventKind
         public let flow: String?
         public let export: String?
@@ -2574,14 +2662,14 @@ public extension SmeltCAMIR {
         }
     }
 
-    enum ComparisonRelation: String, Codable, Sendable {
+  public enum ComparisonRelation: String, Codable, Sendable {
         case lessThanOrEqual = "<="
         case greaterThanOrEqual = ">="
         case equal = "=="
         case include
     }
 
-    struct Comparison: Codable, Sendable, Equatable {
+  public struct Comparison: Codable, Sendable, Equatable {
         public let subject: String
         public let relation: ComparisonRelation
         public let value: String
@@ -2610,13 +2698,13 @@ public extension SmeltCAMIR {
         }
     }
 
-    enum EvidenceRequirementKind: String, Codable, Sendable {
+  public enum EvidenceRequirementKind: String, Codable, Sendable {
         case tensorStoredAs = "tensor-stored-as"
         case sourceSHA256Recorded = "source-sha256-recorded"
         case dequantIdentity = "dequant-identity"
     }
 
-    struct EvidenceRequirement: Codable, Sendable, Equatable {
+  public struct EvidenceRequirement: Codable, Sendable, Equatable {
         public let kind: EvidenceRequirementKind
         public let tensor: String?
         public let source: String?
@@ -2661,43 +2749,46 @@ public extension SmeltCAMIR {
             switch kind {
             case .tensorStoredAs:
                 guard tensor?.isEmpty == false, storage != nil,
-                      source == nil, sourceDTypes.isEmpty else {
+          source == nil, sourceDTypes.isEmpty
+        else {
                     throw SmeltCAMIRError.malformed("\(label) tensor storage evidence is malformed")
                 }
             case .sourceSHA256Recorded:
                 guard source?.isEmpty == false, tensor == nil,
-                      sourceDTypes.isEmpty, storage == nil else {
+          sourceDTypes.isEmpty, storage == nil
+        else {
                     throw SmeltCAMIRError.malformed("\(label) source hash evidence is malformed")
                 }
             case .dequantIdentity:
                 guard source?.isEmpty == false, !sourceDTypes.isEmpty,
-                      tensor == nil, storage == nil else {
+          tensor == nil, storage == nil
+        else {
                     throw SmeltCAMIRError.malformed("\(label) dequant identity evidence is malformed")
                 }
             }
         }
     }
 
-    enum GateMeasurementProcessMode: String, Codable, Sendable {
+  public enum GateMeasurementProcessMode: String, Codable, Sendable {
         case cold
         case warm
     }
 
-    enum GateMeasurementCacheState: String, Codable, Sendable {
+  public enum GateMeasurementCacheState: String, Codable, Sendable {
         case cold
         case warm
         case hostGlobalColdCandidate = "host-global-cold-candidate"
         case unknown
     }
 
-    enum GateMeasurementOccurrence: String, Codable, Sendable {
+  public enum GateMeasurementOccurrence: String, Codable, Sendable {
         case first
         case median
         case p95
         case all
     }
 
-    struct GateMeasurement: Codable, Sendable, Equatable {
+  public struct GateMeasurement: Codable, Sendable, Equatable {
         public let subject: String
         public let processMode: GateMeasurementProcessMode
         public let cacheState: GateMeasurementCacheState
@@ -2731,7 +2822,7 @@ public extension SmeltCAMIR {
         }
     }
 
-    struct Gate: Codable, Sendable, Equatable {
+  public struct Gate: Codable, Sendable, Equatable {
         public let id: String
         public let from: GateEvent?
         public let to: GateEvent?

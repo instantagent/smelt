@@ -1,9 +1,9 @@
 import Foundation
 
-func runPrefillBenchCommand() {
+func runPrefillBenchCommand(_ args: [String]) {
     guard args.count >= 3 else {
         fputs(
-            "Usage: smelt prefill-bench <model.smeltpkg> [--tokens N] [--iterations N] [--warmup N] [--min-tps N] [--max-p95-ms N] [--benchmark-settle-timeout N] [--benchmark-settle-interval N]\n",
+            "Usage: smelt lab bench prefill <model.smeltpkg> [--tokens N] [--iterations N] [--warmup N] [--min-tps N] [--max-p95-ms N] [--benchmark-settle-timeout N] [--benchmark-settle-interval N]\n",
             stderr
         )
         exit(1)
@@ -11,7 +11,7 @@ func runPrefillBenchCommand() {
     let pkgPath = args[2]
     if args.contains("--gate-qwen35") {
         fputs(
-            "smelt prefill-bench: --gate-qwen35 was removed; use module gate contracts or explicit --min-tps/--max-p95-ms\n",
+            "smelt lab bench prefill: --gate-qwen35 was removed; use module gate contracts or explicit --min-tps/--max-p95-ms\n",
             stderr
         )
         exit(1)
@@ -19,13 +19,13 @@ func runPrefillBenchCommand() {
     let construction = requireCAMTextRuntimePlanOrExit(
         packagePath: pkgPath,
         request: .benchPrefill,
-        verb: "prefill-bench"
+        verb: "lab bench prefill"
     )
-    let numTokens = Int(parseArg("--tokens", default: "256")) ?? 256
-    let iterations = Int(parseArg("--iterations", default: "10")) ?? 10
-    let warmupIterations = Int(parseArg("--warmup", default: "2")) ?? 2
-    let minTpsArg = Double(parseArg("--min-tps", default: ""))
-    let maxP95MsArg = Double(parseArg("--max-p95-ms", default: ""))
+    let numTokens = Int(parseArg(args, "--tokens", default: "256")) ?? 256
+    let iterations = Int(parseArg(args, "--iterations", default: "10")) ?? 10
+    let warmupIterations = Int(parseArg(args, "--warmup", default: "2")) ?? 2
+    let minTpsArg = Double(parseArg(args, "--min-tps", default: ""))
+    let maxP95MsArg = Double(parseArg(args, "--max-p95-ms", default: ""))
     let settleConfig = parseBenchmarkSettleConfig()
 
     do {

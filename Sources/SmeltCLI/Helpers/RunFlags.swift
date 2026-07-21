@@ -112,15 +112,6 @@ private func loadPackageInterface(
     interfaceContext: SmeltPackageInterface.InterfaceValidationContext
 ) -> SmeltPackageInterface? {
     do {
-        // Enforce bake honesty before the declared interface is exposed — this
-        // runs at the CLI layer, ahead of runtime construction, so a stray or
-        // declared-but-missing args.json can't surface on --help or be forwarded
-        // to a linger worker before the runtime would have caught it.
-        try SmeltBakeManifest.enforce(
-            packagePath: packagePath,
-            ignoring: SmeltBakeManifest.ignoredFromEnv(),
-            argsValidationContext: interfaceContext
-        )
         guard let interface = try SmeltPackageInterface.load(packagePath: packagePath)
         else { return nil }
         try interface.validate(interfaceContext: interfaceContext)

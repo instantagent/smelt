@@ -444,16 +444,20 @@ import SmeltSchema
         let root = try temporaryDirectory()
         defer { try? FileManager.default.removeItem(at: root) }
 
-        let bake = SmeltBakeManifest(sealed: [SmeltBakeManifest.args()])
         let source = root.appendingPathComponent("payloads", isDirectory: true)
         try writeTextPayloads(to: source)
         try Data("""
         {"version":1,"args":[{"flag":"prompt","type":"string","default":"kernels"}],
          "prompt":"Explain {prompt}: {input}"}
         """.utf8).write(to: source.appendingPathComponent(SmeltPackageInterface.fileName))
-        try bake.write(packagePath: source.path)
         let specURL = root.appendingPathComponent("qwen.cam.json")
-        try writeSpec(textSpec(sourcePath: "payloads", bakeManifest: bake), to: specURL)
+        try writeSpec(
+            textSpec(
+                sourcePath: "payloads",
+                additionalFiles: [SmeltPackageInterface.fileName]
+            ),
+            to: specURL
+        )
         let package = root.appendingPathComponent("qwen.smeltpkg", isDirectory: true)
 
         let error = #expect(throws: SmeltPackageSpecBuilderError.self) {
@@ -463,38 +467,6 @@ import SmeltSchema
             )
         }
         #expect(String(describing: error).contains("shadows"))
-        #expect(!FileManager.default.fileExists(atPath: package.path))
-    }
-
-    @Test func packageSpecBuilderRejectsBakeMarkerDriftBeforePackageCreation() throws {
-        let root = try temporaryDirectory()
-        defer { try? FileManager.default.removeItem(at: root) }
-
-        let expected = SmeltBakeManifest(sealed: [SmeltBakeManifest.args()])
-        let source = root.appendingPathComponent("payloads", isDirectory: true)
-        try writeTextPayloads(to: source)
-        try Data("""
-        {"version":1,"args":[{"flag":"topic","type":"string","default":"kernels"}],
-         "prompt":"Explain {topic}: {input}"}
-        """.utf8).write(to: source.appendingPathComponent(SmeltPackageInterface.fileName))
-        try SmeltBakeManifest(sealed: [
-            SmeltBakeManifest.Sealed(
-                kind: .args,
-                required: [SmeltPackageInterface.fileName],
-                perf: ["ghost-perf-accelerator.bin"]
-            ),
-        ]).write(packagePath: source.path)
-        let specURL = root.appendingPathComponent("qwen.cam.json")
-        try writeSpec(textSpec(sourcePath: "payloads", bakeManifest: expected), to: specURL)
-        let package = root.appendingPathComponent("qwen.smeltpkg", isDirectory: true)
-
-        let error = #expect(throws: SmeltPackageSpecBuilderError.self) {
-            try SmeltPackageSpecBuilder.build(
-                specPath: specURL.path,
-                outputDirectory: package.path
-            )
-        }
-        #expect(String(describing: error).contains("baked.json disagrees"))
         #expect(!FileManager.default.fileExists(atPath: package.path))
     }
 
@@ -524,7 +496,7 @@ import SmeltSchema
 
         let source = root.appendingPathComponent("payloads", isDirectory: true)
         try writeTextPayloads(to: source)
-        try Data("stale".utf8).write(to: source.appendingPathComponent("old-bake.json"))
+        try Data("stale".utf8).write(to: source.appendingPathComponent("stale-overlay.json"))
         let specURL = root.appendingPathComponent("qwen.cam.json")
         try writeSpec(textSpec(sourcePath: "payloads"), to: specURL)
         let package = root.appendingPathComponent("qwen.smeltpkg", isDirectory: true)
@@ -1062,7 +1034,7 @@ import SmeltSchema
     private func textSpec(
         sourcePath: String,
         sidecarPath: String? = nil,
-        bakeManifest: SmeltBakeManifest? = nil,
+        additionalFiles: [String] = [],
         validation: SmeltPackageSpec.Validation = SmeltPackagePerformanceProfiles.validation(
             parityFixture: "qwen",
             performanceGate: SmeltPackagePerformanceGateID.textDecodePrefillStartup
@@ -1071,7 +1043,7 @@ import SmeltSchema
         textSpec(
             sourcePath: sourcePath,
             sidecarPath: sidecarPath,
-            bakeManifest: bakeManifest,
+            additionalFiles: additionalFiles,
             architectureConfig: textArchitectureConfig(),
             validation: validation
         )
@@ -1080,7 +1052,7 @@ import SmeltSchema
     private func textSpec(
         sourcePath: String,
         sidecarPath: String? = nil,
-        bakeManifest: SmeltBakeManifest? = nil,
+        additionalFiles: [String] = [],
         architectureConfig: SmeltPackageSpecValue,
         validation: SmeltPackageSpec.Validation = SmeltPackagePerformanceProfiles.validation(
             parityFixture: "qwen",
@@ -1093,7 +1065,7 @@ import SmeltSchema
             "SmeltGenerated.swift",
             "tokenizer.json",
             "weights.bin",
-        ]
+        ] + additionalFiles
         let sidecars: [SmeltPackageSpec.Sidecar]
         if let sidecarPath {
             files.append(sidecarPath)
@@ -1107,14 +1079,6 @@ import SmeltSchema
         } else {
             sidecars = []
         }
-        if let bakeManifest {
-            files.append(SmeltBakeManifest.fileName)
-            for sealed in bakeManifest.sealed {
-                files.append(contentsOf: sealed.required)
-                files.append(contentsOf: sealed.perf)
-            }
-        }
-
         return SmeltPackageSpec(
             packageName: "qwen.cam",
             modelName: "qwen",
@@ -1146,7 +1110,7 @@ import SmeltSchema
                 .init(id: "generated", path: "SmeltGenerated.swift", role: "generated-swift"),
                 .init(id: "weights", path: "weights.bin", role: "weights"),
             ],
-            outputFiles: .init(files: files, bakeManifest: bakeManifest),
+            outputFiles: .init(files: files),
             tokenizer: .init(format: "tokenizer-json", files: ["tokenizer.json"]),
             inference: .init(
                 maxTokens: 32,
@@ -1203,8 +1167,7 @@ import SmeltSchema
             ],
             outputFiles: .init(
                 manifest: spec.outputFiles.manifest,
-                files: files.sorted(),
-                bakeManifest: spec.outputFiles.bakeManifest
+                files: files.sorted()
             ),
             tokenizer: spec.tokenizer,
             inference: spec.inference,

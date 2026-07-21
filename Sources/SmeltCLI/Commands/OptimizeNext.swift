@@ -1,6 +1,6 @@
 import Foundation
 
-func runOptimizeNextCommand() {
+func runOptimizeNextCommand(_ args: [String]) {
     do {
         let status = try optimizeNextStatus(arguments: args)
         if status != 0 {

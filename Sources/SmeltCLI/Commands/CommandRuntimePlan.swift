@@ -183,7 +183,7 @@ private struct CAMBenchPlanRoute {
         resolveCAMRuntimeRouteOrExit(
             capabilities: capabilities,
             decision: decision,
-            verb: "bench"
+            verb: "lab bench decode"
         )
     }
 }
@@ -191,7 +191,7 @@ private struct CAMBenchPlanRoute {
 func requireBenchTextRuntimePlanOrExit(packagePath: String) -> CAMTextRuntimeConstruction {
     let capabilities = requireCAMPackageCapabilitiesOrExit(
         packagePath: packagePath,
-        verb: "bench"
+        verb: "lab bench decode"
     )
     return requireCAMBenchTextRuntimePlanOrExit(
         capabilities: capabilities,
@@ -211,10 +211,10 @@ private func requireCAMBenchTextRuntimePlanOrExit(
             packagePath: packagePath,
             capabilities: capabilities,
             decision: route.decision,
-            verb: "bench"
+            verb: "lab bench decode"
         )
     case .textToPCM:
-        fputs("smelt bench: module audio exports use a specialized audio benchmark harness\n", stderr)
+        fputs("smelt lab bench decode: module audio exports use a specialized audio benchmark harness\n", stderr)
         exit(1)
     }
 }
@@ -229,7 +229,7 @@ private func resolveCAMBenchPlanRouteOrExit(
         )
     } catch SmeltCAMPackageCapabilitiesError.noMatchingExport {
     } catch {
-        fputs("smelt bench: \(error)\n", stderr)
+        fputs("smelt lab bench decode: \(error)\n", stderr)
         exit(1)
     }
 
@@ -240,7 +240,7 @@ private func resolveCAMBenchPlanRouteOrExit(
         )
     } catch SmeltCAMPackageCapabilitiesError.noMatchingExport {
     } catch {
-        fputs("smelt bench: \(error)\n", stderr)
+        fputs("smelt lab bench decode: \(error)\n", stderr)
         exit(1)
     }
 
@@ -250,10 +250,10 @@ private func resolveCAMBenchPlanRouteOrExit(
             decision: try capabilities.resolve(.runAudio)
         )
     } catch SmeltCAMPackageCapabilitiesError.noMatchingExport {
-        fputs("smelt bench: no CAM export satisfies decode benchmark request\n", stderr)
+        fputs("smelt lab bench decode: no CAM export satisfies decode benchmark request\n", stderr)
         exit(1)
     } catch {
-        fputs("smelt bench: \(error)\n", stderr)
+        fputs("smelt lab bench decode: \(error)\n", stderr)
         exit(1)
     }
 }

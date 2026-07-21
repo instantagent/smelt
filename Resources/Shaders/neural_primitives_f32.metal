@@ -217,6 +217,120 @@ kernel void dense_bf16w_f32_rows8_epilogue(
     }
 }
 
+/// Computes multiple output columns per eight-row threadgroup while preserving
+/// the independent-column kernel's reduction order for every output element.
+/// The tile shares each activation vector across the selected weight rows.
+template <uint outputColumns>
+inline void dense_bf16w_f32_rows8_columns_body(
+    device const float*  input,
+    device const bfloat* weight,
+    device const bfloat* bias,
+    device const float*  residual,
+    device float*        output,
+    uint                 rows,
+    uint                 outDim,
+    uint                 inDim,
+    uint                 hasBias,
+    uint                 epilogue,
+    uint2                tg,
+    uint                 tid,
+    uint                 lane,
+    uint                 simdGroup,
+    threadgroup bfloat4* cachedWeight
+) {
+    constexpr uint rowsPerThreadgroup = 8u;
+    constexpr uint maximumChunks = 768u;
+    uint outputColumnBase = tg.x * outputColumns;
+    uint chunks = inDim >> 2;
+    if (outputColumnBase >= outDim || chunks > maximumChunks) return;
+    uint activeColumns = min(outputColumns, outDim - outputColumnBase);
+    uint cachedChunks = activeColumns * chunks;
+    for (uint index = tid; index < cachedChunks; index += 256u) {
+        uint localColumn = index / chunks;
+        uint chunk = index - localColumn * chunks;
+        device const bfloat4* weight4 = (device const bfloat4*)(
+            weight + (outputColumnBase + localColumn) * inDim
+        );
+        cachedWeight[localColumn * maximumChunks + chunk] = weight4[chunk];
+    }
+    threadgroup_barrier(mem_flags::mem_threadgroup);
+
+    uint row = tg.y * rowsPerThreadgroup + simdGroup;
+    float partial[outputColumns];
+    for (uint localColumn = 0u; localColumn < outputColumns; ++localColumn) {
+        partial[localColumn] = 0.0f;
+    }
+    if (row < rows) {
+        device const float4* input4 =
+            (device const float4*)(input + row * inDim);
+        for (uint chunk = lane; chunk < chunks; chunk += 32u) {
+            float4 activation = input4[chunk];
+            for (uint localColumn = 0u;
+                 localColumn < activeColumns;
+                 ++localColumn) {
+                partial[localColumn] += dot(
+                    activation,
+                    float4(cachedWeight[localColumn * maximumChunks + chunk])
+                );
+            }
+        }
+        uint tail = (chunks << 2) + lane;
+        if (tail < inDim) {
+            float activation = input[row * inDim + tail];
+            for (uint localColumn = 0u;
+                 localColumn < activeColumns;
+                 ++localColumn) {
+                partial[localColumn] += activation * float(
+                    weight[(outputColumnBase + localColumn) * inDim + tail]
+                );
+            }
+        }
+    }
+    for (uint localColumn = 0u;
+         localColumn < outputColumns;
+         ++localColumn) {
+        float total = simd_sum(partial[localColumn]);
+        if (lane == 0u && row < rows && localColumn < activeColumns) {
+            uint outputColumn = outputColumnBase + localColumn;
+            uint outputIndex = row * outDim + outputColumn;
+            float result = total
+                + (hasBias != 0u ? float(bias[outputColumn]) : 0.0f);
+            if (epilogue == 1u) {
+                float x = result;
+                result = 0.5f * x
+                    * (1.0f + dense_erf_approx(x * 0.70710678f));
+            } else if (epilogue == 2u) {
+                result = residual[outputIndex] + result;
+            }
+            output[outputIndex] = result;
+        }
+    }
+}
+
+kernel void dense_bf16w_f32_rows8_cols2_epilogue(
+    device const float*  input    [[buffer(0)]],
+    device const bfloat* weight   [[buffer(1)]],
+    device const bfloat* bias     [[buffer(2)]],
+    device const float*  residual [[buffer(3)]],
+    device float*        output   [[buffer(4)]],
+    constant uint&       rows     [[buffer(5)]],
+    constant uint&       outDim   [[buffer(6)]],
+    constant uint&       inDim    [[buffer(7)]],
+    constant uint&       hasBias  [[buffer(8)]],
+    constant uint&       epilogue [[buffer(9)]],
+    uint2 tg [[threadgroup_position_in_grid]],
+    uint tid [[thread_index_in_threadgroup]],
+    uint lane [[thread_index_in_simdgroup]],
+    uint simdGroup [[simdgroup_index_in_threadgroup]]
+) {
+    threadgroup bfloat4 cachedWeight[2u * 768u];
+    dense_bf16w_f32_rows8_columns_body<2u>(
+        input, weight, bias, residual, output,
+        rows, outDim, inDim, hasBias, epilogue,
+        tg, tid, lane, simdGroup, cachedWeight
+    );
+}
+
 /// Row-major LayerNorm for [rows, dim] fp32 activations and parameters.
 /// One threadgroup owns one row; reductions stay fp32. This is intentionally
 /// source-identical to the retained Qwen3.5 vision implementation so the
@@ -484,6 +598,96 @@ kernel void noncausal_attention_q8_f32(
         uint sourceCount = min(sourceTile, keyValueTokens - sourceBase);
         uint scalarCount = sourceCount * headDim;
         for (uint index = tid; index < scalarCount; index += 256u) {
+            uint source = sourceBase + index / headDim;
+            uint dimension = index % headDim;
+            uint offset = source * hidden + head * headDim + dimension;
+            cachedKey[index] = k[offset];
+            cachedValue[index] = v[offset];
+        }
+        threadgroup_barrier(mem_flags::mem_threadgroup);
+        for (uint localSource = 0u;
+             localSource < sourceCount;
+             ++localSource) {
+            uint localBase = localSource * headDim;
+            float partial = 0.0f;
+            if (active && d0 < headDim) {
+                partial += q0 * cachedKey[localBase + d0];
+            }
+            if (active && d1 < headDim) {
+                partial += q1 * cachedKey[localBase + d1];
+            }
+            float score = simd_sum(partial) * scale;
+            if (active) {
+                float nextMaximum = max(maximum, score);
+                float oldScale = maximum == -INFINITY
+                    ? 0.0f
+                    : exp(maximum - nextMaximum);
+                float weightValue = exp(score - nextMaximum);
+                denominator = denominator * oldScale + weightValue;
+                if (d0 < headDim) {
+                    acc0 = acc0 * oldScale
+                        + weightValue * cachedValue[localBase + d0];
+                }
+                if (d1 < headDim) {
+                    acc1 = acc1 * oldScale
+                        + weightValue * cachedValue[localBase + d1];
+                }
+                maximum = nextMaximum;
+            }
+        }
+        threadgroup_barrier(mem_flags::mem_threadgroup);
+    }
+    if (active) {
+        uint outBase = query * hidden + head * headDim;
+        if (d0 < headDim) output[outBase + d0] = acc0 / denominator;
+        if (d1 < headDim) output[outBase + d1] = acc1 / denominator;
+    }
+}
+
+/// Sixteen-query non-causal attention tile. Each SIMD retains the monolithic
+/// kernel's complete per-query recurrence while the threadgroup stages 32
+/// source K/V rows once for all sixteen independent queries.
+kernel void noncausal_attention_q16_f32(
+    device const float* q      [[buffer(0)]],
+    device const float* k      [[buffer(1)]],
+    device const float* v      [[buffer(2)]],
+    device float*       output [[buffer(3)]],
+    constant uint&      queryTokens    [[buffer(4)]],
+    constant uint&      keyValueTokens [[buffer(5)]],
+    constant uint&      heads          [[buffer(6)]],
+    constant uint&      headDim        [[buffer(7)]],
+    uint3 tg [[threadgroup_position_in_grid]],
+    uint tid [[thread_index_in_threadgroup]],
+    uint lane [[thread_index_in_simdgroup]],
+    uint simdGroup [[simdgroup_index_in_threadgroup]]
+) {
+    constexpr uint queryTile = 16u;
+    constexpr uint sourceTile = 32u;
+    constexpr uint maximumHeadDim = 64u;
+    threadgroup float cachedKey[sourceTile * maximumHeadDim];
+    threadgroup float cachedValue[sourceTile * maximumHeadDim];
+
+    uint head = tg.y;
+    if (head >= heads || headDim > maximumHeadDim) return;
+    uint query = tg.x * queryTile + simdGroup;
+    bool active = query < queryTokens;
+    uint hidden = heads * headDim;
+    uint d0 = lane;
+    uint d1 = lane + 32u;
+    uint qBase = query * hidden + head * headDim;
+    float q0 = active && d0 < headDim ? q[qBase + d0] : 0.0f;
+    float q1 = active && d1 < headDim ? q[qBase + d1] : 0.0f;
+    float maximum = -INFINITY;
+    float denominator = 0.0f;
+    float acc0 = 0.0f;
+    float acc1 = 0.0f;
+    float scale = rsqrt(float(headDim));
+    for (uint sourceBase = 0u;
+         sourceBase < keyValueTokens;
+         sourceBase += sourceTile) {
+        uint sourceCount = min(sourceTile, keyValueTokens - sourceBase);
+        uint scalarCount = sourceCount * headDim;
+        for (uint index = tid; index < scalarCount; index += 512u) {
             uint source = sourceBase + index / headDim;
             uint dimension = index % headDim;
             uint offset = source * hidden + head * headDim + dimension;

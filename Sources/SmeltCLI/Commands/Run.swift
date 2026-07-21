@@ -116,12 +116,18 @@ func runRunCommand() {
         exit(1)
     }
 
-    // With a baked grammar, generation stops at the schema's accepting
+    // With a compiled grammar, generation stops at the schema's accepting
     // state, so the cap is a backstop — but 32 truncates real JSON outputs
     // mid-object. Schema maxLength bounds keep the backstop honest.
-    let defaultMaxTokens = SmeltBakedGrammar.load(packagePath: packagePath) != nil
-        ? 512
-        : construction.executionPlan.stopPolicy.maxSteps
+    let hasCompiledGrammar: Bool
+    do {
+        hasCompiledGrammar = try SmeltCompiledGrammar.load(packagePath: packagePath) != nil
+    } catch {
+        fputs("smelt run: \(error)\n", stderr)
+        exit(1)
+    }
+    let defaultMaxTokens = hasCompiledGrammar
+        ? 512 : construction.executionPlan.stopPolicy.maxSteps
     let maxTokens = construction.effectiveMaxTokens(
         scopedFlags.positiveIntOrExit("--max-tokens", verb: "run") ?? defaultMaxTokens
     )

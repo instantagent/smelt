@@ -1,47 +1,63 @@
 import Foundation
 import SmeltSchema
 
-/// `smelt dispatches model.smeltpkg [--prefill] [--filter SUBSTRING] [--sequence]`
+/// `smelt lab inspect dispatches model.smeltpkg [--table decode|prefill|verify]`
 ///
 /// Static dump of a package's dispatch table: per-pipeline dispatch counts,
 /// grid/threadgroup geometry, and position guards. With `--sequence`, prints
 /// records in table order with concrete buffer/constant bindings. No Metal
 /// device needed — this reads manifest.json + dispatches.bin directly, so it
-/// works for diagnosing a package's decode plan without running it.
-func runDispatchesCommand() {
+/// works for diagnosing a package plan without running it.
+func runDispatchesCommand(_ args: [String]) {
     guard args.count >= 3 else {
-        fputs("Usage: smelt dispatches <model.smeltpkg> [--prefill] [--filter SUBSTRING] [--sequence]\n", stderr)
+        fputs("Usage: smelt lab inspect dispatches <model.smeltpkg> [--table decode|prefill|verify] [--sequence-length N] [--filter SUBSTRING] [--sequence]\n", stderr)
         exit(1)
     }
     let pkgPath = args[2]
-    let usePrefill = args.contains("--prefill")
+    let tableName = parseArg(args, "--table", default: "decode")
     let showSequence = args.contains("--sequence")
-    let filter = parseArg("--filter")
+    let filter = parseArg(args, "--filter")
+    let sequenceLength = Int(parseArg(args, "--sequence-length", default: ""))
+    if let sequenceLength, sequenceLength <= 0 {
+        fputs("smelt lab inspect dispatches: --sequence-length must be positive\n", stderr)
+        exit(1)
+    }
     let capabilities = requireCAMPackageCapabilitiesOrExit(
         packagePath: pkgPath,
-        verb: "dispatches"
+        verb: "lab inspect dispatches"
     )
-    let request: SmeltCAMCapabilityRequest = usePrefill
-        ? .inspectPrefillDispatchTable
-        : .inspectDecodeDispatchTable
+    let request: SmeltCAMCapabilityRequest
+    let tableFileName: String
+    switch tableName {
+    case "decode":
+        request = .inspectDecodeDispatchTable
+        tableFileName = "dispatches.bin"
+    case "prefill":
+        request = .inspectPrefillDispatchTable
+        tableFileName = "prefill_dispatches.bin"
+    case "verify":
+        request = .inspectVerifyArgmaxDispatchTable
+        tableFileName = "prefill_verify_argmax_dispatches.bin"
+    default:
+        fputs("smelt lab inspect dispatches: --table must be decode, prefill, or verify\n", stderr)
+        exit(1)
+    }
     do {
         _ = try capabilities.resolve(request)
     } catch SmeltCAMPackageCapabilitiesError.noMatchingExport {
-        fputs("smelt dispatches: no CAM export satisfies dispatch table request\n", stderr)
+        fputs("smelt lab inspect dispatches: no CAM export satisfies dispatch table request\n", stderr)
         exit(1)
     } catch {
-        fputs("smelt dispatches: \(error)\n", stderr)
+        fputs("smelt lab inspect dispatches: \(error)\n", stderr)
         exit(1)
     }
     requireCAMCapabilityFilesOrExit(
         request.requiredPackageFiles,
         packagePath: pkgPath,
-        verb: "dispatches"
+        verb: "lab inspect dispatches"
     )
 
-    let tablePath = usePrefill
-        ? "\(pkgPath)/prefill_dispatches.bin"
-        : "\(pkgPath)/dispatches.bin"
+    let tablePath = "\(pkgPath)/\(tableFileName)"
 
     let pipelines = loadOptionalDispatchPipelineNames(packagePath: pkgPath)
 
@@ -88,6 +104,40 @@ func runDispatchesCommand() {
         default:
             return "\(literal)"
         }
+    }
+
+    func resolvedGridDim(_ literal: UInt32, kind: UInt8) -> Int? {
+        switch kind {
+        case SmeltDispatchRecord.gridSeqLen:
+            return sequenceLength
+        case SmeltDispatchRecord.gridSeqLenMulLiteral:
+            return sequenceLength.map { $0 * Int(literal) }
+        case SmeltDispatchRecord.gridSeqLenCeilDivLiteral:
+            guard let sequenceLength else { return nil }
+            let divisor = max(Int(literal & 0x7fff_ffff), 1)
+            return (literal & 0x8000_0000) != 0
+                ? sequenceLength / divisor
+                : (sequenceLength + divisor - 1) / divisor
+        default:
+            return Int(literal)
+        }
+    }
+
+    func resolvedThreadgroups(_ rec: SmeltDispatchRecord) -> Int? {
+        guard let width = resolvedGridDim(rec.gridW, kind: rec.gridWKind),
+              let height = resolvedGridDim(rec.gridH, kind: rec.gridHKind),
+              let depth = resolvedGridDim(rec.gridD, kind: rec.gridDKind)
+        else { return nil }
+        guard width > 0, height > 0, depth > 0 else { return 0 }
+        if rec.dispatchStyle == SmeltDispatchRecord.styleThreads {
+            let tgW = max(Int(rec.tgW), 1)
+            let tgH = max(Int(rec.tgH), 1)
+            let tgD = max(Int(rec.tgD), 1)
+            return ((width + tgW - 1) / tgW)
+                * ((height + tgH - 1) / tgH)
+                * ((depth + tgD - 1) / tgD)
+        }
+        return width * height * depth
     }
 
     func bufferSummary(_ rec: SmeltDispatchRecord) -> String {
@@ -148,6 +198,7 @@ func runDispatchesCommand() {
             print(
                 "\(index): \(name) grid=(\(gridDim(rec.gridW, kind: rec.gridWKind)),\(gridDim(rec.gridH, kind: rec.gridHKind)),\(gridDim(rec.gridD, kind: rec.gridDKind)))"
                     + " tg=(\(rec.tgW),\(rec.tgH),\(rec.tgD)) \(style)"
+                    + (resolvedThreadgroups(rec).map { " threadgroups=\($0)" } ?? "")
                     + " buffers=\(bufferSummary(rec)) constants=\(constantSummary(rec))"
             )
         }
@@ -160,6 +211,7 @@ func runDispatchesCommand() {
         let tg: [UInt32]
         let style: UInt8
         let guards: String
+        let resolvedThreadgroups: Int?
     }
     var counts: [String: Int] = [:]
     var variants: [String: [Variant: Int]] = [:]
@@ -199,7 +251,8 @@ func runDispatchesCommand() {
             ],
             tg: [rec.tgW, rec.tgH, rec.tgD],
             style: rec.dispatchStyle,
-            guards: guards.joined(separator: ",")
+            guards: guards.joined(separator: ","),
+            resolvedThreadgroups: resolvedThreadgroups(rec)
         )
         if counts[name] == nil { order.append(name) }
         counts[name, default: 0] += 1
@@ -221,6 +274,9 @@ func runDispatchesCommand() {
                 "    grid=(\(v.grid[0]),\(v.grid[1]),\(v.grid[2]))"
                     + " tg=(\(v.tg[0]),\(v.tg[1]),\(v.tg[2]))"
                     + " \(style)\(guardSuffix)  x\(count)"
+                    + (v.resolvedThreadgroups.map {
+                        "  threadgroups/dispatch=\($0)"
+                    } ?? "")
             )
         }
     }

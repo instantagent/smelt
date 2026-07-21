@@ -19,7 +19,7 @@ import SmeltServe
 //                           plus the sealed package voice if present.
 //   GET /v1/models          single-entry model listing.
 //
-// A baked `voice.json` supplies per-field defaults; request fields override it.
+// A prepared `voice.json` supplies per-field defaults; request fields override it.
 // Generation is strictly serial (the serve loop awaits each request): the runtime
 // backend is touched only by the producer thread per request.
 
@@ -123,7 +123,7 @@ final class SmeltTextToPCMServeHandler: @unchecked Sendable {
         }
 
         let voice = runtime.voiceDefaults
-        // Effective voice: request field ?? baked voice.json ?? declared
+        // Effective voice: request field ?? prepared voice.json ?? declared
         // package default (manifest loop schedule — B2.2's one truth)
         // ?? built-in.
         let speaker = req.voice ?? voice?.speaker
@@ -255,7 +255,7 @@ final class SmeltTextToPCMServeHandler: @unchecked Sendable {
     // MARK: - /v1/audio/voices
 
     private func handleVoices() -> SmeltServeRawResponse {
-        struct BakedVoice: Encodable {
+        struct VoiceDefaults: Encodable {
             let speaker: String?
             let language: String?
             let instruct: String?
@@ -273,15 +273,15 @@ final class SmeltTextToPCMServeHandler: @unchecked Sendable {
             let model: String
             let voices: [String]
             let languages: [String]
-            let baked: BakedVoice?
+            let defaults: VoiceDefaults?
         }
         let catalog = runtime.voiceCatalog
         let response = VoicesResponse(
             model: modelId,
             voices: catalog.speakers,
             languages: catalog.languages,
-            baked: runtime.voiceDefaults.map {
-                BakedVoice(speaker: $0.speaker, language: $0.language, instruct: $0.instruct,
+            defaults: runtime.voiceDefaults.map {
+                VoiceDefaults(speaker: $0.speaker, language: $0.language, instruct: $0.instruct,
                            firstChunkFrames: $0.firstChunkFrames, maxChunkFrames: $0.maxChunkFrames,
                            maxFrames: $0.maxFrames)
             })

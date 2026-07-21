@@ -239,7 +239,7 @@
     }
   ],
   "capabilities" : [
-    "bake.voice-defaults",
+    "prepare.voice-defaults",
     "run.stream",
     "run.synthesize"
   ],
@@ -262,7 +262,7 @@
   "exports" : [
     {
       "capabilities" : [
-        "bake.voice-defaults",
+        "prepare.voice-defaults",
         "run.stream",
         "run.synthesize"
       ],
@@ -415,7 +415,7 @@
         {
           "relation" : "include",
           "subject" : "release-surface-ids",
-          "value" : "gate.startup-audio,bake.voice-defaults,gate.audio-contract,correctness.stream-parity,release.verify"
+          "value" : "gate.startup-audio,gate.audio-contract,correctness.stream-parity,release.verify"
         }
       ]
     },
@@ -683,7 +683,7 @@
       "annotations" : [
         {
           "key" : "artifact",
-          "value" : "baked-inline"
+          "value" : "compiled-inline"
         },
         {
           "key" : "streaming",

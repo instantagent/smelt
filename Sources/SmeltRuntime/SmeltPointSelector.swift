@@ -1,6 +1,6 @@
 import Foundation
 
-/// Deterministic point-selection output for one rig model encoder branch.
+/// Deterministic point-selection output for one skinning component encoder branch.
 public struct SmeltPointSelection: Sendable, Equatable {
     /// Source-row indices in farthest-point order.
     public let sourceIndices: [Int]
@@ -13,7 +13,7 @@ public struct SmeltPointSelection: Sendable, Equatable {
     }
 }
 
-/// Source-faithful deterministic eval selection for the rig model's point encoders.
+/// Source-faithful deterministic eval selection for the skinning component's point encoders.
 ///
 /// Candidate tables are the exact little-endian UInt32 output of NumPy 2.4.4's
 /// PCG64 `default_rng(seed: 0).choice(54_000, count, replace: false)`. Compiling
@@ -86,7 +86,8 @@ public enum SmeltPointSelector {
             }
             farthest = 0
             var maximumDistance = minimumDistances[0]
-            for candidatePosition in minimumDistances.indices.dropFirst() where
+      for candidatePosition in minimumDistances.indices.dropFirst()
+      where
                 minimumDistances[candidatePosition] > maximumDistance
             {
                 maximumDistance = minimumDistances[candidatePosition]
@@ -100,7 +101,7 @@ public enum SmeltPointSelector {
         guard let data = Data(base64Encoded: encoded, options: .ignoreUnknownCharacters),
               data.count == expectedCount * MemoryLayout<UInt32>.stride
         else {
-            preconditionFailure("corrupt compiled rig model candidate table")
+      preconditionFailure("corrupt compiled skinning component candidate table")
         }
         return data.withUnsafeBytes { bytes in
             (0..<expectedCount).map { index in

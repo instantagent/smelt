@@ -31,6 +31,50 @@ public struct SmeltStoredPackage: Sendable, Equatable {
     }
 }
 
+public enum SmeltPackageBlobState: String, Sendable {
+    case adopted
+    case alreadyAdopted
+    case restored
+    case eligible
+    case belowThreshold
+    case missing
+    case brokenLink
+    case refused
+}
+
+public struct SmeltPackageBlobFileReport: Sendable {
+    public let name: String
+    public let state: SmeltPackageBlobState
+    public let bytes: Int64
+    public let sha256: String?
+
+    init(
+        name: String,
+        state: SmeltPackageBlobState,
+        bytes: Int64,
+        sha256: String?
+    ) {
+        self.name = name
+        self.state = state
+        self.bytes = bytes
+        self.sha256 = sha256
+    }
+}
+
+public struct SmeltPackageBlobReport: Sendable {
+    public let packagePath: String
+    public let files: [SmeltPackageBlobFileReport]
+
+    public var adoptable: [SmeltPackageBlobFileReport] {
+        files.filter { $0.state == .eligible }
+    }
+
+    init(packagePath: String, files: [SmeltPackageBlobFileReport]) {
+        self.packagePath = packagePath
+        self.files = files
+    }
+}
+
 /// Content-addressed package location shared by Smelt consumers.
 ///
 /// Installation clones immutable package files into one canonical location.
@@ -39,6 +83,10 @@ public struct SmeltStoredPackage: Sendable, Equatable {
 /// copy where possible; other filesystems fall back to ordinary copies. This
 /// is deliberately best effort: package identity, not residency, is the API.
 public enum SmeltPackageStore {
+    /// Files smaller than this remain directly in the package. The default
+    /// avoids adding symlink indirection for payloads too small to matter.
+    public static let defaultBlobAdoptionMinBytes = 1024 * 1024
+
     public static func rootURL() -> URL {
         if let override = ProcessInfo.processInfo.environment["SMELT_PACKAGE_STORE_DIR"],
            !override.isEmpty {
@@ -106,7 +154,10 @@ public enum SmeltPackageStore {
         let source = URL(fileURLWithPath: packagePath, isDirectory: true)
             .standardizedFileURL
         let identity = try SmeltPackageIdentity.compute(packagePath: source.path)
-        if let existing = try locate(identity: identity) { return existing }
+        if let existing = try locate(identity: identity) {
+            bestEffortAdoptBlobs(packagePath: existing.packageURL.path)
+            return existing
+        }
 
         let fileManager = FileManager.default
         let root = rootURL()
@@ -117,6 +168,7 @@ public enum SmeltPackageStore {
             isDirectory: true
         )
         try cloneTree(from: source, to: staging)
+        bestEffortAdoptBlobs(packagePath: staging.path)
         do {
             try fileManager.moveItem(at: staging, to: destination)
         } catch CocoaError.fileWriteFileExists {
@@ -129,6 +181,34 @@ public enum SmeltPackageStore {
             throw SmeltPackageStoreError.installFailed(destination.path)
         }
         return installed
+    }
+
+    /// The machine-local blob store used behind canonical package paths.
+    /// Its layout is not part of the consumer contract.
+    public static func blobStoreURL() -> URL {
+        SmeltCAS.storeRoot()
+    }
+
+    public static func blobStatus(
+        packagePath: String,
+        minBytes: Int = defaultBlobAdoptionMinBytes
+    ) throws -> SmeltPackageBlobReport {
+        try SmeltCAS.status(packagePath: packagePath, minBytes: minBytes)
+    }
+
+    @discardableResult
+    public static func adoptBlobs(
+        packagePath: String,
+        minBytes: Int = defaultBlobAdoptionMinBytes
+    ) throws -> SmeltPackageBlobReport {
+        try SmeltCAS.adopt(packagePath: packagePath, minBytes: minBytes)
+    }
+
+    @discardableResult
+    public static func restoreBlobs(
+        packagePath: String
+    ) throws -> SmeltPackageBlobReport {
+        try SmeltCAS.restore(packagePath: packagePath)
     }
 
     /// Writes a portable copy of one stored package.
@@ -212,6 +292,16 @@ public enum SmeltPackageStore {
         default:
             throw SmeltPackageStoreError.unsupportedEntry(source.path)
         }
+    }
+
+    private static func bestEffortAdoptBlobs(packagePath: String) {
+        guard ProcessInfo.processInfo.environment["SMELT_CAS"] != "0" else {
+            return
+        }
+        _ = try? SmeltCAS.adopt(
+            packagePath: packagePath,
+            minBytes: defaultBlobAdoptionMinBytes
+        )
     }
 
     private static func materializeTree(

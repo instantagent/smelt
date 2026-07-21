@@ -11,7 +11,7 @@ import SmeltModuleAuthoring
 // tensor-match derivation. Held to byte parity by ModuleAuthoringParityTests.
 
 func qwen3TTS() -> SmeltCAMIR {
-    let caps = ["run.synthesize", "run.stream", "bake.voice-defaults"]
+    let caps = ["run.synthesize", "run.stream", "prepare.voice-defaults"]
     return SmeltCAMIR(
         module: IR.Module(id: "qwen3_tts"),
         exports: [
@@ -197,7 +197,7 @@ private func ttsNodes() -> [IR.GraphNode] {
             block: "codec-decoder",
             inputs: [port("codec_token", bareType("codec_token"))],
             outputs: [port("audio", pcmType())],
-            annotations: [annot("artifact", "baked-inline"), annot("streaming", "true")]
+            annotations: [annot("artifact", "compiled-inline"), annot("streaming", "true")]
         ),
     ]
 }
@@ -259,7 +259,7 @@ private func ttsGates() -> [IR.Gate] {
             requirements: [
                 IR.Comparison(subject: "audio-rate", relation: .equal, value: "24khz"),
                 IR.Comparison(subject: "package-files", relation: .include, value: "manifest.json,weights.bin,model.metallib,trunk,trunk-mtp,vocab.json,merges.txt,tokenizer_config.json,config.json,module.json"),
-                IR.Comparison(subject: "release-surface-ids", relation: .include, value: "gate.startup-audio,bake.voice-defaults,gate.audio-contract,correctness.stream-parity,release.verify"),
+                IR.Comparison(subject: "release-surface-ids", relation: .include, value: "gate.startup-audio,gate.audio-contract,correctness.stream-parity,release.verify"),
             ]
         ),
         IR.Gate(

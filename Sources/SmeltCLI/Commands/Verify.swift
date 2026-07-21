@@ -1,10 +1,10 @@
 import Foundation
 import SmeltRuntime
 
-func runVerifyCommand() {
+func runVerifyCommand(_ args: [String]) {
     guard args.count >= 3 else {
         fputs(
-            "Usage: smelt verify <model.smeltpkg> [--baseline pkg] [--prompt-file FILE] [--template NAME] [--max-tokens N] [--decode-iterations N] [--prefill-iterations N] [--prefill-tokens 64,256] [--prefill-verify-tokens 63,64,65,...] [--prefill-continuation-tokens N] [--prefill-continuation-route plain|suffix] [--prefill-continuation-k N] [--suffix-max-n N] [--min-decode-tps N] [--max-decode-p95-ms N] [--min-prefill-tps 64=...,256=...] [--max-prefill-p95-ms 64=...,256=...] [--benchmark-settle-timeout N] [--benchmark-settle-interval N]\n",
+            "Usage: smelt lab verify <model.smeltpkg> [--baseline pkg] [--prompt-file FILE] [--template NAME] [--max-tokens N] [--decode-iterations N] [--prefill-iterations N] [--prefill-tokens 64,256] [--prefill-verify-tokens 63,64,65,...] [--prefill-continuation-tokens N] [--prefill-continuation-route plain|suffix] [--prefill-continuation-k N] [--suffix-max-n N] [--min-decode-tps N] [--max-decode-p95-ms N] [--min-prefill-tps 64=...,256=...] [--max-prefill-p95-ms 64=...,256=...] [--benchmark-settle-timeout N] [--benchmark-settle-interval N]\n",
             stderr
         )
         exit(1)
@@ -16,37 +16,37 @@ func runVerifyCommand() {
     ]
     if let retiredGateFlag = retiredGateFlags.first(where: args.contains) {
         fputs(
-            "smelt verify: \(retiredGateFlag) was removed; use module gate contracts or explicit threshold flags\n",
+            "smelt lab verify: \(retiredGateFlag) was removed; use module gate contracts or explicit threshold flags\n",
             stderr
         )
         exit(1)
     }
-    let baselinePath = parseArg("--baseline")
-    let promptFile = parseArg("--prompt-file")
-    let templateOverride = hasArg("--template") ? parseArg("--template") : nil
-    let requestedMaxTokens = Int(parseArg("--max-tokens", default: "8")) ?? 8
-    let decodeIterations = Int(parseArg("--decode-iterations", default: "20")) ?? 20
-    let prefillIterations = Int(parseArg("--prefill-iterations", default: "5")) ?? 5
+    let baselinePath = parseArg(args, "--baseline")
+    let promptFile = parseArg(args, "--prompt-file")
+    let templateOverride = hasArg(args, "--template") ? parseArg(args, "--template") : nil
+    let requestedMaxTokens = Int(parseArg(args, "--max-tokens", default: "8")) ?? 8
+    let decodeIterations = Int(parseArg(args, "--decode-iterations", default: "20")) ?? 20
+    let prefillIterations = Int(parseArg(args, "--prefill-iterations", default: "5")) ?? 5
     let prefillTokenCounts = parseCSVInts(
-        parseArg("--prefill-tokens", default: "64,256")
+        parseArg(args, "--prefill-tokens", default: "64,256")
     )
     let explicitPrefillVerifyTokenCounts = parseCSVInts(
-        parseArg("--prefill-verify-tokens", default: "")
+        parseArg(args, "--prefill-verify-tokens", default: "")
     )
     let prefillContinuationTokens = max(
-        Int(parseArg("--prefill-continuation-tokens", default: "0")) ?? 0,
+        Int(parseArg(args, "--prefill-continuation-tokens", default: "0")) ?? 0,
         0
     )
     let prefillContinuationK = max(
-        Int(parseArg("--prefill-continuation-k", default: "31")) ?? 31,
+        Int(parseArg(args, "--prefill-continuation-k", default: "31")) ?? 31,
         1
     )
     let suffixMaxNeedleLength = max(
-        Int(parseArg("--suffix-max-n", default: "4")) ?? 4,
+        Int(parseArg(args, "--suffix-max-n", default: "4")) ?? 4,
         1
     )
     let prefillContinuationRoute: PrefillContinuationRoute
-    switch parseArg("--prefill-continuation-route", default: "plain") {
+    switch parseArg(args, "--prefill-continuation-route", default: "plain") {
     case "plain":
         prefillContinuationRoute = .plain
     case "suffix":
@@ -56,32 +56,32 @@ func runVerifyCommand() {
         )
     case let route:
         fputs(
-            "smelt verify: --prefill-continuation-route requires plain or suffix; got '\(route)'\n",
+            "smelt lab verify: --prefill-continuation-route requires plain or suffix; got '\(route)'\n",
             stderr
         )
         exit(1)
     }
-    let minDecodeTpsArg = Double(parseArg("--min-decode-tps", default: ""))
-    let maxDecodeP95MsArg = Double(parseArg("--max-decode-p95-ms", default: ""))
+    let minDecodeTpsArg = Double(parseArg(args, "--min-decode-tps", default: ""))
+    let maxDecodeP95MsArg = Double(parseArg(args, "--max-decode-p95-ms", default: ""))
     let minPrefillTps = parseCSVIntDoubleMap(
-        parseArg("--min-prefill-tps", default: "")
+        parseArg(args, "--min-prefill-tps", default: "")
     )
     let maxPrefillP95Ms = parseCSVIntDoubleMap(
-        parseArg("--max-prefill-p95-ms", default: "")
+        parseArg(args, "--max-prefill-p95-ms", default: "")
     )
     let settleConfig = parseBenchmarkSettleConfig()
 
     let candidateConstruction = requireCAMTextRuntimePlanOrExit(
         packagePath: candidatePath,
         request: .benchDecode,
-        verb: "verify"
+        verb: "lab verify"
     )
     let baselineConstruction = baselinePath.isEmpty
         ? nil
         : requireCAMTextRuntimePlanOrExit(
             packagePath: baselinePath,
             request: .benchDecode,
-            verb: "verify"
+            verb: "lab verify"
         )
     let maxTokens = candidateConstruction.effectiveMaxTokens(requestedMaxTokens)
 

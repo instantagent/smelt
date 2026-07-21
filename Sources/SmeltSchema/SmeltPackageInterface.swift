@@ -193,7 +193,7 @@ public struct SmeltPackageInterface: Sendable, Equatable {
     }
 
     /// The declared interface of the package at `packagePath`, or nil when
-    /// none was baked. Throws on a present-but-malformed file (a broken
+    /// none was prepared. Throws on a present-but-malformed file (a broken
     /// interface must fail loudly, not degrade to undeclared flags).
     public static func load(packagePath: String) throws -> SmeltPackageInterface? {
         let url = URL(fileURLWithPath: packagePath).appendingPathComponent(fileName)
@@ -531,7 +531,7 @@ public struct SmeltPackageInterface: Sendable, Equatable {
                 )
             }
             // A prompt placeholder with neither default nor required can't
-            // render its template when absent — reject the shape at bake.
+            // render its template when absent — reject the package shape.
             if arg.target == nil, !arg.required, arg.defaultValue == nil {
                 throw SmeltPackageInterfaceError.malformed(
                     "flag '\(arg.flag)': prompt placeholders must be required "
@@ -582,7 +582,7 @@ public struct SmeltPackageInterface: Sendable, Equatable {
                 )
             }
             // And a declared prompt arg the template never uses is dead
-            // interface — reject at bake, not surprise at run.
+            // interface — reject during package preparation, not at run.
             let unused = promptArgs.map(\.flag).filter { !found.contains($0) }
             guard unused.isEmpty else {
                 throw SmeltPackageInterfaceError.malformed(
@@ -710,7 +710,7 @@ public struct SmeltPackageInterface: Sendable, Equatable {
 
     /// Type and default the scanned values. Returns only declared args
     /// (target application is the caller's job — it owns the precedence
-    /// chain against baked and built-in values).
+    /// chain against prepared and built-in values).
     public func resolve(
         declaredRaw: [String: String]
     ) throws -> [String: SmeltPackageArgumentValue] {

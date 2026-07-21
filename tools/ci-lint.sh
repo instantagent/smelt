@@ -20,6 +20,82 @@ for retired in integrations/pi-instant-agent Formula/instant-agent.rb site; do
   fi
 done
 
+python3 - <<'PY'
+import re
+from pathlib import Path
+
+main = Path("Sources/SmeltCLI/main.swift").read_text()
+commands = set()
+for match in re.finditer(r'^case\s+([^:]+):', main, re.MULTILINE):
+    commands.update(re.findall(r'"([^"]+)"', match.group(1)))
+
+expected = {
+    "help", "--help", "-h", "run", "build", "module", "lab",
+    "linger-worker", "serve", "cas",
+}
+if commands != expected:
+    missing = sorted(expected - commands)
+    extra = sorted(commands - expected)
+    raise SystemExit(
+        f"top-level smelt command drift: missing={missing} extra={extra}"
+    )
+
+retired_paths = [
+    "Sources/SmeltCLI/Commands/PreparedPrompt.swift",
+    "Sources/SmeltCLI/Commands/Qwen35VisionBuild.swift",
+    "Sources/SmeltCompiler/SmeltQwen35VisionArtifactBuilder.swift",
+    "Sources/SmeltRuntime/SmeltBakedPrefix.swift",
+    "Sources/SmeltSchema/SmeltBakeManifest.swift",
+    "tools/showcase.sh",
+]
+remaining = [path for path in retired_paths if Path(path).exists()]
+if remaining:
+    raise SystemExit(f"retired CLI surface returned: {remaining}")
+
+source_text = "\n".join(
+    path.read_text()
+    for path in Path("Sources").rglob("*.swift")
+)
+retired_bake_contracts = [
+    "SmeltBakeManifest", "SmeltBakedPrefix", '"baked.json"',
+    '"bake_manifest"', '"baked-inline"', '"baked-sidecar"',
+]
+stale_bake_contracts = [
+    spelling for spelling in retired_bake_contracts if spelling in source_text
+]
+if stale_bake_contracts:
+    raise SystemExit(
+        f"retired bake product contract returned: {stale_bake_contracts}"
+    )
+
+lab = Path("Sources/SmeltCLI/Commands/Lab.swift").read_text()
+qmm = Path("Sources/SmeltCLI/Commands/QMMSweep.swift").read_text()
+if re.search(r"\bargs\s*=", lab + "\n" + qmm):
+    raise SystemExit("smelt lab forwarding must not mutate process-global argv")
+if "_ body: ([String]) -> Void" not in lab:
+    raise SystemExit("smelt lab forwarding must pass argv explicitly to leaf commands")
+
+lab_tool = Path("Sources/SmeltLab/SmeltLabTool.swift")
+vision_tool = Path("Sources/SmeltLab/SmeltLabQwen35Vision.swift")
+if not vision_tool.is_file() or len(lab_tool.read_text().splitlines()) > 2_800:
+    raise SystemExit("oversized SmeltLab probe implementation was recombined")
+
+active_plan_path = Path("docs/smelt-instant-agent-split-plan.md")
+retired_spellings = [
+    "smelt-probe", "`smelt verify`", "`smelt bench`",
+    "`smelt prefill-bench`", "`smelt trace`", "`smelt replay`",
+    "`smelt profile`", "`smelt optimizer-report`", "`smelt kernels`",
+    "`smelt dispatches`", "`smelt kernel-lab`",
+]
+if active_plan_path.is_file():
+    active_plan = active_plan_path.read_text()
+    stale = [spelling for spelling in retired_spellings if spelling in active_plan]
+    if stale:
+        raise SystemExit(f"active split plan advertises retired CLI surface: {stale}")
+
+print("cli surface: canonical")
+PY
+
 shell_count=0
 while IFS= read -r -d '' file; do
   [[ -f "$file" ]] || continue

@@ -67,11 +67,11 @@ final class CASTests: XCTestCase {
         ("tokenizer.json", Data("{\"tok\":1}".utf8)),
     ]
 
-    /// Bake-time artifacts: no manifest checksum; CAS keys them by
+    /// Prepared artifacts: no manifest checksum; CAS keys them by
     /// content hash at adopt time.
     private static let unchecksummedContents: [(String, Data)] = [
-        ("baked_grammar.trie", Data("trie-bytes".utf8)),
-        ("baked_prefix.snapshot", Data("snapshot-bytes".utf8)),
+        ("compiled_grammar.trie", Data("trie-bytes".utf8)),
+        ("prepared_prefix.snapshot", Data("snapshot-bytes".utf8)),
         ("model.metalarchive", Data("metalarchive-bytes".utf8)),
     ]
 
@@ -222,7 +222,7 @@ final class CASTests: XCTestCase {
         }
         // Checksummed and unchecksummed artifacts alike land on the same
         // store entry when their bytes match.
-        for name in ["weights.bin", "baked_grammar.trie"] {
+        for name in ["weights.bin", "compiled_grammar.trie"] {
             let targetA = try FileManager.default.destinationOfSymbolicLink(
                 atPath: "\(packageA)/\(name)"
             )
@@ -233,29 +233,29 @@ final class CASTests: XCTestCase {
         }
     }
 
-    func testDivergentBakeArtifactsDoNotShare() throws {
+    func testDivergentPreparedArtifactsDoNotShare() throws {
         let packageA = try makeTempPackage()
         let packageB = try makeTempPackage()
         try writePackage(at: packageA)
         try writePackage(at: packageB)
-        // Different persona baked into B: same model, different smelt.
+        // Different prepared grammar in B: same model, different package state.
         try Data("other-trie".utf8).write(
-            to: URL(fileURLWithPath: "\(packageB)/baked_grammar.trie")
+            to: URL(fileURLWithPath: "\(packageB)/compiled_grammar.trie")
         )
 
         try SmeltCAS.adopt(packagePath: packageA, minBytes: 0)
         try SmeltCAS.adopt(packagePath: packageB, minBytes: 0)
 
         let targetA = try FileManager.default.destinationOfSymbolicLink(
-            atPath: "\(packageA)/baked_grammar.trie"
+            atPath: "\(packageA)/compiled_grammar.trie"
         )
         let targetB = try FileManager.default.destinationOfSymbolicLink(
-            atPath: "\(packageB)/baked_grammar.trie"
+            atPath: "\(packageB)/compiled_grammar.trie"
         )
         XCTAssertNotEqual(targetA, targetB)
         XCTAssertEqual(
             try Data(contentsOf: URL(
-                fileURLWithPath: "\(packageB)/baked_grammar.trie"
+                fileURLWithPath: "\(packageB)/compiled_grammar.trie"
             )),
             Data("other-trie".utf8)
         )
@@ -287,7 +287,7 @@ final class CASTests: XCTestCase {
         XCTAssertFalse(isSymlink("\(packagePath)/weights.bin"))
         // The untampered files were still deduplicated.
         XCTAssertTrue(isSymlink("\(packagePath)/model.metallib"))
-        XCTAssertTrue(isSymlink("\(packagePath)/baked_grammar.trie"))
+        XCTAssertTrue(isSymlink("\(packagePath)/compiled_grammar.trie"))
     }
 
     func testRestoreRoundTrips() throws {
@@ -389,7 +389,7 @@ final class CASTests: XCTestCase {
         try SmeltCAS.restore(packagePath: packagePath)
 
         var st = stat()
-        XCTAssertEqual(stat("\(packagePath)/baked_prefix.snapshot", &st), 0)
+        XCTAssertEqual(stat("\(packagePath)/prepared_prefix.snapshot", &st), 0)
         XCTAssertEqual(st.st_mode & 0o777, 0o600)
         XCTAssertEqual(stat("\(packagePath)/weights.bin", &st), 0)
         XCTAssertEqual(st.st_mode & 0o777, 0o644)

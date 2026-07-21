@@ -468,11 +468,13 @@ while IFS=$'\t' read -r row_id module_path source_default source_package package
     exit 1
   fi
 
-  # Prune compiler byproducts that are NOT declared in source_package_files.
-  # SmeltPackageSpecBuilder classifies these as ignored build byproducts; if left
-  # in the source package they trip the release verifier's source-payload
-  # inventory check (undeclared file), so drop them at the producer.
+  # The checked package build regenerates the canonical module descriptor and
+  # requires generated payloads to be absent from its source root. The source
+  # package is also allowed to carry compiler byproducts that are not declared
+  # in source_package_files. Drop both classes at the producer so a canonical
+  # package build is repeatable.
   rm -f \
+    "$source_package/module.json" \
     "$source_package/SmeltGeneratedKernels.metal" \
     "$source_package/gptq_capture_points.json" \
     "$source_package/model.metalarchive" \

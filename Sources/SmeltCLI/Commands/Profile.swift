@@ -1,19 +1,19 @@
 import Foundation
 import SmeltRuntime
 
-func runProfileCommand() {
+func runProfileCommand(_ args: [String]) {
     guard args.count >= 3 else {
-        fputs("Usage: smelt profile <model.smeltpkg> [--iterations N] [--position N]\n", stderr)
+        fputs("Usage: smelt lab profile decode <model.smeltpkg> [--iterations N] [--position N]\n", stderr)
         exit(1)
     }
     let pkgPath = args[2]
     let construction = requireCAMTextRuntimePlanOrExit(
         packagePath: pkgPath,
         request: .runText,
-        verb: "profile"
+        verb: "lab profile decode"
     )
-    let iterations = Int(parseArg("--iterations", default: "100")) ?? 100
-    let fixedPosition = Int32(parseArg("--position", default: ""))
+    let iterations = Int(parseArg(args, "--iterations", default: "100")) ?? 100
+    let fixedPosition = Int32(parseArg(args, "--position", default: ""))
 
     do {
         let runtime = try construction.makeRuntime(contextLimit: nil)

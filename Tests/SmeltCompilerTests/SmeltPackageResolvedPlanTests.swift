@@ -20,11 +20,11 @@ import SmeltSchema
         #expect(first.runtime.architecture == "text-generation")
         #expect(first.runtime.routes.map(\.signature) == [
             "tokenizer:native:none",
-            "trunk:compiled:baked-inline",
+            "trunk:compiled:compiled-inline",
             "text-head:native:none",
         ])
         #expect(first.runtime.commands.map(\.rawValue) == [
-            "bake", "bench", "linger-worker", "load", "run", "serve", "trace",
+            "bench", "linger-worker", "load", "prepare", "run", "serve", "trace",
         ])
         #expect(first.policy.mode == .textGeneration)
         #expect(first.policy.inference?.chatTemplate == "chatml")

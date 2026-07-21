@@ -31,14 +31,14 @@ struct SmeltGLBTests {
             ]
         )
         let directory = FileManager.default.temporaryDirectory
-            .appendingPathComponent("tokenrig-glb-\(UUID().uuidString)")
+      .appendingPathComponent("skinning-glb-\(UUID().uuidString)")
         try FileManager.default.createDirectory(
             at: directory,
             withIntermediateDirectories: true
         )
         defer { try? FileManager.default.removeItem(at: directory) }
-        let path = directory.appendingPathComponent("rig.glb")
-        try SmeltGLB.writeRig(
+    let path = directory.appendingPathComponent("skin.glb")
+    try SmeltGLB.writeSkin(
             mesh: mesh,
             skeleton: skeleton,
             normalization: .init(center: .zero, scale: 1),
@@ -51,15 +51,17 @@ struct SmeltGLBTests {
         #expect(imported.triangleIndices == mesh.triangleIndices)
 
         let data = try Data(contentsOf: path)
-        let jsonLength = Int(data.withUnsafeBytes {
+    let jsonLength = Int(
+      data.withUnsafeBytes {
             UInt32(littleEndian: $0.loadUnaligned(fromByteOffset: 12, as: UInt32.self))
         })
-        let document = try JSONSerialization.jsonObject(
+    let document =
+      try JSONSerialization.jsonObject(
             with: data.subdata(in: 20..<(20 + jsonLength))
         ) as? [String: Any]
         #expect((document?["skins"] as? [[String: Any]])?.count == 1)
         #expect((document?["nodes"] as? [[String: Any]])?.count == 3)
-        let summary = try SmeltGLB.validateRig(from: path)
+    let summary = try SmeltGLB.validateSkin(from: path)
         #expect(summary.vertexCount == 3)
         #expect(summary.jointCount == 2)
         #expect(summary.weightedVertexCount == 3)
@@ -69,9 +71,11 @@ struct SmeltGLBTests {
 
     @Test("Pinned upstream giraffe imports without Blender")
     func upstreamGiraffe() throws {
-        guard let path = ProcessInfo.processInfo.environment[
-            "SMELT_RIG_GLB_FIXTURE"
-        ] else {
+    guard
+      let path = ProcessInfo.processInfo.environment[
+        "SMELT_SKINNING_GLB_FIXTURE"
+      ]
+    else {
             return
         }
         let mesh = try SmeltGLB.readMesh(
@@ -82,24 +86,26 @@ struct SmeltGLBTests {
         #expect(mesh.normals.allSatisfy { $0.x.isFinite && $0.y.isFinite && $0.z.isFinite })
     }
 
-    @Test("Persisted fixture contains a complete finite normalized rig")
-    func persistedRigFixture() throws {
-        guard let path = ProcessInfo.processInfo.environment[
-            "SMELT_RIG_GLB_VALIDATE_PATH"
-        ] else {
+  @Test("Persisted fixture contains a complete finite normalized skin")
+  func persistedSkinFixture() throws {
+    guard
+      let path = ProcessInfo.processInfo.environment[
+        "SMELT_SKINNING_GLB_VALIDATE_PATH"
+      ]
+    else {
             #expect(
-                ProcessInfo.processInfo.environment["SMELT_RIG_REQUIRE_FIXTURES"]
+        ProcessInfo.processInfo.environment["SMELT_SKINNING_REQUIRE_FIXTURES"]
                     != "1"
             )
             return
         }
-        let summary = try SmeltGLB.validateRig(from: URL(fileURLWithPath: path))
+    let summary = try SmeltGLB.validateSkin(from: URL(fileURLWithPath: path))
         #expect(summary.vertexCount > 1_000)
         #expect(summary.jointCount > 0)
         #expect(summary.weightedVertexCount == summary.vertexCount)
         #expect(summary.inverseBindMatrixCount == summary.jointCount)
         let data = try JSONEncoder().encode(summary)
         let json = try #require(String(data: data, encoding: .utf8))
-        print("RIG_U0_GLB_RECEIPT \(json)")
+    print("SKINNING_U0_GLB_RECEIPT \(json)")
     }
 }

@@ -1,5 +1,52 @@
 import Foundation
 import Metal
+import SmeltSchema
+
+public struct SmeltDenseTransformerConfiguration: Sendable, Equatable {
+  public let hiddenSize: Int
+  public let layerCount: Int
+  public let intermediateSize: Int
+  public let queryHeads: Int
+  public let keyValueHeads: Int
+  public let headDimension: Int
+  public let vocabularySize: Int
+  public let maximumPositions: Int
+  public let ropeTheta: Float
+  public let rmsNormEpsilon: Float
+
+  init(manifest: SmeltComponentPackageManifest, owner: String) throws {
+    func integer(_ key: String) throws -> Int {
+      guard let text = manifest.configuration["\(owner).\(key)"],
+        let value = Int(text)
+      else {
+        throw SmeltSkeletonLanguageRuntimeError.missingConfiguration(
+          "\(owner).\(key)"
+        )
+      }
+      return value
+    }
+    func float(_ key: String) throws -> Float {
+      guard let text = manifest.configuration["\(owner).\(key)"],
+        let value = Float(text)
+      else {
+        throw SmeltSkeletonLanguageRuntimeError.missingConfiguration(
+          "\(owner).\(key)"
+        )
+      }
+      return value
+    }
+    hiddenSize = try integer("hidden-size")
+    layerCount = try integer("layer-count")
+    intermediateSize = try integer("intermediate-size")
+    queryHeads = try integer("query-heads")
+    keyValueHeads = try integer("key-value-heads")
+    headDimension = try integer("head-dimension")
+    vocabularySize = try integer("vocabulary-size")
+    maximumPositions = try integer("static-seq-capacity")
+    ropeTheta = try float("rope-theta")
+    rmsNormEpsilon = try float("rms-norm-epsilon")
+  }
+}
 
 /// Checkpoint-backed skeleton-language model execution through Smelt's compiled
 /// embeddings-in/hidden-out trunk plus the tied BF16 language-model head.
@@ -24,8 +71,9 @@ public final class SmeltSkeletonLanguageRuntime {
         }
     }
 
-    public let artifact: SmeltRigArtifact
+  public let artifact: SmeltComponentArtifact
     public let trunk: SmeltRuntime
+  public let configuration: SmeltDenseTransformerConfiguration
     private let device: MTLDevice
     private let queue: MTLCommandQueue
     private let dense: MTLComputePipelineState
@@ -44,12 +92,23 @@ public final class SmeltSkeletonLanguageRuntime {
         guard let queue = device.makeCommandQueue() else {
             throw SmeltSkeletonLanguageRuntimeError.commandQueueCreationFailed
         }
-        let artifact = try SmeltRigArtifact(path: packagePath, verify: false)
+    let artifact = try SmeltComponentArtifact(path: packagePath, verify: false)
+    guard
+      let sidecar = artifact.manifest.files.sidecars.sorted(
+        by: { $0.key < $1.key }
+      ).first(where: { $0.value == "language-trunk" })
+    else {
+      throw SmeltSkeletonLanguageRuntimeError.missingLanguageSidecar
+    }
+    let configuration = try SmeltDenseTransformerConfiguration(
+      manifest: artifact.manifest,
+      owner: sidecar.key
+    )
         let trunk = try SmeltRuntime(
-            packagePath: "\(packagePath)/\(artifact.manifest.files.languageTrunk)",
+      packagePath: "\(packagePath)/\(sidecar.value)",
             device: device,
             verifyPackage: verifyPackage,
-            contextLimit: artifact.manifest.configuration.languageMaximumPositions
+      contextLimit: configuration.maximumPositions
         )
         let library = try artifact.makeLibrary(device: device)
         let dense = try Self.makePipeline(
@@ -72,6 +131,7 @@ public final class SmeltSkeletonLanguageRuntime {
         )
         self.artifact = artifact
         self.trunk = trunk
+    self.configuration = configuration
         self.device = device
         self.queue = queue
         self.dense = dense
@@ -86,17 +146,17 @@ public final class SmeltSkeletonLanguageRuntime {
         tokenID: Int,
         position: Int
     ) throws -> DecodeOutput {
-        let configuration = artifact.manifest.configuration
-        guard tokenID >= 0, tokenID < configuration.languageVocabularySize else {
+    let configuration = configuration
+    guard tokenID >= 0, tokenID < configuration.vocabularySize else {
             throw SmeltSkeletonLanguageRuntimeError.invalidTokenID(
                 tokenID,
-                vocabularySize: configuration.languageVocabularySize
+        vocabularySize: configuration.vocabularySize
             )
         }
-        guard position >= 0, position < configuration.languageMaximumPositions else {
+    guard position >= 0, position < configuration.maximumPositions else {
             throw SmeltSkeletonLanguageRuntimeError.invalidPosition(
                 position,
-                maximumPositions: configuration.languageMaximumPositions
+        maximumPositions: configuration.maximumPositions
             )
         }
         try trunk.ensureContextCapacity(position + 1)
@@ -111,15 +171,15 @@ public final class SmeltSkeletonLanguageRuntime {
         encoder.setBuffer(tokenEmbeddings, offset: 0, index: 0)
         encoder.setBuffer(token, offset: 0, index: 1)
         encoder.setBuffer(hiddenInput, offset: 0, index: 2)
-        var hiddenSize = UInt32(configuration.languageHiddenSize)
+    var hiddenSize = UInt32(configuration.hiddenSize)
         var slot: UInt32 = 0
         encoder.setBytes(&hiddenSize, length: 4, index: 3)
         encoder.setBytes(&slot, length: 4, index: 4)
         encoder.dispatchThreads(
-            MTLSize(width: configuration.languageHiddenSize, height: 1, depth: 1),
+      MTLSize(width: configuration.hiddenSize, height: 1, depth: 1),
             threadsPerThreadgroup: MTLSize(
                 width: min(
-                    configuration.languageHiddenSize,
+          configuration.hiddenSize,
                     gather.maxTotalThreadsPerThreadgroup
                 ),
                 height: 1,
@@ -141,9 +201,9 @@ public final class SmeltSkeletonLanguageRuntime {
         let hidden = SmeltBF16.decode(
             normalized.contents().bindMemory(
                 to: UInt16.self,
-                capacity: configuration.languageHiddenSize
+        capacity: configuration.hiddenSize
             ),
-            count: configuration.languageHiddenSize
+      count: configuration.hiddenSize
         )
         return DecodeOutput(
             hiddenState: hidden,
@@ -191,23 +251,23 @@ public final class SmeltSkeletonLanguageRuntime {
         embeddings: [Float],
         sequenceLength: Int
     ) throws -> PrefillOutput {
-        let configuration = artifact.manifest.configuration
+    let configuration = configuration
         guard sequenceLength > 0,
-              embeddings.count == sequenceLength * configuration.languageHiddenSize
+      embeddings.count == sequenceLength * configuration.hiddenSize
         else {
             throw SmeltSkeletonLanguageRuntimeError.invalidEmbeddingShape(
                 count: embeddings.count,
                 sequenceLength: sequenceLength,
-                hiddenSize: configuration.languageHiddenSize
+        hiddenSize: configuration.hiddenSize
             )
         }
         let hidden = try trunk.prefillTrunk(
             embeddings: embeddings,
             seqLen: sequenceLength
         )
-        let lastStart = (sequenceLength - 1) * configuration.languageHiddenSize
+    let lastStart = (sequenceLength - 1) * configuration.hiddenSize
         let lastHidden = Array(
-            hidden[lastStart..<(lastStart + configuration.languageHiddenSize)]
+      hidden[lastStart..<(lastStart + configuration.hiddenSize)]
         )
         return PrefillOutput(
             hiddenStates: hidden,
@@ -218,37 +278,41 @@ public final class SmeltSkeletonLanguageRuntime {
     /// Returns checkpoint-authored BF16 token rows widened exactly to FP32.
     /// No arithmetic or GPU round trip occurs at this boundary.
     public func embeddings(tokenIDs: [Int]) throws -> [Float] {
-        let configuration = artifact.manifest.configuration
-        guard tokenIDs.allSatisfy({
-            $0 >= 0 && $0 < configuration.languageVocabularySize
-        }) else {
-            let invalid = tokenIDs.first {
-                $0 < 0 || $0 >= configuration.languageVocabularySize
+    let configuration = configuration
+    guard
+      tokenIDs.allSatisfy({
+        $0 >= 0 && $0 < configuration.vocabularySize
+      })
+    else {
+      let invalid =
+        tokenIDs.first {
+          $0 < 0 || $0 >= configuration.vocabularySize
             } ?? -1
             throw SmeltSkeletonLanguageRuntimeError.invalidTokenID(
                 invalid,
-                vocabularySize: configuration.languageVocabularySize
+        vocabularySize: configuration.vocabularySize
             )
         }
-        guard let descriptor = artifact.checkpointTensors.first(where: {
+    guard
+      let descriptor = artifact.checkpointTensors.first(where: {
             $0.name == "transformer.model.embed_tokens.weight"
         }), descriptor.dtype == "BF16",
             descriptor.shape == [
-                configuration.languageVocabularySize,
-                configuration.languageHiddenSize,
+        configuration.vocabularySize,
+        configuration.hiddenSize,
             ]
         else {
             throw SmeltSkeletonLanguageRuntimeError.invalidEmbeddingTable
         }
         let source = artifact.checkpointTensorData(descriptor).bindMemory(
             to: UInt16.self,
-            capacity: configuration.languageVocabularySize * configuration.languageHiddenSize
+      capacity: configuration.vocabularySize * configuration.hiddenSize
         )
         var result: [Float] = []
-        result.reserveCapacity(tokenIDs.count * configuration.languageHiddenSize)
+    result.reserveCapacity(tokenIDs.count * configuration.hiddenSize)
         for tokenID in tokenIDs {
-            let row = tokenID * configuration.languageHiddenSize
-            for column in 0..<configuration.languageHiddenSize {
+      let row = tokenID * configuration.hiddenSize
+      for column in 0..<configuration.hiddenSize {
                 result.append(
                     SmeltBF16.decode(source[row + column])
                 )
@@ -259,23 +323,25 @@ public final class SmeltSkeletonLanguageRuntime {
 
     /// Applies the tied BF16 output projection to one normalized hidden row.
     public func projectLogits(hidden: [Float]) throws -> [Float] {
-        let configuration = artifact.manifest.configuration
-        guard hidden.count == configuration.languageHiddenSize else {
+    let configuration = configuration
+    guard hidden.count == configuration.hiddenSize else {
             throw SmeltSkeletonLanguageRuntimeError.invalidHiddenSize(
-                expected: configuration.languageHiddenSize,
+        expected: configuration.hiddenSize,
                 got: hidden.count
             )
         }
-        let input = try makeBF16Buffer(hidden, label: "rig.language.head.input")
-        guard let output = device.makeBuffer(
-            length: configuration.languageVocabularySize * MemoryLayout<UInt16>.stride,
+    let input = try makeBF16Buffer(hidden, label: "skinning.language.head.input")
+    guard
+      let output = device.makeBuffer(
+        length: configuration.vocabularySize * MemoryLayout<UInt16>.stride,
             options: .storageModeShared
-        ) else {
+      )
+    else {
             throw SmeltSkeletonLanguageRuntimeError.bufferCreationFailed(
-                "rig.language.head.output"
+        "skinning.language.head.output"
             )
         }
-        output.label = "rig.language.head.output"
+    output.label = "skinning.language.head.output"
         guard let commandBuffer = queue.makeCommandBuffer(),
               let encoder = commandBuffer.makeComputeCommandEncoder()
         else {
@@ -287,15 +353,15 @@ public final class SmeltSkeletonLanguageRuntime {
         encoder.setBuffer(languageModelHead, offset: 0, index: 2)
         encoder.setBuffer(output, offset: 0, index: 3)
         var rows: UInt32 = 1
-        var outputDimension = UInt32(configuration.languageVocabularySize)
-        var inputDimension = UInt32(configuration.languageHiddenSize)
+    var outputDimension = UInt32(configuration.vocabularySize)
+    var inputDimension = UInt32(configuration.hiddenSize)
         var hasBias: UInt32 = 0
         encoder.setBytes(&rows, length: 4, index: 4)
         encoder.setBytes(&outputDimension, length: 4, index: 5)
         encoder.setBytes(&inputDimension, length: 4, index: 6)
         encoder.setBytes(&hasBias, length: 4, index: 7)
         encoder.dispatchThreadgroups(
-            MTLSize(width: configuration.languageVocabularySize, height: 1, depth: 1),
+      MTLSize(width: configuration.vocabularySize, height: 1, depth: 1),
             threadsPerThreadgroup: MTLSize(width: 32, height: 1, depth: 1)
         )
         encoder.endEncoding()
@@ -307,9 +373,9 @@ public final class SmeltSkeletonLanguageRuntime {
         return SmeltBF16.decode(
             output.contents().bindMemory(
                 to: UInt16.self,
-                capacity: configuration.languageVocabularySize
+        capacity: configuration.vocabularySize
             ),
-            count: configuration.languageVocabularySize
+      count: configuration.vocabularySize
         )
     }
 
@@ -335,17 +401,17 @@ public final class SmeltSkeletonLanguageRuntime {
         tokenID: Int,
         position: Int
     ) throws {
-        let configuration = artifact.manifest.configuration
-        guard tokenID >= 0, tokenID < configuration.languageVocabularySize else {
+    let configuration = configuration
+    guard tokenID >= 0, tokenID < configuration.vocabularySize else {
             throw SmeltSkeletonLanguageRuntimeError.invalidTokenID(
                 tokenID,
-                vocabularySize: configuration.languageVocabularySize
+        vocabularySize: configuration.vocabularySize
             )
         }
-        guard position >= 0, position < configuration.languageMaximumPositions else {
+    guard position >= 0, position < configuration.maximumPositions else {
             throw SmeltSkeletonLanguageRuntimeError.invalidPosition(
                 position,
-                maximumPositions: configuration.languageMaximumPositions
+        maximumPositions: configuration.maximumPositions
             )
         }
         try trunk.ensureContextCapacity(position + 1)
@@ -360,15 +426,15 @@ public final class SmeltSkeletonLanguageRuntime {
         encoder.setBuffer(tokenEmbeddings, offset: 0, index: 0)
         encoder.setBuffer(token, offset: 0, index: 1)
         encoder.setBuffer(hiddenInput, offset: 0, index: 2)
-        var hiddenSize = UInt32(configuration.languageHiddenSize)
+    var hiddenSize = UInt32(configuration.hiddenSize)
         var slot: UInt32 = 0
         encoder.setBytes(&hiddenSize, length: 4, index: 3)
         encoder.setBytes(&slot, length: 4, index: 4)
         encoder.dispatchThreads(
-            MTLSize(width: configuration.languageHiddenSize, height: 1, depth: 1),
+      MTLSize(width: configuration.hiddenSize, height: 1, depth: 1),
             threadsPerThreadgroup: MTLSize(
                 width: min(
-                    configuration.languageHiddenSize,
+          configuration.hiddenSize,
                     gather.maxTotalThreadsPerThreadgroup
                 ),
                 height: 1,
@@ -385,16 +451,18 @@ public final class SmeltSkeletonLanguageRuntime {
 
     private func makeTokenBuffer(_ token: UInt32) throws -> MTLBuffer {
         var token = token
-        guard let buffer = device.makeBuffer(
+    guard
+      let buffer = device.makeBuffer(
             bytes: &token,
             length: MemoryLayout<UInt32>.stride,
             options: .storageModeShared
-        ) else {
+      )
+    else {
             throw SmeltSkeletonLanguageRuntimeError.bufferCreationFailed(
-                "rig.language.teacher-token"
+        "skinning.language.teacher-token"
             )
         }
-        buffer.label = "rig.language.teacher-token"
+    buffer.label = "skinning.language.teacher-token"
         return buffer
     }
 
@@ -415,6 +483,8 @@ public final class SmeltSkeletonLanguageRuntime {
 }
 
 public enum SmeltSkeletonLanguageRuntimeError: Error, Equatable {
+  case missingLanguageSidecar
+  case missingConfiguration(String)
     case metalUnavailable
     case commandQueueCreationFailed
     case pipelineMissing(String)

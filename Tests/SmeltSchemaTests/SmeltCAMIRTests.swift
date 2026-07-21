@@ -1069,7 +1069,7 @@ import Testing
             .init(name: "prefill_state", type: .init("state"), optional: true),
         ],
         outputs: [.init(name: "hidden", type: .init("hidden", attributes: ["dtype": "f16", "dim": "2048"]))],
-        annotations: [.init("artifact", "baked-inline"), .init("tag", "decode-core")]
+        annotations: [.init("artifact", "compiled-inline"), .init("tag", "decode-core")]
     )
 
     private static let samplerNode = SmeltCAMIR.GraphNode(

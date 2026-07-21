@@ -1,13 +1,13 @@
 import Foundation
 
-// Runtime-bound grammar parameters. A baked JSON schema may declare bindable
+// Runtime-bound grammar parameters. A compiled JSON schema may declare bindable
 // choice slots: an array element that is exactly the string "$bind:NAME",
 // e.g. `"enum": ["$bind:routes"]`. At invocation,
 // `smelt run --bind routes=billing,auth,infra` splices the bound values into
-// that array, so one baked package constrains output to a choice set that is
+// that array, so one prepared package constrains output to a choice set that is
 // not known until run time. The placeholder string is itself a valid enum
-// literal, so bake-time schema validation needs no special casing; the
-// expensive baked artifact (the token trie) is vocab-bound and unaffected.
+// literal, so preparation-time schema validation needs no special casing; the
+// expensive compiled artifact (the token trie) is vocab-bound and unaffected.
 
 public enum SmeltGrammarBindingError: Error, CustomStringConvertible {
     /// The schema declares slots that the invocation did not bind.

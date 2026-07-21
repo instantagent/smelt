@@ -6,13 +6,13 @@ import XCTest
 
 final class SmeltMeshEncoderTests: XCTestCase {
     func testRealCheckpointCrossBlockMatchesPinnedTorchFP32Fixture() throws {
-        guard let packagePath = ProcessInfo.processInfo.environment["SMELT_RIG_PACKAGE"] else {
-            throw XCTSkip("SMELT_RIG_PACKAGE is not set")
+    guard let packagePath = ProcessInfo.processInfo.environment["SMELT_SKINNING_PACKAGE"] else {
+      throw XCTSkip("SMELT_SKINNING_PACKAGE is not set")
         }
         guard MTLCreateSystemDefaultDevice() != nil else {
             throw XCTSkip("No Metal device available")
         }
-        let artifact = try SmeltRigArtifact(path: packagePath, verify: true)
+    let artifact = try SmeltComponentArtifact(path: packagePath, verify: true)
         let runtime = try SmeltMeshEncoder(artifact: artifact)
         let query = decode(queryBase64, count: 3 * 512)
         let data = decode(dataBase64, count: 5 * 512)
@@ -35,13 +35,13 @@ final class SmeltMeshEncoderTests: XCTestCase {
     }
 
     func testReducedEntireMichelangeloGraphMatchesPinnedTorchFP32Fixture() throws {
-        guard let packagePath = ProcessInfo.processInfo.environment["SMELT_RIG_PACKAGE"] else {
-            throw XCTSkip("SMELT_RIG_PACKAGE is not set")
+    guard let packagePath = ProcessInfo.processInfo.environment["SMELT_SKINNING_PACKAGE"] else {
+      throw XCTSkip("SMELT_SKINNING_PACKAGE is not set")
         }
         guard MTLCreateSystemDefaultDevice() != nil else {
             throw XCTSkip("No Metal device available")
         }
-        let artifact = try SmeltRigArtifact(path: packagePath, verify: true)
+    let artifact = try SmeltComponentArtifact(path: packagePath, verify: true)
         let runtime = try SmeltMeshEncoder(artifact: artifact)
         let query = decode(queryBase64, count: 3 * 512)
         let data = decode(dataBase64, count: 5 * 512)
@@ -64,11 +64,11 @@ final class SmeltMeshEncoderTests: XCTestCase {
     }
 
     func testProductionShapeMichelangeloSmoke() throws {
-        guard ProcessInfo.processInfo.environment["SMELT_RIG_FULL_SMOKE"] == "1" else {
-            throw XCTSkip("SMELT_RIG_FULL_SMOKE is not enabled")
+    guard ProcessInfo.processInfo.environment["SMELT_SKINNING_FULL_SMOKE"] == "1" else {
+      throw XCTSkip("SMELT_SKINNING_FULL_SMOKE is not enabled")
         }
-        guard let packagePath = ProcessInfo.processInfo.environment["SMELT_RIG_PACKAGE"] else {
-            throw XCTSkip("SMELT_RIG_PACKAGE is not set")
+    guard let packagePath = ProcessInfo.processInfo.environment["SMELT_SKINNING_PACKAGE"] else {
+      throw XCTSkip("SMELT_SKINNING_PACKAGE is not set")
         }
         guard MTLCreateSystemDefaultDevice() != nil else {
             throw XCTSkip("No Metal device available")
@@ -82,7 +82,7 @@ final class SmeltMeshEncoderTests: XCTestCase {
             points[index * 6 + 4] = Float((index * 29) % 256 - 128) / 128
             points[index * 6 + 5] = Float((index * 61) % 256 - 128) / 128
         }
-        let artifact = try SmeltRigArtifact(path: packagePath, verify: true)
+    let artifact = try SmeltComponentArtifact(path: packagePath, verify: true)
         let runtime = try SmeltMeshEncoder(artifact: artifact)
         let result = try runtime.encode(pointNormals: points)
         XCTAssertEqual(result.selectedSourceIndices.count, 512)

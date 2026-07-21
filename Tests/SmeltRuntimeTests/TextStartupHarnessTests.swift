@@ -230,8 +230,8 @@ final class TextStartupHarnessTests: XCTestCase {
             .joined(separator: "\n")
         return """
         #!/usr/bin/env bash
-        if [[ "$1" == "module-profile" ]]; then
-          [[ "$2" == "\(SmeltPackagePerformanceGateID.textDecodePrefillStartup)" ]] || {
+        if [[ "$1 $2 $3" == "lab package-profile \(SmeltPackagePerformanceGateID.textDecodePrefillStartup)" ]]; then
+          [[ "$3" == "\(SmeltPackagePerformanceGateID.textDecodePrefillStartup)" ]] || {
             echo "unexpected cam profile: $*" >&2
             exit 97
           }

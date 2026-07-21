@@ -1685,7 +1685,7 @@ public enum SmeltCAMCheckedPackageProjector {
         try require(annotation("artifact", in: mtp) == "sidecar", "audio mtp artifact drifted")
         _ = try requireValue(annotation("codebooks", in: mtp), "audio mtp codebooks missing")
         try require(mtp.annotations.count == 2, "audio mtp annotations drifted")
-        try require(annotation("artifact", in: codec) == "baked-inline", "audio codec artifact drifted")
+        try require(annotation("artifact", in: codec) == "compiled-inline", "audio codec artifact drifted")
         try require(annotation("streaming", in: codec) == "true", "audio codec streaming annotation drifted")
         try require(codec.annotations.count == 2, "audio codec annotations drifted")
     }
@@ -1960,7 +1960,7 @@ public enum SmeltCAMCheckedPackageProjector {
             capabilities.resolve(.runAudio),
             capabilities.resolve(.serveAudio),
             capabilities.resolve(.traceTextSynthesize),
-            capabilities.resolve(.bakeVoiceDefaults),
+            capabilities.resolve(.prepareVoiceDefaults),
         ]
         let exportID = try requireValue(decisions.first?.exportID, "audio capability export missing")
         for decision in decisions {
@@ -2994,7 +2994,7 @@ public enum SmeltCAMCheckedPackageProjector {
         let node = try graphNode(cam, "trunk")
         try require(node.implementation == .compiled, "trunk implementation drifted")
         try require(node.block == "trunk", "trunk block binding drifted")
-        try require(annotation("artifact", in: node) == "baked-inline", "trunk artifact drifted")
+        try require(annotation("artifact", in: node) == "compiled-inline", "trunk artifact drifted")
         let state = try requireValue(annotation("state", in: node), "trunk state missing")
         try require(state.split(separator: ",").contains("kv-cache"), "trunk kv-cache state drifted")
         try require(annotation("feedback", in: node) == "tokens", "trunk feedback drifted")
@@ -3137,8 +3137,7 @@ public enum SmeltCAMCheckedPackageProjector {
         }
         return SmeltPackageSpec.PackageFileSet(
             manifest: outputFiles.manifest,
-            files: files.sorted(),
-            bakeManifest: outputFiles.bakeManifest
+            files: files.sorted()
         )
     }
 

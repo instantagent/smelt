@@ -1,14 +1,14 @@
 import Foundation
 
-/// Dependency-free glTF 2.0 binary import/export for the rig model's supported mesh
+/// Dependency-free glTF 2.0 binary import/export for supported skinned meshes.
 /// and skin subset. Unsupported compressed/sparse/non-triangle data fails loud.
 public enum SmeltGLB {
     /// Validates the persisted skeleton, inverse bind matrices, joint indices,
     /// and normalized skin weights in a generated GLB.
-    public static func validateRig(
+  public static func validateSkin(
         from url: URL,
         weightSumTolerance: Float = 1e-5
-    ) throws -> SmeltGLBRigSummary {
+  ) throws -> SmeltGLBSkinSummary {
         guard weightSumTolerance >= 0, weightSumTolerance.isFinite else {
             throw SmeltGLBError.invalidSkin
         }
@@ -109,7 +109,7 @@ public enum SmeltGLB {
         else {
             throw SmeltGLBError.invalidSkin
         }
-        return SmeltGLBRigSummary(
+    return SmeltGLBSkinSummary(
             vertexCount: vertexCount,
             jointCount: jointNodes.count,
             weightedVertexCount: weightedVertexCount,
@@ -209,7 +209,7 @@ public enum SmeltGLB {
 
     /// Writes one standards-compliant, four-influence skinned GLB. The mesh is
     /// flattened intentionally; the generated skeleton remains hierarchical.
-    public static func writeRig(
+  public static func writeSkin(
         mesh: SmeltMesh,
         skeleton: SmeltSkeleton,
         normalization: SmeltMeshNormalization,
@@ -270,7 +270,8 @@ public enum SmeltGLB {
         let worldJoints = skeleton.joints.map {
             normalization.denormalize($0.position)
         }
-        let inverseBindBytes = data(worldJoints.flatMap { point in
+    let inverseBindBytes = data(
+      worldJoints.flatMap { point in
             [
                 1, 0, 0, 0,
                 0, 1, 0, 0,
@@ -331,14 +332,18 @@ public enum SmeltGLB {
             type: "MAT4"
         )
 
-        var nodes: [[String: Any]] = [[
+    var nodes: [[String: Any]] = [
+      [
+        // Serializer strings are part of the pinned public byte oracle.
             "name": "rig modelMesh",
             "mesh": 0,
             "skin": 0,
-        ]]
+      ]
+    ]
         for joint in skeleton.joints.indices {
             let parent = skeleton.joints[joint].parent
-            let translation = parent < 0
+      let translation =
+        parent < 0
                 ? worldJoints[joint]
                 : worldJoints[joint] - worldJoints[parent]
             var node: [String: Any] = [
@@ -363,9 +368,11 @@ public enum SmeltGLB {
             "scene": 0,
             "scenes": [["nodes": [0, roots[0] + 1]]],
             "nodes": nodes,
-            "meshes": [[
+      "meshes": [
+        [
                 "name": "rig modelMesh",
-                "primitives": [[
+          "primitives": [
+            [
                     "attributes": [
                         "POSITION": positionAccessor,
                         "NORMAL": normalAccessor,
@@ -374,14 +381,18 @@ public enum SmeltGLB {
                     ],
                     "indices": indexAccessor,
                     "mode": 4,
-                ]],
-            ]],
-            "skins": [[
+            ]
+          ],
+        ]
+      ],
+      "skins": [
+        [
                 "name": "rig modelArmature",
                 "inverseBindMatrices": inverseBindAccessor,
                 "skeleton": roots[0] + 1,
                 "joints": jointNodes,
-            ]],
+        ]
+      ],
             "bufferViews": bufferViews,
             "accessors": accessors,
             "buffers": [["byteLength": binary.count]],
@@ -507,7 +518,8 @@ public enum SmeltGLB {
             result.reserveCapacity(view.count)
             for row in 0..<view.count {
                 let offset = view.offset + row * view.stride
-                result.append(SIMD3(
+        result.append(
+          SIMD3(
                     binary.f32(offset),
                     binary.f32(offset + 4),
                     binary.f32(offset + 8)
@@ -611,7 +623,8 @@ public enum SmeltGLB {
             let offset = viewOffset + accessorOffset
             guard count >= 0, stride >= elementBytes,
                   offset >= viewOffset,
-                  count == 0 || offset + (count - 1) * stride + elementBytes
+        count == 0
+          || offset + (count - 1) * stride + elementBytes
                     <= viewOffset + viewLength,
                   viewOffset + viewLength <= binary.count
             else {
@@ -655,11 +668,14 @@ public enum SmeltGLB {
                 self.init(values: matrix.map(\.floatValue))
                 return
             }
-            let translation = (node["translation"] as? [NSNumber])?.map(\.floatValue)
+      let translation =
+        (node["translation"] as? [NSNumber])?.map(\.floatValue)
                 ?? [0, 0, 0]
-            let scale = (node["scale"] as? [NSNumber])?.map(\.floatValue)
+      let scale =
+        (node["scale"] as? [NSNumber])?.map(\.floatValue)
                 ?? [1, 1, 1]
-            let rotation = (node["rotation"] as? [NSNumber])?.map(\.floatValue)
+      let rotation =
+        (node["rotation"] as? [NSNumber])?.map(\.floatValue)
                 ?? [0, 0, 0, 1]
             guard translation.count == 3, scale.count == 3, rotation.count == 4 else {
                 throw SmeltGLBError.invalidDocument("node TRS is invalid")
@@ -668,9 +684,15 @@ public enum SmeltGLB {
             let y = rotation[1]
             let z = rotation[2]
             let w = rotation[3]
-            let xx = x * x, yy = y * y, zz = z * z
-            let xy = x * y, xz = x * z, yz = y * z
-            let wx = w * x, wy = w * y, wz = w * z
+      let xx = x * x
+      let yy = y * y
+      let zz = z * z
+      let xy = x * y
+      let xz = x * z
+      let yz = y * z
+      let wx = w * x
+      let wy = w * y
+      let wz = w * z
             self.init(values: [
                 (1 - 2 * (yy + zz)) * scale[0],
                 (2 * (xy + wz)) * scale[0],
@@ -690,7 +712,8 @@ public enum SmeltGLB {
             for column in 0..<4 {
                 for row in 0..<4 {
                     for inner in 0..<4 {
-                        result[column * 4 + row] += left.values[inner * 4 + row]
+            result[column * 4 + row] +=
+              left.values[inner * 4 + row]
                             * right.values[column * 4 + inner]
                     }
                 }
@@ -710,10 +733,17 @@ public enum SmeltGLB {
         }
 
         func transformNormal(_ normal: SIMD3<Float>) -> SIMD3<Float> {
-            let a = values[0], b = values[4], c = values[8]
-            let d = values[1], e = values[5], f = values[9]
-            let g = values[2], h = values[6], i = values[10]
-            let determinant = a * (e * i - f * h) - b * (d * i - f * g)
+      let a = values[0]
+      let b = values[4]
+      let c = values[8]
+      let d = values[1]
+      let e = values[5]
+      let f = values[9]
+      let g = values[2]
+      let h = values[6]
+      let i = values[10]
+      let determinant =
+        a * (e * i - f * h) - b * (d * i - f * g)
                 + c * (d * h - e * g)
             guard abs(determinant) > 1e-12 else { return .zero }
             let inverse = 1 / determinant
@@ -731,7 +761,7 @@ public enum SmeltGLB {
 }
 
 /// Structural and numerical facts recovered from a persisted skinned GLB.
-public struct SmeltGLBRigSummary: Codable, Equatable, Sendable {
+public struct SmeltGLBSkinSummary: Codable, Equatable, Sendable {
     /// Number of vertices carrying joint and weight attributes.
     public let vertexCount: Int
 
@@ -748,20 +778,20 @@ public struct SmeltGLBRigSummary: Codable, Equatable, Sendable {
     public let maximumWeightSumError: Float
 }
 
-private extension Data {
-    func u16(_ offset: Int) -> UInt16 {
+extension Data {
+  fileprivate func u16(_ offset: Int) -> UInt16 {
         withUnsafeBytes { bytes in
             UInt16(littleEndian: bytes.loadUnaligned(fromByteOffset: offset, as: UInt16.self))
         }
     }
 
-    func u32(_ offset: Int) -> UInt32 {
+  fileprivate func u32(_ offset: Int) -> UInt32 {
         withUnsafeBytes { bytes in
             UInt32(littleEndian: bytes.loadUnaligned(fromByteOffset: offset, as: UInt32.self))
         }
     }
 
-    func f32(_ offset: Int) -> Float {
+  fileprivate func f32(_ offset: Int) -> Float {
         Float(bitPattern: u32(offset))
     }
 }

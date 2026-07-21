@@ -2,7 +2,7 @@
 // state-dict checkpoints.
 //
 // PyTorch's current ZIP serialization stores an uncompressed protocol-2
-// pickle plus one uncompressed file per storage. Rig checkpoints use this
+// pickle plus one uncompressed file per storage. Component checkpoints use this
 // representation. This loader interprets only the small pickle opcode and
 // reducer surface required to recover dense tensor metadata; it never imports
 // Python, executes pickle globals, or materializes tensor payloads.
@@ -44,33 +44,33 @@ public enum PyTorchCheckpointError: Error, CustomStringConvertible {
 
     public var description: String {
         switch self {
-        case let .fileNotFound(path):
+    case .fileNotFound(let path):
             return "PyTorch checkpoint not found: \(path)"
-        case let .mmapFailed(path):
+    case .mmapFailed(let path):
             return "Failed to mmap PyTorch checkpoint: \(path)"
-        case let .invalidZip(reason):
+    case .invalidZip(let reason):
             return "Invalid PyTorch ZIP checkpoint: \(reason)"
-        case let .unsupportedZipFeature(reason):
+    case .unsupportedZipFeature(let reason):
             return "Unsupported PyTorch ZIP feature: \(reason)"
-        case let .missingArchiveEntry(name):
+    case .missingArchiveEntry(let name):
             return "PyTorch checkpoint is missing archive entry: \(name)"
-        case let .duplicateArchiveEntry(name):
+    case .duplicateArchiveEntry(let name):
             return "PyTorch checkpoint contains duplicate archive entry: \(name)"
-        case let .invalidPickle(reason):
+    case .invalidPickle(let reason):
             return "Invalid restricted PyTorch pickle: \(reason)"
-        case let .unsupportedPickleOpcode(opcode, offset):
+    case .unsupportedPickleOpcode(let opcode, let offset):
             return String(
                 format: "Unsupported PyTorch pickle opcode 0x%02x at byte %d",
                 opcode,
                 offset
             )
-        case let .unsupportedStorageType(name):
+    case .unsupportedStorageType(let name):
             return "Unsupported PyTorch storage type: \(name)"
-        case let .duplicateTensor(name):
+    case .duplicateTensor(let name):
             return "PyTorch state dictionary contains duplicate tensor: \(name)"
-        case let .missingStorage(key, tensor):
+    case .missingStorage(let key, let tensor):
             return "PyTorch tensor \(tensor) references missing storage \(key)"
-        case let .invalidTensor(name, reason):
+    case .invalidTensor(let name, let reason):
             return "Invalid PyTorch tensor \(name): \(reason)"
         }
     }
@@ -510,7 +510,8 @@ private enum PyTorchRestrictedPickle {
         }
         func readUInt32() throws -> UInt32 {
             try require(4)
-            let value = UInt32(bytes[cursor])
+      let value =
+        UInt32(bytes[cursor])
                 | (UInt32(bytes[cursor + 1]) << 8)
                 | (UInt32(bytes[cursor + 2]) << 16)
                 | (UInt32(bytes[cursor + 3]) << 24)
@@ -537,10 +538,12 @@ private enum PyTorchRestrictedPickle {
             return value
         }
         func valuesAfterMark() throws -> [Value] {
-            guard let mark = stack.lastIndex(where: {
+      guard
+        let mark = stack.lastIndex(where: {
                 if case .marker = $0 { return true }
                 return false
-            }) else {
+        })
+      else {
                 throw PyTorchCheckpointError.invalidPickle("missing MARK at \(cursor)")
             }
             let values = Array(stack[(mark + 1)...])
@@ -548,27 +551,27 @@ private enum PyTorchRestrictedPickle {
             return values
         }
         func integer(_ value: Value, role: String) throws -> Int {
-            guard case let .integer(result) = value else {
+      guard case .integer(let result) = value else {
                 throw PyTorchCheckpointError.invalidPickle("\(role) is not an integer")
             }
             return result
         }
         func string(_ value: Value, role: String) throws -> String {
-            guard case let .string(result) = value else {
+      guard case .string(let result) = value else {
                 throw PyTorchCheckpointError.invalidPickle("\(role) is not a string")
             }
             return result
         }
         func integers(_ value: Value, role: String) throws -> [Int] {
-            guard case let .tuple(values) = value else {
+      guard case .tuple(let values) = value else {
                 throw PyTorchCheckpointError.invalidPickle("\(role) is not a tuple")
             }
             return try values.map { try integer($0, role: role) }
         }
         func capture(_ value: Value) {
-            guard case let .tensor(tensor) = value,
+      guard case .tensor(let tensor) = value,
                   let candidate = stack.last,
-                  case let .string(name) = candidate
+        case .string(let name) = candidate
             else { return }
             tensors.append(
                 PyTorchParsedTensor(
@@ -664,13 +667,13 @@ private enum PyTorchRestrictedPickle {
                 stack.append(.tuple([first, second, third]))
             case 0x51: // BINPERSID
                 let persistent = try pop()
-                guard case let .tuple(values) = persistent,
+        guard case .tuple(let values) = persistent,
                       values.count == 5
                 else {
                     throw PyTorchCheckpointError.invalidPickle("unsupported persistent ID")
                 }
                 guard try string(values[0], role: "persistent tag") == "storage",
-                      case let .global(module, storageName) = values[1],
+          case .global(let module, let storageName) = values[1],
                       module == "torch"
                 else {
                     throw PyTorchCheckpointError.invalidPickle("unsupported persistent object")
@@ -689,16 +692,16 @@ private enum PyTorchRestrictedPickle {
                 let arguments = try pop()
                 let callable = try pop()
                 let reduced: Value
-                if case let .global(module, name) = callable,
+        if case .global(let module, let name) = callable,
                    module == "collections", name == "OrderedDict"
                 {
                     reduced = .dictionary
-                } else if case let .global(module, name) = callable,
+        } else if case .global(let module, let name) = callable,
                           module == "torch._utils", name == "_rebuild_tensor_v2"
                 {
-                    guard case let .tuple(values) = arguments,
+          guard case .tuple(let values) = arguments,
                           values.count >= 4,
-                          case let .storage(storage) = values[0]
+            case .storage(let storage) = values[0]
                     else {
                         throw PyTorchCheckpointError.invalidPickle(
                             "invalid _rebuild_tensor_v2 arguments"
@@ -726,14 +729,14 @@ private enum PyTorchRestrictedPickle {
                 _ = try valuesAfterMark()
             case 0x61: // APPEND
                 let value = try pop()
-                guard let container = stack.popLast(), case var .list(values) = container else {
+        guard let container = stack.popLast(), case .list(var values) = container else {
                     throw PyTorchCheckpointError.invalidPickle("APPEND target is not a list")
                 }
                 values.append(value)
                 stack.append(.list(values))
             case 0x65: // APPENDS
                 let values = try valuesAfterMark()
-                guard let container = stack.popLast(), case var .list(existing) = container else {
+        guard let container = stack.popLast(), case .list(var existing) = container else {
                     throw PyTorchCheckpointError.invalidPickle("APPENDS target is not a list")
                 }
                 existing.append(contentsOf: values)

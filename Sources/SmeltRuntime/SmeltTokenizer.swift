@@ -428,14 +428,14 @@ public struct SmeltTokenizer {
     public func llguidanceVocabulary(
         eosTokens requestedEOSTokens: [Int32] = []
     ) -> SmeltLLGuidanceVocabulary {
-        if case .mapped(let tables) = lookup, let baked = tables.llgVocabulary() {
+        if case .mapped(let tables) = lookup, let compiled = tables.llgVocabulary() {
             return SmeltLLGuidanceVocabulary(
-                vocabSize: baked.lengths.count,
+                vocabSize: compiled.lengths.count,
                 eosTokens: resolvedLLGEOSTokens(
-                    requestedEOSTokens, size: baked.lengths.count
+                    requestedEOSTokens, size: compiled.lengths.count
                 ),
-                tokenLengths: baked.lengths,
-                tokenBytes: baked.bytes
+                tokenLengths: compiled.lengths,
+                tokenBytes: compiled.bytes
             )
         }
 
@@ -834,7 +834,7 @@ struct MappedTokenizerTables {
     let llgBytesOffset: Int
     let llgBytesSize: Int
 
-    /// Bulk-materialize the baked llguidance arrays.
+    /// Bulk-materialize the compiled llguidance arrays.
     func llgVocabulary() -> (lengths: [UInt32], bytes: [UInt8])? {
         guard llgCount > 0 else { return nil }
         return data.withUnsafeBytes { raw -> ([UInt32], [UInt8]) in
