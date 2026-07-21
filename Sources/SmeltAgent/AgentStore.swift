@@ -29,16 +29,12 @@ package enum AgentStore {
         _ artifact: AgentArtifact,
         fileManager: FileManager = .default
     ) throws -> AgentArtifact {
+        let artifact = try AgentArtifact.load(at: artifact.url)
         let root = rootURL()
-        try fileManager.createDirectory(at: root, withIntermediateDirectories: true)
         let destination = root.appendingPathComponent(
             "\(artifact.manifest.name).agent",
             isDirectory: true
         )
-        if fileManager.fileExists(atPath: destination.path) {
-            try fileManager.removeItem(at: destination)
-        }
-        try fileManager.copyItem(at: artifact.url, to: destination)
-        return try AgentArtifact.load(at: destination)
+        return try artifact.copy(to: destination, fileManager: fileManager)
     }
 }

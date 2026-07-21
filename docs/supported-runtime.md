@@ -53,10 +53,11 @@ identity, optional instructions, tool names, and the default `once` or
 underlying package is resolved through `SmeltPackageStore`, so multiple agents
 can reuse the same package pages in memory.
 
-Interactive mode loads `integrations/pi-smelt-agent`. The Swift launcher passes
-the exact current `smelt` executable path to the adapter, which uses the hidden
-`smelt agent _serve-model` transport command. Generic serving remains
-`smelt serve`; there is no public agent-serve command or separate `ia` binary.
+Interactive mode loads the Pi extension bundled in SmeltCLI's resources. The
+Swift launcher passes the exact current `smelt` executable path to the adapter,
+which uses the hidden `smelt agent _serve-model` transport command. Generic
+serving remains `smelt serve`; there is no public agent-serve command or
+separate agent executable.
 
 ## Verification
 

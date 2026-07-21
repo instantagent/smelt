@@ -49,9 +49,10 @@ SMELT_AGENT_PI_SERVE_DIAGNOSTICS
                               under ~/Library/Logs/smelt/agent/
 ```
 
-`SMELT_AGENT_PI_EXTENSION_PATH`, `SMELT_AGENT_PI_EXECUTABLE`, and
-`SMELT_AGENT_PI_BIN` are development/test overrides. A normal
-`smelt agent` invocation sets the binary and extension paths itself.
+`SMELT_AGENT_PI_EXTENSION_PATH` and `SMELT_AGENT_PI_EXECUTABLE` are
+development/test overrides. `SMELT_AGENT_PI_BIN` is a required launcher
+contract: a normal `smelt agent` invocation always sets it to the exact current
+executable, so the extension never searches for another `smelt` on `PATH`.
 
 ## Conversational create
 
@@ -78,8 +79,9 @@ without making its transcript the canonical source.
 ## Package check
 
 ```bash
-npm pack --dry-run ./integrations/pi-smelt-agent
+npm pack --dry-run ./Sources/SmeltCLI/Resources/pi-smelt-agent
 ```
 
-Source builds resolve this directory directly. Packaged Smelt distributions
-install it under `share/smelt/agent/pi` beside the `smelt` executable.
+SwiftPM copies this directory into SmeltCLI's resource bundle. Packaged
+distributions may alternatively install it under `share/smelt/agent/pi` beside
+the `smelt` executable.

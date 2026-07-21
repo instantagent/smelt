@@ -45,11 +45,14 @@ final class SmeltAgentTests: XCTestCase {
             withDestinationURL: blob
         )
         let packageStore = root.appendingPathComponent("smelt-store", isDirectory: true)
+        let agentStore = root.appendingPathComponent("agent-store", isDirectory: true)
         setenv("SMELT_PACKAGE_STORE_DIR", packageStore.path, 1)
         setenv("SMELT_CAS_DIR", cas.path, 1)
+        setenv("SMELT_AGENT_STORE_DIR", agentStore.path, 1)
         defer {
             unsetenv("SMELT_PACKAGE_STORE_DIR")
             unsetenv("SMELT_CAS_DIR")
+            unsetenv("SMELT_AGENT_STORE_DIR")
         }
 
         let first = try AgentArtifact.create(
@@ -99,6 +102,16 @@ final class SmeltAgentTests: XCTestCase {
             Data(repeating: 7, count: 1024)
         )
 
+        let freshPackageStore = root.appendingPathComponent(
+            "fresh-smelt-store",
+            isDirectory: true
+        )
+        setenv("SMELT_PACKAGE_STORE_DIR", freshPackageStore.path, 1)
+        let installed = try AgentRegistry.install(name: "first", registry: registry)
+        XCTAssertEqual(installed.manifest, first.manifest)
+        XCTAssertEqual(installed.url.deletingLastPathComponent(), agentStore)
+        XCTAssertNotNil(try SmeltPackageStore.locate(identity: first.manifest.model.smeltPackageIdentity))
+
         XCTAssertThrowsError(try AgentRegistry.publish(
             first,
             name: "../../outside",
@@ -137,6 +150,63 @@ final class SmeltAgentTests: XCTestCase {
             XCTAssertEqual(
                 error as? AgentManifestError,
                 AgentManifestError.unsupportedVersion(2)
+            )
+        }
+    }
+
+    func testRejectsNonThinAgentArtifact() throws {
+        let scratch = FileManager.default.temporaryDirectory.appendingPathComponent(
+            "smelt-agent-invalid-\(UUID().uuidString)",
+            isDirectory: true
+        )
+        defer { try? FileManager.default.removeItem(at: scratch) }
+        let root = scratch.appendingPathComponent(
+            "smelt-agent-extra-entry-\(UUID().uuidString).agent",
+            isDirectory: true
+        )
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        let identity = String(repeating: "a", count: 64)
+        try Data(
+            """
+            {"version":1,"name":"extra","model":{"smelt_package_identity":"\(identity)"},"tools":[],"defaultMode":"once"}
+            """.utf8
+        ).write(to: root.appendingPathComponent(AgentManifest.fileName))
+        try Data(repeating: 0, count: 16).write(to: root.appendingPathComponent("weights.bin"))
+
+        XCTAssertThrowsError(try AgentArtifact.load(at: root)) { error in
+            XCTAssertEqual(
+                error as? AgentArtifactError,
+                AgentArtifactError.unexpectedEntries([AgentManifest.fileName, "weights.bin"])
+            )
+        }
+
+        let store = scratch.appendingPathComponent("agent-store", isDirectory: true)
+        setenv("SMELT_AGENT_STORE_DIR", store.path, 1)
+        defer { unsetenv("SMELT_AGENT_STORE_DIR") }
+        let previouslyLoaded = AgentArtifact(
+            url: root,
+            manifest: AgentManifest(
+                name: "extra",
+                model: .init(smeltPackageIdentity: identity)
+            )
+        )
+        XCTAssertThrowsError(try AgentStore.install(previouslyLoaded))
+        XCTAssertFalse(FileManager.default.fileExists(
+            atPath: store.appendingPathComponent("extra.agent").path
+        ))
+
+        try FileManager.default.removeItem(at: root.appendingPathComponent("weights.bin"))
+        let manifestURL = root.appendingPathComponent(AgentManifest.fileName)
+        let externalManifest = scratch.appendingPathComponent("external-agent.json")
+        try FileManager.default.moveItem(at: manifestURL, to: externalManifest)
+        try FileManager.default.createSymbolicLink(
+            at: manifestURL,
+            withDestinationURL: externalManifest
+        )
+        XCTAssertThrowsError(try AgentArtifact.load(at: root)) { error in
+            XCTAssertEqual(
+                error as? AgentArtifactError,
+                AgentArtifactError.invalidManifestEntry(manifestURL.path)
             )
         }
     }

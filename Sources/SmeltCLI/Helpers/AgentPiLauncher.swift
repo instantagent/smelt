@@ -5,6 +5,7 @@ import SmeltAgent
 enum PiLauncherError: Error, CustomStringConvertible {
     case piMissing(String)
     case extensionMissing([String])
+    case smeltExecutableMissing([String])
     case terminalRequired
 
     var description: String {
@@ -13,6 +14,9 @@ enum PiLauncherError: Error, CustomStringConvertible {
             return "Pi is required (looked for \(executable)); install it with `brew install pi-coding-agent`"
         case .extensionMissing(let candidates):
             return "Smelt agent's Pi extension is missing; looked in: \(candidates.joined(separator: ", "))"
+        case .smeltExecutableMissing(let candidates):
+            return "cannot resolve the current Smelt executable; looked in: "
+                + candidates.joined(separator: ", ")
         case .terminalRequired:
             return "interactive Smelt agent use requires a terminal"
         }
@@ -37,7 +41,7 @@ func launchPiInteractiveAgent(
     setenv("SMELT_AGENT_PI_AGENT_PACKAGE", artifact.url.path, 1)
     setenv("SMELT_AGENT_PI_AGENT_ID", "current", 1)
     setenv("SMELT_AGENT_PI_AGENT_NAME", artifact.manifest.name, 1)
-    setenv("SMELT_AGENT_PI_BIN", currentSmeltExecutablePath(), 1)
+    setenv("SMELT_AGENT_PI_BIN", try currentSmeltExecutablePath(), 1)
     setenv("SMELT_AGENT_PI_MAX_TOKENS", String(maxTokens), 1)
     setenv("SMELT_AGENT_PI_SEED", String(seed), 1)
     if let temperature {
@@ -100,7 +104,7 @@ func launchPiAuthoringAgent(name: String) throws -> Never {
     setenv("SMELT_AGENT_AUTHOR_DRAFT", draft.path, 1)
     setenv("SMELT_AGENT_AUTHOR_NAME", normalized, 1)
     setenv("SMELT_AGENT_AUTHOR_OUTPUT", output.path, 1)
-    setenv("SMELT_AGENT_PI_BIN", currentSmeltExecutablePath(), 1)
+    setenv("SMELT_AGENT_PI_BIN", try currentSmeltExecutablePath(), 1)
 
     let sessions = draft.appendingPathComponent(".pi-sessions", isDirectory: true)
     try FileManager.default.createDirectory(at: sessions, withIntermediateDirectories: true)
@@ -157,15 +161,33 @@ private func prepareAuthoringDraft(at draft: URL) throws {
     try writeIfMissing("cases.jsonl", Data())
 }
 
-private func resolvePiExtensionPath(environment: [String: String]) throws -> String {
-    if let configured = environment["SMELT_AGENT_PI_EXTENSION_PATH"], piExtensionExists(configured) {
-        return URL(fileURLWithPath: configured, isDirectory: true).standardizedFileURL.path
+func resolvePiExtensionPath(
+    environment: [String: String],
+    executablePath: String? = nil,
+    currentDirectory: String = FileManager.default.currentDirectoryPath
+) throws -> String {
+    if let configured = environment["SMELT_AGENT_PI_EXTENSION_PATH"] {
+        let path = URL(fileURLWithPath: configured, isDirectory: true).standardizedFileURL.path
+        guard piExtensionExists(path) else {
+            throw PiLauncherError.extensionMissing([path])
+        }
+        return path
     }
-    let executable = URL(fileURLWithPath: currentSmeltExecutablePath()).standardizedFileURL
+    let resolvedExecutablePath: String
+    if let executablePath {
+        resolvedExecutablePath = executablePath
+    } else {
+        resolvedExecutablePath = try currentSmeltExecutablePath()
+    }
+    let executable = URL(fileURLWithPath: resolvedExecutablePath).standardizedFileURL
+    let executableDirectory = executable.deletingLastPathComponent()
     var candidates = [
-        URL(fileURLWithPath: FileManager.default.currentDirectoryPath, isDirectory: true)
-            .appendingPathComponent("integrations/pi-smelt-agent").path,
-        executable.deletingLastPathComponent().deletingLastPathComponent()
+        executableDirectory
+            .appendingPathComponent("Smelt_SmeltCLI.bundle", isDirectory: true)
+            .appendingPathComponent("pi-smelt-agent", isDirectory: true).path,
+        URL(fileURLWithPath: currentDirectory, isDirectory: true)
+            .appendingPathComponent("Sources/SmeltCLI/Resources/pi-smelt-agent").path,
+        executableDirectory.deletingLastPathComponent()
             .appendingPathComponent("share/smelt/agent/pi").path,
     ]
     var directory = executable.deletingLastPathComponent()
@@ -173,7 +195,7 @@ private func resolvePiExtensionPath(environment: [String: String]) throws -> Str
         if directory.lastPathComponent == ".build" {
             candidates.append(
                 directory.deletingLastPathComponent()
-                    .appendingPathComponent("integrations/pi-smelt-agent").path
+                    .appendingPathComponent("Sources/SmeltCLI/Resources/pi-smelt-agent").path
             )
         }
         let parent = directory.deletingLastPathComponent()
@@ -208,13 +230,35 @@ private func executableExists(_ executable: String, environment: [String: String
     }
 }
 
-private func currentSmeltExecutablePath() -> String {
+private func currentSmeltExecutablePath() throws -> String {
+    var candidates: [String] = []
     if let bundled = Bundle.main.executableURL?.path,
        FileManager.default.isExecutableFile(atPath: bundled) {
         return URL(fileURLWithPath: bundled).standardizedFileURL.path
     }
     let raw = CommandLine.arguments[0]
-    return raw.contains("/") ? URL(fileURLWithPath: raw).standardizedFileURL.path : raw
+    if raw.contains("/") {
+        let resolved = URL(
+            fileURLWithPath: raw,
+            relativeTo: URL(
+                fileURLWithPath: FileManager.default.currentDirectoryPath,
+                isDirectory: true
+            )
+        ).standardizedFileURL.path
+        candidates.append(resolved)
+        if FileManager.default.isExecutableFile(atPath: resolved) { return resolved }
+    } else {
+        for directory in (ProcessInfo.processInfo.environment["PATH"] ?? "")
+            .split(separator: ":") {
+            let candidate = URL(
+                fileURLWithPath: String(directory),
+                isDirectory: true
+            ).appendingPathComponent(raw).standardizedFileURL.path
+            candidates.append(candidate)
+            if FileManager.default.isExecutableFile(atPath: candidate) { return candidate }
+        }
+    }
+    throw PiLauncherError.smeltExecutableMissing(candidates)
 }
 
 private func stableAgentPort(_ packagePath: String) -> Int {

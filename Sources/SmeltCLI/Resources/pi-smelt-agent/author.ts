@@ -1,7 +1,7 @@
 /** Conversational authoring extension launched by `smelt agent create <name>`. */
 import { randomUUID } from "node:crypto";
 import { appendFile, mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
-import { join, resolve } from "node:path";
+import { isAbsolute, join, resolve } from "node:path";
 import { StringEnum } from "@mariozechner/pi-ai";
 import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-agent";
 import { Type } from "typebox";
@@ -9,7 +9,7 @@ import { Type } from "typebox";
 const draft = requiredDirectory("SMELT_AGENT_AUTHOR_DRAFT");
 const agentName = process.env.SMELT_AGENT_AUTHOR_NAME || "agent";
 const outputPath = process.env.SMELT_AGENT_AUTHOR_OUTPUT || resolve(`${agentName}.agent`);
-const smeltBin = process.env.SMELT_AGENT_PI_BIN || "smelt";
+const smeltBin = requiredAbsolutePath("SMELT_AGENT_PI_BIN");
 
 const draftFiles = [
 	"Agentfile",
@@ -51,6 +51,13 @@ function requiredDirectory(name: string): string {
 	const value = process.env[name];
 	if (!value) throw new Error(`${name} is required; launch through smelt agent create`);
 	return resolve(value);
+}
+
+function requiredAbsolutePath(name: string): string {
+	const value = process.env[name];
+	if (!value) throw new Error(`${name} is required; launch through smelt agent create`);
+	if (!isAbsolute(value)) throw new Error(`${name} must be the absolute path supplied by Smelt`);
+	return value;
 }
 
 function pathFor(file: DraftFile): string {

@@ -3,7 +3,7 @@
 ## Our pledge
 
 We as members, contributors, and maintainers pledge to make participation in
-the Instant Agent community a harassment-free experience for everyone,
+the Smelt community a harassment-free experience for everyone,
 regardless of age, body size, disability, ethnicity, gender identity and
 expression, level of experience, nationality, personal appearance, race,
 religion, or sexual identity and orientation.
@@ -28,9 +28,11 @@ Examples of unacceptable behavior:
 ## Enforcement
 
 Instances of abusive, harassing, or otherwise unacceptable behavior may be
-reported to the maintainers at **conduct@instantagent.dev**. All complaints
-will be reviewed and investigated promptly and fairly. Maintainers are
-obligated to respect the privacy and security of the reporter of any incident.
+reported privately through the repository's
+[private report form](https://github.com/smelt-org/smelt/security/advisories/new);
+prefix the title with `Code of Conduct:`. All complaints will be reviewed and
+investigated promptly and fairly. Maintainers are obligated to respect the
+privacy and security of the reporter of any incident.
 
 ## Attribution
 

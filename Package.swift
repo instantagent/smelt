@@ -119,7 +119,8 @@ let package = Package(
                 "SmeltAgent", "SmeltCompiler", "SmeltLab", "SmeltRuntime",
                 "SmeltServe", "SmeltSchema",
             ],
-            path: "Sources/SmeltCLI"
+            path: "Sources/SmeltCLI",
+            resources: [.copy("Resources/pi-smelt-agent")]
         ),
         .target(
             name: "SmeltLab",

@@ -12,6 +12,7 @@ package enum AgentRegistry {
         fileManager: FileManager = .default
     ) throws -> URL {
         try AgentManifest.validateName(name)
+        let artifact = try AgentArtifact.load(at: artifact.url)
         let model = try artifact.manifest.resolveModel()
         let overlays = registry.appendingPathComponent("agents", isDirectory: true)
         let models = registry.appendingPathComponent("models", isDirectory: true)
@@ -36,11 +37,7 @@ package enum AgentRegistry {
             )
         }
         let destination = overlays.appendingPathComponent("\(name).agent", isDirectory: true)
-        if fileManager.fileExists(atPath: destination.path) {
-            try fileManager.removeItem(at: destination)
-        }
-        try fileManager.copyItem(at: artifact.url, to: destination)
-        return destination
+        return try artifact.copy(to: destination, fileManager: fileManager).url
     }
 
     package static func install(

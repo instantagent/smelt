@@ -7,8 +7,7 @@
  * provider, talking to a locally-running Smelt transport over HTTP.
  *
  * Usage:
- *   SMELT_AGENT_PI_AGENT_PACKAGE=/path/to/triage.agent \
- *     pi -e ./integrations/pi-smelt-agent --model smelt-agent/current
+ *   smelt agent run triage -i
  *
  * Environment:
  *   SMELT_AGENT_PI_OPENAI_HOST          (default 127.0.0.1) — Smelt transport bind host
@@ -21,11 +20,10 @@
  *   SMELT_AGENT_PI_BIN                                      — current smelt binary path
  */
 import { type ChildProcess, spawn } from "node:child_process";
-import { closeSync, existsSync, mkdirSync, openSync } from "node:fs";
+import { closeSync, mkdirSync, openSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { homedir } from "node:os";
-import { dirname, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { isAbsolute, join, resolve } from "node:path";
 import {
 	type Api,
 	type AssistantMessage,
@@ -68,42 +66,17 @@ const MODEL_MAP = new Map(MODELS.map((model) => [model.id, model]));
 
 // --- Path resolution -------------------------------------------------------
 
-function extensionDirectory(): string {
-	return dirname(fileURLToPath(import.meta.url));
-}
-
-export function smeltHomeCandidates(): string[] {
-	const extensionDir = extensionDirectory();
-	return uniqueExistingOrConfiguredDirectories([
-		process.env.SMELT_AGENT_PI_HOME,
-		process.cwd(),
-		resolve(process.cwd(), "..", "smelt"),
-		resolve(extensionDir, "..", ".."),
-		resolve(extensionDir, "..", "..", "..", "..", "..", "..", "smelt"),
-	]);
-}
-
-function uniqueExistingOrConfiguredDirectories(paths: Array<string | undefined>): string[] {
-	const seen = new Set<string>();
-	const result: string[] = [];
-	for (const path of paths) {
-		if (!path) continue;
-		const resolved = resolve(path);
-		if (seen.has(resolved)) continue;
-		seen.add(resolved);
-		result.push(resolved);
-	}
-	return result;
-}
-
 export function resolveSmeltBin(): string {
 	const configured = process.env.SMELT_AGENT_PI_BIN;
-	if (configured) return configured;
-	for (const home of smeltHomeCandidates()) {
-		const candidate = join(home, ".build", "release", "smelt");
-		if (existsSync(candidate)) return candidate;
+	if (!configured) {
+		throw new Error(
+			"SMELT_AGENT_PI_BIN is required; launch this extension through `smelt agent run -i`",
+		);
 	}
-	return "smelt";
+	if (!isAbsolute(configured)) {
+		throw new Error("SMELT_AGENT_PI_BIN must be the absolute path supplied by Smelt");
+	}
+	return configured;
 }
 
 interface AgentManifest {

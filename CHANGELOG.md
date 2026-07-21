@@ -1,13 +1,23 @@
 # Changelog
 
+## 0.3.1 — 2026-07-21
+
+- Bundle the Pi integration as a SmeltCLI resource and require the exact
+  launcher-supplied `smelt` executable instead of searching for an installed
+  command.
+- Enforce the manifest-only `.agent` artifact contract when loading,
+  installing, and publishing overlays.
+- Restore the curated external-consumer release gate and remove the remaining
+  live Instant Agent identity from project policy and guidance.
+
 ## 0.3.0 — 2026-07-21
 
 - Integrate the former Instant Agent policy layer as the contained internal
   `SmeltAgent` target and expose it only through `smelt agent`.
 - Preserve thin version-1 `.agent` overlays and portable registry layout while
   moving agent storage and environment names into the Smelt namespace.
-- Bundle Pi authoring and interactive execution with the current `smelt`
-  executable; no separately installed `ia` command is required or provided.
+- Integrate Pi authoring and interactive execution with the current `smelt`
+  executable; no separate agent command is required or provided.
 - Add containment and external-consumer gates proving that lower Smelt layers
   remain agent-independent and that the agent core still builds solely against
   the public runtime and serving libraries.

@@ -24,6 +24,5 @@ approval.
 
 Agent product changes belong in the isolated `SmeltAgent` target, the
 `smelt agent` CLI leaf, and its Pi integration. Generic compiler, runtime,
-serving, model, and lab targets must not import that layer. During the approved
-integration, `~/Projects/instantagent` is a read-only source to migrate rather
-than a second development authority.
+serving, model, and lab targets must not import that layer. There is no separate
+agent repository, executable, release train, or development authority.

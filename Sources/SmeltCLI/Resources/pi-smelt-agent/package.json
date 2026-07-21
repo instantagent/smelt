@@ -1,6 +1,6 @@
 {
   "name": "smelt-agent-pi",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "private": true,
   "description": "Pi terminal integration for Smelt agent packages",
   "type": "module",

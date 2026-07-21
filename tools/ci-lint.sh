@@ -3,7 +3,15 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-if rg -n 'import (InstantAgent|Agent[A-Z][A-Za-z0-9_]*)' Package.swift Sources; then
+repo_search() {
+  if command -v rg >/dev/null 2>&1; then
+    rg "$@"
+  else
+    grep -Er "$@"
+  fi
+}
+
+if repo_search -n 'import (InstantAgent|Agent[A-Z][A-Za-z0-9_]*)' Package.swift Sources; then
   echo "Smelt must not import an Instant Agent product target" >&2
   exit 1
 fi
@@ -13,7 +21,7 @@ if find Sources -mindepth 1 -maxdepth 1 -type d -name 'Agent*' -print -quit | gr
   exit 1
 fi
 
-if rg -n '^[[:space:]]*import SmeltAgent\b' \
+if repo_search -n '^[[:space:]]*import SmeltAgent\b' \
   Sources/SmeltSchema Sources/SmeltCompiler Sources/SmeltRuntime \
   Sources/SmeltServe Sources/SmeltLab Sources/SmeltModels \
   Sources/SmeltModuleAuthoring; then
@@ -21,26 +29,54 @@ if rg -n '^[[:space:]]*import SmeltAgent\b' \
   exit 1
 fi
 
-if rg -n '\.library\(name: "SmeltAgent"' Package.swift; then
+if repo_search -n '\.library\(name: "SmeltAgent"' Package.swift; then
   echo "SmeltAgent is an internal target, not a public Swift product" >&2
   exit 1
 fi
 
-if rg -n '\bInstantAgent\b|Instant Agent|\bIA_[A-Z0-9_]+\b|\bia (create|run|install|publish)\b' \
-  Sources/SmeltAgent Sources/SmeltCLI/Commands/Agent.swift \
-  Sources/SmeltCLI/Helpers/AgentPiLauncher.swift Tests/SmeltAgentTests \
-  integrations/pi-smelt-agent README.md docs/VISION.md \
-  docs/supported-runtime.md docs/testing.md; then
+identity_paths=(
+  Sources/SmeltAgent Sources/SmeltCLI/Commands/Agent.swift
+  Sources/SmeltCLI/Helpers/AgentPiLauncher.swift Tests/SmeltAgentTests
+  Sources/SmeltCLI/Resources/pi-smelt-agent README.md SECURITY.md
+  CODE_OF_CONDUCT.md CONTRIBUTING.md CLAUDE.md docs/VISION.md
+  docs/supported-runtime.md docs/testing.md docs/PERF_STATUS.md
+  docs/ASSUMPTIONS.md docs/model-bringup-framework.md
+  docs/r2-host-loop-protocol.md Models/evidence/inkling-cost/README.md
+)
+existing_identity_paths=()
+for path in "${identity_paths[@]}"; do
+  [[ -e "$path" ]] && existing_identity_paths+=("$path")
+done
+if repo_search -n '\bInstantAgent\b|Instant Agent|\bIA_[A-Z0-9_]+\b|\bia (create|run|install|publish|build|serve|module|lab|verify|bench|prefill-bench)\b' \
+  "${existing_identity_paths[@]}"; then
   echo "retired Instant Agent identity remains in a live product surface" >&2
   exit 1
 fi
 
-for retired in integrations/pi-instant-agent Formula/instant-agent.rb site; do
+for retired in integrations/pi-instant-agent integrations/pi-smelt-agent \
+  Formula/instant-agent.rb site; do
   if [[ -e "$retired" ]]; then
     echo "Instant Agent product residue remains in Smelt: $retired" >&2
     exit 1
   fi
 done
+
+pi_resource=Sources/SmeltCLI/Resources/pi-smelt-agent
+for required in README.md author.ts coding-tools.json index.ts package.json; do
+  if [[ ! -f "$pi_resource/$required" ]]; then
+    echo "SmeltCLI Pi resource is missing $required" >&2
+    exit 1
+  fi
+done
+if ! repo_search -q 'resources: \[\.copy\("Resources/pi-smelt-agent"\)\]' Package.swift; then
+  echo "SmeltCLI must bundle the Pi integration resource" >&2
+  exit 1
+fi
+if repo_search -n 'return "smelt"|\|\| "smelt"|SMELT_AGENT_PI_HOME|\.build.*release.*smelt' \
+  "$pi_resource"/*.ts; then
+  echo "Pi integration must use the exact launcher-supplied Smelt executable" >&2
+  exit 1
+fi
 
 python3 - <<'PY'
 import re
@@ -118,6 +154,16 @@ if active_plan_path.is_file():
 print("cli surface: canonical")
 PY
 
+enumerate_repository_files() {
+  if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    git ls-files --cached --others --exclude-standard -z
+  else
+    find . \
+      \( -path './.git' -o -path './.build' -o -path './.swiftpm' \) -prune \
+      -o -type f -print0
+  fi
+}
+
 shell_count=0
 while IFS= read -r -d '' file; do
   [[ -f "$file" ]] || continue
@@ -128,7 +174,7 @@ while IFS= read -r -d '' file; do
       ((shell_count += 1))
       ;;
   esac
-done < <(git ls-files --cached --others --exclude-standard -z)
+done < <(enumerate_repository_files)
 
 python3 - <<'PY'
 import ast
@@ -136,13 +182,19 @@ import json
 from pathlib import Path
 import subprocess
 
-paths = [
-    Path(raw.decode("utf-8"))
-    for raw in subprocess.check_output(
-        ["git", "ls-files", "--cached", "--others", "--exclude-standard", "-z"]
+try:
+    raw_paths = subprocess.check_output(
+        ["git", "ls-files", "--cached", "--others", "--exclude-standard", "-z"],
+        stderr=subprocess.DEVNULL,
     ).split(b"\0")
-    if raw
-]
+    paths = [Path(raw.decode("utf-8")) for raw in raw_paths if raw]
+except (subprocess.CalledProcessError, FileNotFoundError):
+    ignored_roots = {".git", ".build", ".swiftpm"}
+    paths = [
+        path
+        for path in Path(".").rglob("*")
+        if path.is_file() and not ignored_roots.intersection(path.parts)
+    ]
 
 python_count = 0
 json_count = 0

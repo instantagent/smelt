@@ -9,6 +9,7 @@ Smelt agent
   smelt agent create <name> --model <model.smeltpkg>
                      [--system TEXT|--system-file FILE]
                      [--tool NAME ...] [--interactive] [--output NAME.agent]
+  smelt agent create <name> --from Agentfile [--output NAME.agent]
   smelt agent run <name|path.agent> [prompt]
                   [--max-tokens N] [--temperature T] [--seed N]
   smelt agent run <name|path.agent> --interactive
