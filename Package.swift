@@ -7,14 +7,14 @@ import PackageDescription
 // source instead (upstream tag + tools/llguidance-serialize.patch); its local
 // xcframework takes precedence when present. When bumping LLG_REF or the
 // patch, re-run the script with --package, pin the new checksum below, and
-// upload the zip to the matching public instantagent/binaries release tag.
+// upload the zip to the matching public smelt-org/binaries release tag.
 let localLLGuidance = "third_party/llguidance/CLLGuidance.xcframework"
 let llguidanceTarget: Target = FileManager.default.fileExists(
     atPath: Context.packageDirectory + "/" + localLLGuidance)
     ? .binaryTarget(name: "CLLGuidance", path: localLLGuidance)
     : .binaryTarget(
         name: "CLLGuidance",
-        url: "https://github.com/instantagent/binaries/releases/download/llguidance-v1.7.4-agent1/CLLGuidance.xcframework.zip",
+        url: "https://github.com/smelt-org/binaries/releases/download/llguidance-v1.7.4-agent1/CLLGuidance.xcframework.zip",
         checksum: "10b2b69b9e2c88cb8cdb4a574ad141988f103221abdf75b3069c8fcee329686b"
     )
 
@@ -105,11 +105,19 @@ let package = Package(
             dependencies: ["SmeltRuntime", "SmeltSchema"],
             path: "Sources/SmeltServe"
         ),
+        // Agent policy is an internal layer over the public runtime and serve
+        // libraries. It ships through `smelt agent`; it is deliberately not a
+        // library product or a dependency of the lower-level Smelt modules.
+        .target(
+            name: "SmeltAgent",
+            dependencies: ["SmeltRuntime", "SmeltServe"],
+            path: "Sources/SmeltAgent"
+        ),
         .executableTarget(
             name: "SmeltCLI",
             dependencies: [
-                "SmeltCompiler", "SmeltLab", "SmeltRuntime", "SmeltServe",
-                "SmeltSchema",
+                "SmeltAgent", "SmeltCompiler", "SmeltLab", "SmeltRuntime",
+                "SmeltServe", "SmeltSchema",
             ],
             path: "Sources/SmeltCLI"
         ),
@@ -127,6 +135,11 @@ let package = Package(
             name: "SmeltCLITests",
             dependencies: ["SmeltCLI", "SmeltServe"],
             path: "Tests/SmeltCLITests"
+        ),
+        .testTarget(
+            name: "SmeltAgentTests",
+            dependencies: ["SmeltAgent", "SmeltRuntime", "SmeltServe"],
+            path: "Tests/SmeltAgentTests"
         ),
         .testTarget(
             name: "SmeltCompilerTests",

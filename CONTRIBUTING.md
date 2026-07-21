@@ -22,6 +22,8 @@ surface changes. GitHub CI deliberately stays a seconds-level Linux lint lane;
 do not add hosted macOS, Metal, full-test, cache, or model jobs without owner
 approval.
 
-Instant Agent changes belong in `~/Projects/instantagent`. Smelt may expose a
-generic API needed by that downstream consumer, but must never import its
-product policy, registry, Pi integration, or `.agent` implementation.
+Agent product changes belong in the isolated `SmeltAgent` target, the
+`smelt agent` CLI leaf, and its Pi integration. Generic compiler, runtime,
+serving, model, and lab targets must not import that layer. During the approved
+integration, `~/Projects/instantagent` is a read-only source to migrate rather
+than a second development authority.

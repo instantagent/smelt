@@ -1,10 +1,22 @@
 # Changelog
 
+## 0.3.0 — 2026-07-21
+
+- Integrate the former Instant Agent policy layer as the contained internal
+  `SmeltAgent` target and expose it only through `smelt agent`.
+- Preserve thin version-1 `.agent` overlays and portable registry layout while
+  moving agent storage and environment names into the Smelt namespace.
+- Bundle Pi authoring and interactive execution with the current `smelt`
+  executable; no separately installed `ia` command is required or provided.
+- Add containment and external-consumer gates proving that lower Smelt layers
+  remain agent-independent and that the agent core still builds solely against
+  the public runtime and serving libraries.
+
 ## 0.2.0 — 2026-07-20
 
-This release establishes Smelt as the lower-level model compiler, package,
-runtime, serving, and optimization toolkit consumed by products such as
-[Instant Agent](https://github.com/instantagent/instantagent).
+This release established Smelt as a lower-level model compiler, package,
+runtime, serving, and optimization toolkit. Its former standalone Instant
+Agent consumer was integrated into Smelt in 0.3.0.
 
 - Consolidate inspection, profiling, benchmarking, kernel sweeps, and
   correctness checks under the discoverable `smelt lab` command. The former

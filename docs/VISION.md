@@ -21,8 +21,11 @@ persistent form of the same package-faithful execution authority. Rigging,
 text, audio, vision, and future modalities extend through declared block graphs
 and typed ports rather than family switches in the public CLI.
 
-Higher-level products should be downstream. Instant Agent is the first: it
-owns agent authoring, policy, registries, tools, Pi UX, and behavioral evals in
-its own repository while consuming Smelt's runtime and content-addressed model
-packages. That split lets kernel and compiler gains benefit every consumer
-without turning Smelt into an agent product.
+The agent product is an optional leaf over the same lower-level toolkit.
+`SmeltAgent` owns `.agent` overlays, Agentfile authoring, policy, registries,
+tools, Pi UX, and behavioral evaluation; `smelt agent` exposes it through the
+one installed executable. The dependency remains one-way inside the package:
+the agent leaf consumes Smelt's runtime and content-addressed model packages,
+while schema, compiler, runtime, serving, models, and lab code remain agent
+independent. This keeps model and kernel gains universal without paying for a
+second repository and release train.

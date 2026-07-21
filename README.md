@@ -46,16 +46,24 @@ graph, run contract, tokenizer or modality adapters, runtime policy, kernels,
 weights, and integrity data. `smelt run` executes one package-authored request;
 `smelt serve` keeps the same package-faithful runtime resident.
 
-Products ship on top of Smelt.
-[Instant Agent](https://github.com/instantagent/instantagent) is the first: a downstream repository built on
-the public `SmeltRuntime` and `SmeltServe` products. Its `.agent` artifact is a
-thin semantic overlay referencing a Smelt package by content identity, so
-multiple agents can share the same stored package and file-backed weight pages.
-`SmeltPackageStore.materialize(identity:at:)` is the portability boundary for
-registries and archives: it resolves local CAS links into ordinary package
+Smelt also includes a contained agent-policy leaf. A `.agent` is a thin
+semantic overlay that references one Smelt package by content identity and adds
+instructions, a tool allowlist, and a default presentation mode. Multiple
+agents therefore share the canonical stored package and its file-backed weight
+pages instead of copying model state.
+
+```console
+.build/release/smelt agent create triage --model artifacts/model.smeltpkg \
+  --system "Route each report to the right team."
+.build/release/smelt agent run triage.agent "checkout is failing"
+```
+
+`SmeltPackageStore.materialize(identity:at:)` remains the portability boundary
+for registries and archives: it resolves local CAS links into ordinary package
 files while retaining clone-on-write where possible. Smelt HTTP servers expose
-the loaded identity as `X-Smelt-Package-Identity` on `/v1/models`, allowing a
-consumer to reject accidental routing to the wrong resident package.
+the loaded identity as `X-Smelt-Package-Identity` on `/v1/models`, allowing the
+interactive adapter to reject accidental routing to the wrong resident
+package.
 
 ## Products
 
@@ -67,8 +75,10 @@ consumer to reject accidental routing to the wrong resident package.
   stdio transports. Consumers do not need the `smelt` executable.
 - `SmeltModuleAuthoring`: Swift model/module authoring helpers.
 - `SmeltModels`: maintained model definitions.
-- `smelt` and `smelt-models`: toolkit and model-definition executables. Performance,
-  correctness, profiling, and bring-up tools live under `smelt lab`.
+- `smelt` and `smelt-models`: toolkit and model-definition executables.
+  `SmeltAgent` is an internal target exposed only through `smelt agent`;
+  performance, correctness, profiling, and bring-up tools live under
+  `smelt lab`.
 
 The mesh-skinning vertical slice is a Smelt model workflow. Its compiler,
 runtime, shaders, SkinTokens component package, PyTorch reference tooling, U0

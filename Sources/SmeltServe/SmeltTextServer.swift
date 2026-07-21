@@ -35,8 +35,9 @@ public struct SmeltTextServerConfiguration: Sendable, Equatable {
 }
 
 /// Blocking text-generation server entry point shared by `smelt serve` and
-/// consumers that embed Smelt, including Instant Agent. This API owns model
-/// construction and transport setup; callers do not need the `smelt` executable.
+/// consumers that embed Smelt, including the internal Smelt agent layer.
+/// This API owns model construction and transport setup; callers do not need
+/// the `smelt` executable.
 public enum SmeltTextServer {
     public static func run(_ configuration: SmeltTextServerConfiguration) throws {
         switch try SmeltServeAdmission.resolve(packagePath: configuration.packagePath) {

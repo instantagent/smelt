@@ -72,5 +72,5 @@ if [[ "$PACKAGE" == 1 ]]; then
   echo "1. Pin the checksum in the CLLGuidance binaryTarget in Package.swift."
   echo "2. Upload this exact zip to the release tag referenced there"
   echo "   (-agentN suffix = revision of tools/llguidance-serialize.patch):"
-  echo "   gh release create llguidance-$REF-agent1 \"$ZIP\" --repo instantagent/binaries"
+  echo "   gh release create llguidance-$REF-agent1 \"$ZIP\" --repo smelt-org/binaries"
 fi

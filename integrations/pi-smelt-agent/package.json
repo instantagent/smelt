@@ -1,0 +1,21 @@
+{
+  "name": "smelt-agent-pi",
+  "version": "0.3.0",
+  "private": true,
+  "description": "Pi terminal integration for Smelt agent packages",
+  "type": "module",
+  "keywords": [
+    "pi-package",
+    "pi-extension",
+    "smelt"
+  ],
+  "pi": {
+    "extensions": [
+      "./index.ts"
+    ]
+  },
+  "peerDependencies": {
+    "@mariozechner/pi-ai": "*",
+    "@mariozechner/pi-coding-agent": "*"
+  }
+}

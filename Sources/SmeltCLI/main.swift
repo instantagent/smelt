@@ -36,6 +36,9 @@ Run one package request:
 Serve a model package:
   smelt serve <model.smeltpkg> [serve options]
 
+Create and run reusable agents:
+  smelt agent <create|run|install|publish> ...
+
 Measure and verify:
   smelt lab <subcommand> [lab options]
 
@@ -70,6 +73,9 @@ case "linger-worker":
 
 case "serve":
     runServeCommand()
+
+case "agent":
+    runAgentCommand(Array(args.dropFirst(2)))
 
 case "cas":
     runCasCommand()

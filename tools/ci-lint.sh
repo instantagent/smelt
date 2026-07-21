@@ -13,6 +13,28 @@ if find Sources -mindepth 1 -maxdepth 1 -type d -name 'Agent*' -print -quit | gr
   exit 1
 fi
 
+if rg -n '^[[:space:]]*import SmeltAgent\b' \
+  Sources/SmeltSchema Sources/SmeltCompiler Sources/SmeltRuntime \
+  Sources/SmeltServe Sources/SmeltLab Sources/SmeltModels \
+  Sources/SmeltModuleAuthoring; then
+  echo "lower-level Smelt targets must not import SmeltAgent" >&2
+  exit 1
+fi
+
+if rg -n '\.library\(name: "SmeltAgent"' Package.swift; then
+  echo "SmeltAgent is an internal target, not a public Swift product" >&2
+  exit 1
+fi
+
+if rg -n '\bInstantAgent\b|Instant Agent|\bIA_[A-Z0-9_]+\b|\bia (create|run|install|publish)\b' \
+  Sources/SmeltAgent Sources/SmeltCLI/Commands/Agent.swift \
+  Sources/SmeltCLI/Helpers/AgentPiLauncher.swift Tests/SmeltAgentTests \
+  integrations/pi-smelt-agent README.md docs/VISION.md \
+  docs/supported-runtime.md docs/testing.md; then
+  echo "retired Instant Agent identity remains in a live product surface" >&2
+  exit 1
+fi
+
 for retired in integrations/pi-instant-agent Formula/instant-agent.rb site; do
   if [[ -e "$retired" ]]; then
     echo "Instant Agent product residue remains in Smelt: $retired" >&2
@@ -31,7 +53,7 @@ for match in re.finditer(r'^case\s+([^:]+):', main, re.MULTILINE):
 
 expected = {
     "help", "--help", "-h", "run", "build", "module", "lab",
-    "linger-worker", "serve", "cas",
+    "linger-worker", "serve", "agent", "cas",
 }
 if commands != expected:
     missing = sorted(expected - commands)
@@ -80,7 +102,7 @@ vision_tool = Path("Sources/SmeltLab/SmeltLabQwen35Vision.swift")
 if not vision_tool.is_file() or len(lab_tool.read_text().splitlines()) > 2_800:
     raise SystemExit("oversized SmeltLab probe implementation was recombined")
 
-active_plan_path = Path("docs/smelt-instant-agent-split-plan.md")
+active_plan_path = Path("docs/smelt-agent-integration-plan.md")
 retired_spellings = [
     "smelt-probe", "`smelt verify`", "`smelt bench`",
     "`smelt prefill-bench`", "`smelt trace`", "`smelt replay`",

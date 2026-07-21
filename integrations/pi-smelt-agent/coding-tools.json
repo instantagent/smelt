@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "tools": [
+    "read",
+    "bash",
+    "edit",
+    "write",
+    "grep",
+    "find",
+    "ls"
+  ]
+}
