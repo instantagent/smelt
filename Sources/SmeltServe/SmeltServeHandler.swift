@@ -13,7 +13,7 @@ public final class SmeltServeHandler: @unchecked Sendable {
     private let packageIdentity: String
     private let template: String
     private let toolTranscriptCodec: SmeltNativeToolTranscriptCodec?
-    private let bakedPromptPrefix: SmeltBakedPromptPrefix?
+    private let preparedPromptPrefix: SmeltPreparedPromptPrefix?
     private let preparedPromptStates: [SmeltPreparedPromptState]
     private let declaredInterface: SmeltPackageInterface?
     private let declaredDefaults: [String: SmeltPackageArgumentValue]
@@ -173,18 +173,18 @@ public final class SmeltServeHandler: @unchecked Sendable {
         self.toolTranscriptCodec = try SmeltNativeToolTranscriptCodec.resolve(
             inference.toolTranscriptCodec
         )
-        self.bakedPromptPrefix = try SmeltBakedPromptPrefix.load(
+        self.preparedPromptPrefix = try SmeltPreparedPromptPrefix.load(
             packagePath: packagePath
         )
         var prepared = try SmeltPreparedPromptSet.load(
             packagePath: packagePath
         )?.states ?? []
-        if let bakedPromptPrefix,
+        if let preparedPromptPrefix,
            !prepared.contains(where: { $0.id == "run/default" }) {
             prepared.append(SmeltPreparedPromptState(
                 id: "run/default",
-                tokenIds: bakedPromptPrefix.tokenIds,
-                snapshot: bakedPromptPrefix.snapshot
+                tokenIds: preparedPromptPrefix.tokenIds,
+                snapshot: preparedPromptPrefix.snapshot
             ))
         }
         self.preparedPromptStates = prepared
@@ -229,12 +229,7 @@ public final class SmeltServeHandler: @unchecked Sendable {
         resolved: [String: SmeltPackageArgumentValue],
         explicitBindings: [String: [String]]
     ) throws -> SmeltLLGuidanceMatcher? {
-        let ignored = SmeltBakeManifest.ignoredFromEnv()
-        guard !ignored.contains(.grammar) else { return nil }
-        let marker = try SmeltBakeManifest.load(packagePath: packagePath)
-        let grammar = marker?.declares(.grammar) == true
-            ? try SmeltBakedGrammar.loadStrict(packagePath: packagePath)
-            : SmeltBakedGrammar.load(packagePath: packagePath)
+        let grammar = try SmeltCompiledGrammar.load(packagePath: packagePath)
         guard let grammar else { return nil }
 
         var bindings: [String: [String]] = [:]
@@ -545,12 +540,12 @@ public final class SmeltServeHandler: @unchecked Sendable {
 
         let inputIds: [Int32]
         do {
-            inputIds = try buildChatCompletionsInputIdsApplyingBakedPrefix(
+            inputIds = try buildChatCompletionsInputIdsApplyingPreparedPrefix(
                 messages: effectiveMessages,
                 tokenizer: tokenizer,
                 template: template,
                 thinkingPolicy: resolvedThinkingPolicy(inference),
-                bakedPrefix: bakedPromptPrefix,
+                preparedPrefix: preparedPromptPrefix,
                 tools: usesPackageNativeTools ? toolDescriptors : nil,
                 toolTranscriptCodec: toolTranscriptCodec
             )

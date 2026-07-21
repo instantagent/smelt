@@ -608,7 +608,7 @@ final class RegionExactnessTests: XCTestCase {
     //   - layout 0: adjacent pairs (Qwen, Llama 2)
     //   - layout 1: split-half (Llama 3, GPT-NeoX style)
     //   - layout 2: proportional split-half (full-attention,
-    //     wired up at SmeltProbe/main.swift:1391,1397,1403)
+    //     wired up in SmeltLab/SmeltLabTool.swift)
 
     /// RoPE is two FMAs per output element with no reduction chain —
     /// byte-equal between FP16-rounded CPU and FP16 GPU is the realistic

@@ -1,7 +1,6 @@
 import CryptoKit
 import Darwin
 import Foundation
-import SmeltSchema
 
 // Content-addressed store for large package artifacts. `adopt` moves a
 // package's manifest-checksummed files into the shared store and leaves
@@ -16,40 +15,12 @@ import SmeltSchema
 // file or the symlink — never a missing path. A process that already
 // mmap'd the old path is unaffected; its open fd pins the inode.
 
-public enum SmeltCAS {
+enum SmeltCAS {
     /// Files smaller than this stay in the package; symlink indirection
     /// only pays for itself on large artifacts.
-    public static let defaultMinBytes = 1024 * 1024
+    static let defaultMinBytes = SmeltPackageStore.defaultBlobAdoptionMinBytes
 
-    public enum FileState: String, Sendable {
-        case adopted            // moved into the store this call
-        case alreadyAdopted     // symlink into the store, target present
-        case restored           // copied back out of the store this call
-        case eligible           // regular file that adopt would take
-        case belowThreshold
-        case missing
-        case brokenLink         // symlink whose target is gone
-        case refused            // not adopted: manifest disagreement or
-                                // the file changed mid-adoption
-    }
-
-    public struct FileReport: Sendable {
-        public let name: String
-        public let state: FileState
-        public let bytes: Int64
-        public let sha256: String?
-    }
-
-    public struct Report: Sendable {
-        public let packagePath: String
-        public let files: [FileReport]
-
-        public var adoptable: [FileReport] {
-            files.filter { $0.state == .eligible }
-        }
-    }
-
-    public enum CASError: Error, CustomStringConvertible {
+    enum CASError: Error, CustomStringConvertible {
         case hashMismatch(file: String, expected: String, actual: String)
         case storeEntryCorrupt(file: String, entry: String)
         case brokenLink(file: String, target: String)
@@ -77,7 +48,7 @@ public enum SmeltCAS {
     /// Store root: $SMELT_CAS_DIR or
     /// ~/Library/Application Support/smelt/cas. Entries live under
     /// `<root>/sha256/<hex>`.
-    public static func storeRoot() -> URL {
+    static func storeRoot() -> URL {
         if let override = ProcessInfo.processInfo.environment["SMELT_CAS_DIR"],
             !override.isEmpty {
             return URL(fileURLWithPath: override, isDirectory: true)
@@ -91,16 +62,16 @@ public enum SmeltCAS {
     }
 
     /// Entries directory: `<root>/sha256`.
-    public static func entriesDirectory() -> URL {
+    static func entriesDirectory() -> URL {
         storeRoot().appendingPathComponent("sha256", isDirectory: true)
     }
 
-    public static func entryPath(forKey key: String) -> String {
+    static func entryPath(forKey key: String) -> String {
         entriesDirectory().appendingPathComponent(key).path
     }
 
     /// True when a healthy (regular-file) entry exists for the key.
-    public static func hasEntry(key: String) -> Bool {
+    static func hasEntry(key: String) -> Bool {
         var st = stat()
         return lstat(entryPath(forKey: key), &st) == 0
             && (st.st_mode & S_IFMT) == S_IFREG
@@ -110,7 +81,7 @@ public enum SmeltCAS {
     /// file. The staging contents must hash to `key`; the staging file
     /// should live on the store's volume (put it next to the entries)
     /// so the final rename is atomic.
-    public static func insertEntry(
+    static func insertEntry(
         key: String, fromStagingFile staging: String
     ) throws {
         let actual = try sha256Hex(ofFileAt: staging)
@@ -142,51 +113,26 @@ public enum SmeltCAS {
 
     /// SHA-256 of a file, streamed. Exposed to package-store consumers that
     /// share the same content keying.
-    public static func sha256(ofFileAt path: String) throws -> String {
+    static func sha256(ofFileAt path: String) throws -> String {
         try sha256Hex(ofFileAt: path)
-    }
-
-    /// The manifest-checksummed package files dedup applies to. Mirrors
-    /// SmeltPackageIntegrity.verify's list.
-    static func checksummedFiles(
-        manifest: SmeltManifest
-    ) -> [(name: String, sha256: String?)] {
-        [
-            ("weights.bin", manifest.checksums.weightsBin),
-            ("model.metallib", manifest.checksums.metallib),
-            ("SmeltGenerated.swift", manifest.checksums.generatedSwift),
-            ("dispatches.bin", manifest.checksums.dispatchesBin),
-            ("prefill_dispatches.bin", manifest.checksums.prefillDispatchesBin),
-            (
-                "prefill_verify_argmax_dispatches.bin",
-                manifest.checksums.prefillVerifyArgmaxDispatchesBin
-            ),
-            ("tokenizer.json", manifest.checksums.tokenizerJSON),
-        ]
     }
 
     // MARK: - Status
 
     /// Every regular file in the package is shareable: files with a
     /// manifest checksum are keyed (and corruption-gated) by it; the rest
-    /// — bake artifacts like baked_grammar.trie and baked_prefix.snapshot,
+    /// — prepared artifacts like compiled_grammar.trie and prepared_prefix.snapshot,
     /// model.metalarchive — are keyed by their content hash at adopt time.
     /// Identical bytes land on the same store entry either way.
     /// manifest.json itself always stays a regular file: it is the
     /// package's identity and the key source for everything else.
-    public static func status(
+    static func status(
         packagePath: String,
         minBytes: Int = defaultMinBytes
-    ) throws -> Report {
-        let manifest = try loadManifest(packagePath: packagePath)
-        var expectedByName: [String: String] = [:]
-        for (name, expected) in checksummedFiles(manifest: manifest) {
-            if let expected, !expected.isEmpty {
-                expectedByName[name] = expected
-            }
-        }
+    ) throws -> SmeltPackageBlobReport {
+        let expectedByName = try expectedChecksums(packagePath: packagePath)
 
-        var files: [FileReport] = []
+        var files: [SmeltPackageBlobFileReport] = []
         var seen: Set<String> = []
         let names = try FileManager.default
             .contentsOfDirectory(atPath: packagePath).sorted()
@@ -212,7 +158,7 @@ public enum SmeltCAS {
                 let targetOK = lstat(target, &targetSt) == 0
                     && (targetSt.st_mode & S_IFMT) == S_IFREG
                 seen.insert(name)
-                files.append(FileReport(
+                files.append(SmeltPackageBlobFileReport(
                     name: name,
                     state: targetOK ? .alreadyAdopted : .brokenLink,
                     bytes: targetOK ? targetSt.st_size : 0,
@@ -222,7 +168,7 @@ public enum SmeltCAS {
             }
             guard (st.st_mode & S_IFMT) == S_IFREG else { continue }
             seen.insert(name)
-            files.append(FileReport(
+            files.append(SmeltPackageBlobFileReport(
                 name: name,
                 state: st.st_size >= minBytes ? .eligible : .belowThreshold,
                 bytes: st.st_size,
@@ -232,11 +178,11 @@ public enum SmeltCAS {
 
         for (name, expected) in expectedByName.sorted(by: { $0.key < $1.key })
         where !seen.contains(name) {
-            files.append(FileReport(
+            files.append(SmeltPackageBlobFileReport(
                 name: name, state: .missing, bytes: 0, sha256: expected
             ))
         }
-        return Report(packagePath: packagePath, files: files)
+        return SmeltPackageBlobReport(packagePath: packagePath, files: files)
     }
 
     // MARK: - Adopt
@@ -246,12 +192,12 @@ public enum SmeltCAS {
     /// the recorded hash doubles as a corruption gate (contents that
     /// disagree are refused, and the error is thrown after the remaining
     /// files are processed); everything else is keyed by the content
-    /// hash computed here, so identical bake artifacts dedup too.
+    /// hash computed here, so identical prepared artifacts dedup too.
     @discardableResult
-    public static func adopt(
+    static func adopt(
         packagePath: String,
         minBytes: Int = defaultMinBytes
-    ) throws -> Report {
+    ) throws -> SmeltPackageBlobReport {
         let before = try status(packagePath: packagePath, minBytes: minBytes)
         let entriesDir = storeRoot().appendingPathComponent(
             "sha256", isDirectory: true
@@ -260,7 +206,7 @@ public enum SmeltCAS {
             at: entriesDir, withIntermediateDirectories: true
         )
 
-        var files: [FileReport] = []
+        var files: [SmeltPackageBlobFileReport] = []
         var firstError: Error?
 
         for report in before.files {
@@ -280,13 +226,13 @@ public enum SmeltCAS {
                     expected: report.sha256,
                     entriesDir: entriesDir
                 )
-                files.append(FileReport(
+                files.append(SmeltPackageBlobFileReport(
                     name: report.name, state: .adopted,
                     bytes: st.st_size, sha256: key
                 ))
             } catch {
                 if firstError == nil { firstError = error }
-                files.append(FileReport(
+                files.append(SmeltPackageBlobFileReport(
                     name: report.name, state: .refused,
                     bytes: st.st_size, sha256: report.sha256
                 ))
@@ -294,7 +240,7 @@ public enum SmeltCAS {
         }
 
         if let firstError { throw firstError }
-        return Report(packagePath: packagePath, files: files)
+        return SmeltPackageBlobReport(packagePath: packagePath, files: files)
     }
 
     // MARK: - Restore
@@ -303,7 +249,7 @@ public enum SmeltCAS {
     /// replacing the symlinks. The escape hatch before moving a package
     /// to another machine or volume.
     @discardableResult
-    public static func restore(packagePath: String) throws -> Report {
+    static func restore(packagePath: String) throws -> SmeltPackageBlobReport {
         let before = try status(packagePath: packagePath, minBytes: 0)
         let adopted = before.files.filter {
             $0.state == .alreadyAdopted || $0.state == .brokenLink
@@ -324,7 +270,7 @@ public enum SmeltCAS {
             }
         }
 
-        var files: [FileReport] = []
+        var files: [SmeltPackageBlobFileReport] = []
         for report in before.files {
             guard report.state == .alreadyAdopted else {
                 files.append(report)
@@ -338,36 +284,81 @@ public enum SmeltCAS {
             try FileManager.default.copyItem(atPath: target, toPath: tmp)
             // Snapshots are created owner-only (they hold prompt state);
             // give them that back. Everything else is plain shareable.
-            chmod(tmp, report.name == "baked_prefix.snapshot" ? 0o600 : 0o644)
+            chmod(tmp, report.name == "prepared_prefix.snapshot" ? 0o600 : 0o644)
             guard rename(tmp, path) == 0 else {
                 try? FileManager.default.removeItem(atPath: tmp)
                 throw CASError.io(
                     "\(report.name): rename failed: \(errnoString())"
                 )
             }
-            files.append(FileReport(
+            files.append(SmeltPackageBlobFileReport(
                 name: report.name, state: .restored,
                 bytes: report.bytes, sha256: report.sha256
             ))
         }
-        return Report(packagePath: packagePath, files: files)
+        return SmeltPackageBlobReport(packagePath: packagePath, files: files)
     }
 
     // MARK: - Internals
 
-    private static func loadManifest(
+    /// Read only the integrity fields needed for blob adoption. Package-store
+    /// consumers can install any Smelt package flavor; requiring the runnable
+    /// text manifest here would silently exclude component packages from dedup.
+    private static func expectedChecksums(
         packagePath: String
-    ) throws -> SmeltManifest {
+    ) throws -> [String: String] {
         let data = try Data(contentsOf: URL(
             fileURLWithPath: "\(packagePath)/manifest.json"
         ))
-        return try SmeltManifest.decode(from: data)
+        guard let manifest = try JSONSerialization.jsonObject(with: data)
+                as? [String: Any]
+        else {
+            throw CASError.io("manifest.json is not an object")
+        }
+        guard let checksums = manifest["checksums"] as? [String: Any] else {
+            return [:]
+        }
+        let files = manifest["files"] as? [String: Any] ?? [:]
+        var result: [String: String] = [:]
+
+        func record(_ checksumKeys: [String], file: String) {
+            for key in checksumKeys {
+                if let value = checksums[key] as? String, !value.isEmpty {
+                    result[file] = value
+                    return
+                }
+            }
+        }
+
+        record(["weights_bin"], file: "weights.bin")
+        record(["metallib"], file: "model.metallib")
+        record(["generated_swift"], file: "SmeltGenerated.swift")
+        record(["dispatches_bin"], file: "dispatches.bin")
+        record(["prefill_dispatches_bin"], file: "prefill_dispatches.bin")
+        record(
+            ["prefill_verify_argmax_dispatches_bin"],
+            file: "prefill_verify_argmax_dispatches.bin"
+        )
+        record(["tokenizer_json"], file: "tokenizer.json")
+
+        record(
+            ["weightsSHA256", "weights_sha256"],
+            file: files["weights"] as? String ?? "weights.bin"
+        )
+        record(
+            ["metallibSHA256", "metallib_sha256"],
+            file: files["metallib"] as? String ?? "model.metallib"
+        )
+        if let cam = files["cam"] as? String {
+            record(["camSHA256", "cam_sha256"], file: cam)
+        }
+        return result
     }
 
     /// Adopt one file. The opened fd pins an inode for the whole
     /// operation: the hash, the store insert, and the final swap all
-    /// refer to that inode, so a concurrent rewrite of `path` (a re-bake
-    /// replacing baked_grammar.trie, say) can never publish bytes under
+    /// refer to that inode, so a concurrent rewrite of `path` (a rebuild
+    /// replacing compiled_grammar.trie, say) can never publish bytes under
     /// the wrong store key, and the swap is skipped when the recheck
     /// sees the path was rewritten. Known residual: a rewrite landing in
     /// the microseconds between that recheck and the swap's rename is

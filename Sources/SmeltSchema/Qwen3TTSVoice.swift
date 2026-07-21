@@ -79,16 +79,14 @@ public struct Qwen3TTSVoice: Codable, Sendable, Equatable {
         }
     }
 
-    /// The baked voice of the package at `packagePath`, or nil when none was baked.
-    /// Throws only on a present-but-malformed file (a broken bake must fail loudly,
-    /// not silently fall back to defaults). `SMELT_NO_BAKED_VOICE=1` ignores the
-    /// baked voice (built-in defaults) — the TTS analogue of
-    /// `SMELT_NO_BAKED_PREFIX`/`_GRAMMAR`; `env` is injectable for tests.
+    /// The package-authored voice defaults, or nil when none are present.
+    /// A malformed file fails loudly. `SMELT_NO_VOICE_DEFAULTS=1` selects
+    /// built-in defaults; `env` is injectable for tests.
     public static func load(
         packagePath: String,
         env: [String: String] = ProcessInfo.processInfo.environment
     ) throws -> Qwen3TTSVoice? {
-        guard env["SMELT_NO_BAKED_VOICE"] != "1" else { return nil }
+        guard env["SMELT_NO_VOICE_DEFAULTS"] != "1" else { return nil }
         let url = URL(fileURLWithPath: packagePath).appendingPathComponent(fileName)
         guard FileManager.default.fileExists(atPath: url.path) else { return nil }
         let voice = try JSONDecoder().decode(Qwen3TTSVoice.self, from: Data(contentsOf: url))

@@ -545,10 +545,6 @@ public final class SmeltRuntime {
     private var specBVK3Pipeline: MTLComputePipelineState?
     var buffers: [MTLBuffer]
     private let packagePath: String
-    /// The package's bake marker (baked.json), loaded + enforced once here at the
-    /// universal open point. Reused by SmeltModel so the prefix-declares check
-    /// needs no second read of the file.
-    let bakeManifest: SmeltBakeManifest?
     let manifest: SmeltManifest
     private let slotsByIndex: [SmeltBufferSlot?]
     private let dynamicRequestBuffersEnabled: Bool
@@ -609,8 +605,13 @@ public final class SmeltRuntime {
     var verifyProfile: VerifyProfileState =
         ProcessInfo.processInfo.environment["SMELT_PROFILE_VERIFY"] != nil
             ? .armed : .disabled
-    let verifyProfileOutputPath: String? =
+    var verifyProfileOutputPath: String? =
         ProcessInfo.processInfo.environment["SMELT_PROFILE_VERIFY"]
+    var verifyProfilePipelineMatches: [String] =
+        ProcessInfo.processInfo.environment["SMELT_PROFILE_VERIFY_MATCH"]?
+            .split(separator: ",")
+            .map(String.init)
+            .filter { !$0.isEmpty } ?? []
 
     /// Set true by `armProfileForNextPrefill()` so SMELT_PROFILE_VERIFY
     /// captures the spec-decode verify dispatch, not the caller's
@@ -627,6 +628,19 @@ public final class SmeltRuntime {
     /// is unset or has already fired.
     public func armProfileForNextPrefill() {
         profileNextPrefillAsVerify = true
+    }
+
+    /// Arm one explicit per-dispatch profile of the next transactional
+    /// verify-argmax call. This is the first-class equivalent of the legacy
+    /// SMELT_PROFILE_VERIFY environment hook and keeps installed `smelt lab`
+    /// tooling self-contained.
+    public func armVerifyArgmaxProfile(
+        outputPath: String,
+        pipelineNameMatches: [String] = []
+    ) {
+        verifyProfileOutputPath = outputPath
+        verifyProfilePipelineMatches = pipelineNameMatches.filter { !$0.isEmpty }
+        verifyProfile = .armed
     }
 
     /// Load a .smeltpkg artifact.
@@ -718,21 +732,11 @@ public final class SmeltRuntime {
 
         stamp("manifest decode")
 
-        // Bake honesty — enforced here, the universal package-open point, so no
-        // open path (decode-only run, serve, bench, direct consumer) can bypass it: a
-        // baked.json that declares components must carry them (and no recognized
-        // bake sidecar may be present-but-undeclared). A declared grammar is
-        // strict-loaded so a corrupt schema fails loud rather than silently
-        // running unconstrained. Prefix value-load + its corrupt check live in
-        // SmeltModel (the path that consumes the prefix). No marker ⇒ legacy.
-        let bakeIgnored = SmeltBakeManifest.ignoredFromEnv()
-        let bakeMarker = try SmeltBakeManifest.enforce(
-            packagePath: packagePath, ignoring: bakeIgnored)
-        if let bakeMarker, bakeMarker.declares(.grammar), !bakeIgnored.contains(.grammar) {
-            _ = try SmeltBakedGrammar.loadStrict(packagePath: packagePath)
-        }
-        self.bakeManifest = bakeMarker
-        stamp("bake honesty")
+        // Prepared artifacts are declared by the package inventory itself.
+        // Validate compiled grammar metadata at the universal package-open point
+        // so direct consumers cannot silently run unconstrained on corruption.
+        _ = try SmeltCompiledGrammar.load(packagePath: packagePath)
+        stamp("prepared artifacts")
 
         let dynamicRequestBuffersEnabled = manifest.prefill?.engine != "coreml"
         let resolvedContextLimit = try Self.resolveContextLimit(

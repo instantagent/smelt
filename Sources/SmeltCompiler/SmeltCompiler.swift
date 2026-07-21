@@ -710,7 +710,7 @@ public enum SmeltCompiler {
             inference: {
                 let inf = ir.inference
                 // Emit the section if ANY inference property is set — not just
-                // eosTokens — so a package that bakes only chat_template /
+                // eosTokens — so a package that carries only chat_template /
                 // thinking_policy doesn't silently drop them from the manifest.
                 guard !inf.eosTokens.isEmpty || inf.chatTemplate != nil
                     || inf.thinkingPolicy != nil else { return nil }
@@ -1291,12 +1291,11 @@ public enum SmeltCompiler {
             "model.metalarchive",
             "prefill.mlmodelc",
             "cache",
-            SmeltBakeArtifacts.prefixMeta,
-            SmeltBakeArtifacts.prefixSnapshot,
-            SmeltBakeArtifacts.grammarMeta,
-            SmeltBakeArtifacts.grammarTrie,
+            SmeltPreparedArtifacts.prefixMetadata,
+            SmeltPreparedArtifacts.prefixSnapshot,
+            SmeltPreparedArtifacts.grammarMetadata,
+            SmeltPreparedArtifacts.grammarTrie,
             SmeltPackageInterface.fileName,
-            SmeltBakeManifest.fileName,
         ]
         if !preserveTokenizerAssets {
             names += [

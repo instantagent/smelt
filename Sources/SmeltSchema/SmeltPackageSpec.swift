@@ -430,7 +430,7 @@ public struct SmeltPackageSpec: Codable, Sendable {
         public enum Command: String, Codable, Sendable, CaseIterable {
             case load
             case run
-            case bake
+            case prepare
             case serve
             case bench
             case trace
@@ -685,22 +685,18 @@ public struct SmeltPackageSpec: Codable, Sendable {
     public struct PackageFileSet: Codable, Sendable {
         public let manifest: String
         public let files: [String]
-        public let bakeManifest: SmeltBakeManifest?
 
         public init(
             manifest: String = "manifest.json",
-            files: [String],
-            bakeManifest: SmeltBakeManifest? = nil
+            files: [String]
         ) {
             self.manifest = manifest
             self.files = files
-            self.bakeManifest = bakeManifest
         }
 
         enum CodingKeys: String, CodingKey {
             case manifest
             case files
-            case bakeManifest = "bake_manifest"
         }
     }
 
@@ -1317,22 +1313,6 @@ public struct SmeltPackageSpec: Codable, Sendable {
                 fileLikePackagePaths.insert(file)
             }
         }
-        if let bake = outputFiles.bakeManifest {
-            guard outputSeen.contains(SmeltBakeManifest.fileName) else {
-                throw error("output files must include \(SmeltBakeManifest.fileName)")
-            }
-            packagePaths.insert(SmeltBakeManifest.fileName)
-            fileLikePackagePaths.insert(SmeltBakeManifest.fileName)
-            let allDeclared = bake.sealed.flatMap { $0.required + $0.perf }
-            for path in allDeclared {
-                try Self.validatePackageRelativePath(path, field: "bake manifest file")
-                packagePaths.insert(path)
-                fileLikePackagePaths.insert(path)
-                guard outputSeen.contains(path) else {
-                    throw error("bake manifest file '\(path)' is missing from output files")
-                }
-            }
-        }
         if let calibration = quantization?.calibration {
             for artifact in calibration.captureArtifacts {
                 try Self.validatePackageRelativePath(
@@ -1361,7 +1341,7 @@ public struct SmeltPackageSpec: Codable, Sendable {
 
     private func validateGraphSidecarAssemblyPolicy() throws {
         let sidecarBlocks = blocks.blocks.filter {
-            $0.compiledDelivery == .bakedSidecar
+            $0.compiledDelivery == .compiledSidecar
                 || $0.compiledDelivery == .internalSidecar
         }
         guard sidecars.count == sidecarBlocks.count else {

@@ -32,9 +32,9 @@ final class PyTorchCheckpointLoaderTests: XCTestCase {
         )
     }
 
-    func testCanonicalTokenRigCheckpointInventoryAndAlias() throws {
-        guard let path = ProcessInfo.processInfo.environment["SMELT_RIG_CHECKPOINT"] else {
-            throw XCTSkip("SMELT_RIG_CHECKPOINT is not set")
+  func testCanonicalSkinTokensCheckpointInventoryAndAlias() throws {
+    guard let path = ProcessInfo.processInfo.environment["SMELT_SKINNING_CHECKPOINT"] else {
+      throw XCTSkip("SMELT_SKINNING_CHECKPOINT is not set")
         }
         let loader = try PyTorchCheckpointLoader(path: path)
         XCTAssertEqual(loader.tensors.count, 672)

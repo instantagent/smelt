@@ -387,8 +387,8 @@ public enum SmeltTrace {
                 state: ["kv-cache"],
                 sideOutputs: [],
                 declaredImpl: "compiled",
-                declaredDelivery: "baked-inline",
-                route: "compiled:baked-inline:headless-trunk",
+                declaredDelivery: "compiled-inline",
+                route: "compiled:compiled-inline:headless-trunk",
                 status: .ok,
                 evidence: [
                     "headlessTrunkABI=\(manifest.headlessTrunkABI == true)",
@@ -526,7 +526,7 @@ public enum SmeltTrace {
 
         let graphBlocks = graph?.blocks ?? []
         let declaresTrunkSidecar = graphBlocks.contains {
-            $0.name == "talker" && $0.compiledDelivery == .bakedSidecar
+            $0.name == "talker" && $0.compiledDelivery == .compiledSidecar
         }
         let declaresMTPSidecar = graphBlocks.contains {
             $0.name == "mtp-head" && $0.compiledDelivery == .internalSidecar
@@ -636,12 +636,12 @@ public enum SmeltTrace {
         case "talker":
             evidence.append("trunkIntent=\(trunkIntent)")
             evidence.append("trunk.exists=\(trunkSidecar.exists)")
-            if block.compiledDelivery == .bakedSidecar && !trunkSidecar.exists {
+            if block.compiledDelivery == .compiledSidecar && !trunkSidecar.exists {
                 status = .error
-                evidence.append("graph declares baked sidecar but trunk/ is absent")
-            } else if block.compiledDelivery != .bakedSidecar && trunkSidecar.exists {
+                evidence.append("graph declares compiled sidecar but trunk/ is absent")
+            } else if block.compiledDelivery != .compiledSidecar && trunkSidecar.exists {
                 status = .warning
-                evidence.append("trunk/ exists but graph does not declare baked sidecar")
+                evidence.append("trunk/ exists but graph does not declare compiled sidecar")
             }
         case "mtp-head":
             evidence.append("trunk-mtp.exists=\(mtpSidecar.exists)")

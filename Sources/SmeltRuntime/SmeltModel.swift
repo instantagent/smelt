@@ -71,7 +71,7 @@ public final class SmeltModel: @unchecked Sendable {
     private let prefiller: SmeltPrefillRunner?
     private let inferenceConfig: SmeltInferenceManifest
     private let contextLimit: Int
-    private let bakedPrefix: SmeltBakedPrefix?
+    private let preparedPrefix: SmeltPreparedPrefix?
 
     private struct FinishedGeneration {
         let result: SmeltGenerateResult
@@ -121,54 +121,24 @@ public final class SmeltModel: @unchecked Sendable {
 
         self.contextLimit = runtime.maxContextTokens
 
-        // Presence + closed-world + declared-grammar honesty were enforced in
-        // SmeltRuntime.init (the universal open point), which also loaded the
-        // marker — reused here. We only load the prefix value for use, strictly
-        // when it is declared and not opted out, so a corrupt snapshot fails loud
-        // on the path that consumes it.
-        if let bakeMarker = self.runtime.bakeManifest, bakeMarker.declares(.prefix),
-           !SmeltBakeManifest.ignoredFromEnv().contains(.prefix) {
-            self.bakedPrefix = try SmeltBakedPrefix.loadStrict(packagePath: packagePath)
-        } else {
-            self.bakedPrefix = SmeltBakedPrefix.load(packagePath: packagePath)
-        }
+        self.preparedPrefix = try SmeltPreparedPrefix.load(packagePath: packagePath)
     }
 
-    // MARK: - Baked prompt prefix
+    // MARK: - Prepared prompt prefix
 
-    /// Token IDs of the package's baked prompt prefix, if one was baked in
-    /// with `smelt create`. Requests whose token IDs start with this prefix
-    /// skip its prefill by restoring the baked state.
-    public var bakedPrefixTokenIds: [Int32]? { bakedPrefix?.tokenIds }
-    public var bakedPrefixContinuation: SmeltBakedPromptContinuation? {
-        bakedPrefix?.continuation
+    /// Token IDs of the package's prepared prompt prefix, when compiled into
+    /// the package. Matching requests skip prefill by restoring that state.
+    public var preparedPrefixTokenIds: [Int32]? { preparedPrefix?.tokenIds }
+    public var preparedPrefixContinuation: SmeltPreparedPromptContinuation? {
+        preparedPrefix?.continuation
     }
 
-    private func bakedPrefixMatch(_ tokenIds: [Int32]) -> SmeltBakedPrefix? {
-        guard let baked = bakedPrefix,
-              tokenIds.count >= baked.tokenIds.count,
-              tokenIds.starts(with: baked.tokenIds)
+    private func preparedPrefixMatch(_ tokenIds: [Int32]) -> SmeltPreparedPrefix? {
+        guard let prepared = preparedPrefix,
+              tokenIds.count >= prepared.tokenIds.count,
+              tokenIds.starts(with: prepared.tokenIds)
         else { return nil }
-        return baked
-    }
-
-    /// Prefill `tokenIds` once and store the resulting state in the package
-    /// as its baked prompt prefix. Subsequent `SmeltModel` instances restore
-    /// it instead of prefilling whenever a request starts with these IDs;
-    /// this instance keeps its load-time view and is typically discarded.
-    @discardableResult
-    public func bakePromptPrefix(
-        tokenIds: [Int32],
-        continuation: SmeltBakedPromptContinuation? = nil
-    ) throws -> SmeltPromptSnapshotWriteInfo {
-        precondition(!tokenIds.isEmpty, "cannot bake an empty prompt prefix")
-        let snapshot = try captureBasePrompt(tokenIds: tokenIds)
-        return try SmeltBakedPrefix.write(
-            packagePath: packagePath,
-            tokenIds: tokenIds,
-            snapshot: snapshot,
-            continuation: continuation
-        )
+        return prepared
     }
 
     /// Maximum context length supported by this package.
@@ -319,10 +289,10 @@ public final class SmeltModel: @unchecked Sendable {
                 tokensPerSecond: 0, prefillTime: 0
             )
         }
-        if let baked = bakedPrefixMatch(tokenIds) {
+        if let prepared = preparedPrefixMatch(tokenIds) {
             return try generate(
-                from: baked.snapshot,
-                tokenIds: Array(tokenIds[baked.tokenIds.count...]),
+                from: prepared.snapshot,
+                tokenIds: Array(tokenIds[prepared.tokenIds.count...]),
                 selectionMode: selectionMode,
                 allowedTokenMask: allowedTokenMask
             )
@@ -380,10 +350,10 @@ public final class SmeltModel: @unchecked Sendable {
                 tokensPerSecond: 0, prefillTime: 0
             )
         }
-        if let baked = bakedPrefixMatch(tokenIds) {
+        if let prepared = preparedPrefixMatch(tokenIds) {
             return try generate(
-                from: baked.snapshot,
-                tokenIds: Array(tokenIds[baked.tokenIds.count...]),
+                from: prepared.snapshot,
+                tokenIds: Array(tokenIds[prepared.tokenIds.count...]),
                 selectionMode: selectionMode,
                 allowedTokenMask: allowedTokenMask,
                 onToken: onToken

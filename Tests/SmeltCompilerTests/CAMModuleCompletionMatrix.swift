@@ -4,7 +4,7 @@ import SmeltCompiler
 import SmeltSchema
 
 enum CAMModuleCompletionMatrix {
-    static let selectorDeletionScannerVersion = 10
+    static let selectorDeletionScannerVersion = 11
     static let runtimeAssemblyFeatureContractSchema = "smelt.module.runtime_assembly_feature_contract.v1"
 
     enum CompletionLevel: Int, CaseIterable, Comparable, CustomStringConvertible {
@@ -155,6 +155,7 @@ enum CAMModuleCompletionMatrix {
     enum SurfaceKind: String, Sendable {
         case build
         case command
+        case preparation
         case gate
         case correctness
         case optionalInputCoverage
@@ -351,14 +352,14 @@ enum CAMModuleCompletionMatrix {
             fixture: "qwen35_text.module.json",
             capabilityTrack: "text-generation",
             level: .selectorRootsDeleted,
-            semanticSHA256: "e23f15dda6ad25af95a564c4be8b64356b9f1024c8a7d9e6aabe3c141e1ed859",
-            exportABISHA256: "8052ea9d754e9633900dbaed98b03cc988552072c629b1f456520fcf6025bfc2",
+            semanticSHA256: "8c8fc425ea27b42b2d932618f7b744ee3beca2df8b8347aea7e6609bba69a712",
+            exportABISHA256: "95b10ab8a07020540c80ee884e445db5ab7fedd0254c587312fc498b222256e1",
             descriptorGraphSignatureSHA256: "77845c4dfb5085685611ef687da013a5d802c3154f529fee524f375cc62aa421",
-            requiredCapabilities: ["run.generate"],
+            requiredCapabilities: ["prepare.prompt-prefix", "run.generate"],
             requiredGates: ["startup", "prefill", "decode", "inventory"],
             requiredReleaseGates: ["startup", "prefill", "decode"],
             surfaceExpectations: textSurfaceExpectations(
-                includeBake: false,
+                includePreparation: true,
                 releaseGateIDs: ["startup", "prefill", "decode"],
                 buildAdapterBoundary: AdapterBoundary.none,
                 commandAdapterBoundary: AdapterBoundary.none,
@@ -369,13 +370,13 @@ enum CAMModuleCompletionMatrix {
             ),
             capabilityExpectations: textGenerationExpectations(
                 elapsedMs: "115",
-                bakePromptPrefix: false,
+                preparePromptPrefix: false,
                 includeLinger: true
             ),
             packageProjection: .init(
                 id: "text-to-text-transformer-prefill-decode-affine-u4-g64",
                 version: 1,
-                projectedPackageSpecSHA256: "1e023320c723d12534cb1a0ad398bac237bf0d2fa21fb4ae34849e42109a872c",
+                projectedPackageSpecSHA256: "991fdaa277822fb2968bd7edb46b8b7ecc0447ff0c01ecf3aa430c0c451d901d",
                 packageFiles: [
                     "SmeltGenerated.swift",
                     "dispatches.bin",
@@ -402,12 +403,12 @@ enum CAMModuleCompletionMatrix {
                     "tokenizer.json",
                     "weights.bin",
                 ],
-                camSemanticSHA256: "e23f15dda6ad25af95a564c4be8b64356b9f1024c8a7d9e6aabe3c141e1ed859",
-                exportABISHA256: "8052ea9d754e9633900dbaed98b03cc988552072c629b1f456520fcf6025bfc2",
+                camSemanticSHA256: "8c8fc425ea27b42b2d932618f7b744ee3beca2df8b8347aea7e6609bba69a712",
+                exportABISHA256: "95b10ab8a07020540c80ee884e445db5ab7fedd0254c587312fc498b222256e1",
                 camDescriptorSHA256: "0d409b03c30f5ac0d4f4ade8b82c37f28f159c81a64cc63c10c3f43052e21f64",
                 descriptorGraphSignatureSHA256: "77845c4dfb5085685611ef687da013a5d802c3154f529fee524f375cc62aa421",
                 packageProjectionID: "text-to-text-transformer-prefill-decode-affine-u4-g64",
-                projectedPackageSpecSHA256: "1e023320c723d12534cb1a0ad398bac237bf0d2fa21fb4ae34849e42109a872c",
+                projectedPackageSpecSHA256: "991fdaa277822fb2968bd7edb46b8b7ecc0447ff0c01ecf3aa430c0c451d901d",
                 buildEvidenceSHA256: "",
                 packagePayloadSHA256: "",
                 elapsedBound: "115",
@@ -415,16 +416,16 @@ enum CAMModuleCompletionMatrix {
             ),
             runtimeContractEvidence: textRuntimeContractEvidence(
                 exportGateIDs: ["startup"],
-                includeBake: false,
+                includePreparation: false,
                 includeLinger: true,
                 run: .init(
-                    bodySHA256: "232cab44f69a7fd7a64d620a0bdd82d7d09eb846fb15fbae67a1d760835315e2",
-                    provenanceSHA256: "263fa6176090e032727cb3b2e2f98c14c5129402e6178d3325dfc59a59b494ad"
+                    bodySHA256: "61cf7390a5610d27053de9ada937b9a087bd5ee7448a468d646220d70ec78ccb",
+                    provenanceSHA256: "b70801b5da419f5e547ca41aeee4ee98adcc88c79501c4ea25fce9f8fe0cd22a"
                 )
             ),
             runtimeAssemblyEvidence: textRuntimeAssemblyEvidence(
                 fixture: "qwen35_text.module.json",
-                includeBake: false,
+                includePreparation: false,
                 includeLinger: true
             ),
             selectorDeletionScans: productionSelectorDeletionScans(
@@ -435,14 +436,14 @@ enum CAMModuleCompletionMatrix {
             fixture: "qwen35_fast.module.json",
             capabilityTrack: "text-generation",
             level: .selectorRootsDeleted,
-            semanticSHA256: "38701983fb3cd91109681c11f033e377c535256fa9e9aac3ec5129e37d40a301",
+            semanticSHA256: "8ee0a6c5e0d3cdd36a4db5cbbb5db8b47b7728c718e0f1234c04bf8074894070",
             exportABISHA256: "f3f7a7e4d99536a305b5908fe14f89734dda6bb6aea86ab9b90b59859f733e4f",
             descriptorGraphSignatureSHA256: "77845c4dfb5085685611ef687da013a5d802c3154f529fee524f375cc62aa421",
             requiredCapabilities: ["run.generate"],
             requiredGates: ["startup", "prefill", "decode", "inventory"],
             requiredReleaseGates: ["startup", "prefill", "decode"],
             surfaceExpectations: textSurfaceExpectations(
-                includeBake: false,
+                includePreparation: false,
                 releaseGateIDs: ["startup", "prefill", "decode"],
                 buildAdapterBoundary: .none,
                 commandAdapterBoundary: .none,
@@ -453,13 +454,13 @@ enum CAMModuleCompletionMatrix {
             ),
             capabilityExpectations: textGenerationExpectations(
                 elapsedMs: "100",
-                bakePromptPrefix: false,
+                preparePromptPrefix: false,
                 includeLinger: true
             ),
             packageProjection: .init(
                 id: "text-to-text-transformer-prefill-decode-affine-u4-g64",
                 version: 1,
-                projectedPackageSpecSHA256: "5a27a610102ad6c01180db91a340644bf3dba27e8663e4d95137a423aaba1c44",
+                projectedPackageSpecSHA256: "ab23b6f3a82c2851acc4db933eb79c90aec0418ded51f47b0a5af60463709da0",
                 packageFiles: [
                     "SmeltGenerated.swift",
                     "dispatches.bin",
@@ -486,12 +487,12 @@ enum CAMModuleCompletionMatrix {
                     "tokenizer.json",
                     "weights.bin",
                 ],
-                camSemanticSHA256: "38701983fb3cd91109681c11f033e377c535256fa9e9aac3ec5129e37d40a301",
+                camSemanticSHA256: "8ee0a6c5e0d3cdd36a4db5cbbb5db8b47b7728c718e0f1234c04bf8074894070",
                 exportABISHA256: "f3f7a7e4d99536a305b5908fe14f89734dda6bb6aea86ab9b90b59859f733e4f",
                 camDescriptorSHA256: "dd8a286215db439e39c16353d80f238a85dac312a5695faf9a4079008e74d5b7",
                 descriptorGraphSignatureSHA256: "77845c4dfb5085685611ef687da013a5d802c3154f529fee524f375cc62aa421",
                 packageProjectionID: "text-to-text-transformer-prefill-decode-affine-u4-g64",
-                projectedPackageSpecSHA256: "5a27a610102ad6c01180db91a340644bf3dba27e8663e4d95137a423aaba1c44",
+                projectedPackageSpecSHA256: "ab23b6f3a82c2851acc4db933eb79c90aec0418ded51f47b0a5af60463709da0",
                 buildEvidenceSHA256: "",
                 packagePayloadSHA256: "",
                 elapsedBound: "100",
@@ -499,11 +500,11 @@ enum CAMModuleCompletionMatrix {
             ),
             runtimeContractEvidence: textRuntimeContractEvidence(
                 exportGateIDs: ["startup"],
-                includeBake: false,
+                includePreparation: false,
                 includeLinger: true,
                 run: .init(
-                    bodySHA256: "8f7d63b370b60d1a4d6decbc87da257137670c16fc8e3549d68a19957496f4f1",
-                    provenanceSHA256: "fd52e94a3b5c71f00736a7bb176e69c55956d487bd2f978e7a4d4e89634061d8"
+                    bodySHA256: "f1d8d271571f3e7e602a01865289581e4f9a4d1928989c11569dbad12200fd87",
+                    provenanceSHA256: "0c93603b6db4d71d93b80d43a4517260d9b22694692036bdaea44b9cddb8b650"
                 )
             ),
             runtimeAssemblyEvidence: textRuntimeAssemblyEvidence(
@@ -519,10 +520,10 @@ enum CAMModuleCompletionMatrix {
             fixture: "qwen3_tts.module.json",
             capabilityTrack: "streaming-text-to-24khz-audio",
             level: .selectorRootsDeleted,
-            semanticSHA256: "b5adbe257f202d54c025568111448b11ca3abd0a50e479839602c3c08b56ee31",
-            exportABISHA256: "691518abe0d2984d67f8c4eaaa1173c44d7163eba13a46d67201e5b05e86c8dc",
+            semanticSHA256: "9bf14abcca5e08660ae351ef27a6c9fdd4412d9c60e0fd5c8b19ee74736c3e6a",
+            exportABISHA256: "0db6caf25d98b04b012d2cbcbc122b40ce8f00cd401a08fea862cd59412b1a50",
             descriptorGraphSignatureSHA256: "0d85708b0dc274ac0138e1df7d3d1bc2269392191671245d8028e2ef6046d41d",
-            requiredCapabilities: ["run.stream", "run.synthesize"],
+            requiredCapabilities: ["prepare.voice-defaults", "run.stream", "run.synthesize"],
             requiredGates: ["startup", "audio_contract", "streaming_parity"],
             requiredReleaseGates: ["startup", "audio_contract", "streaming_parity"],
             surfaceExpectations: textToAudio24KSurfaceExpectations(
@@ -531,7 +532,6 @@ enum CAMModuleCompletionMatrix {
                 traceAdapterBoundary: .none,
                 optionalInputAdapterBoundary: .none,
                 buildAdapterBoundary: .none,
-                releaseCommandAdapterBoundary: .none,
                 releaseGateAdapterBoundary: .none,
                 releaseVerificationAdapterBoundary: .none
             ),
@@ -569,8 +569,8 @@ enum CAMModuleCompletionMatrix {
                     "vocab.json",
                     "weights.bin",
                 ],
-                camSemanticSHA256: "b5adbe257f202d54c025568111448b11ca3abd0a50e479839602c3c08b56ee31",
-                exportABISHA256: "691518abe0d2984d67f8c4eaaa1173c44d7163eba13a46d67201e5b05e86c8dc",
+                camSemanticSHA256: "9bf14abcca5e08660ae351ef27a6c9fdd4412d9c60e0fd5c8b19ee74736c3e6a",
+                exportABISHA256: "0db6caf25d98b04b012d2cbcbc122b40ce8f00cd401a08fea862cd59412b1a50",
                 camDescriptorSHA256: "9d0d39bdbdfeea04cf8b12cfb70e6fa7f60454d9d6b1ad7d4e735107f240730d",
                 descriptorGraphSignatureSHA256: "0d85708b0dc274ac0138e1df7d3d1bc2269392191671245d8028e2ef6046d41d",
                 packageProjectionID: "streaming-text-to-24khz-audio-derived-manifest-affine-u4-g128-sidecars",
@@ -582,12 +582,12 @@ enum CAMModuleCompletionMatrix {
                 exportID: "synth",
                 flowID: "synth",
                 includeServe: true,
-                includeBake: false,
+                includePreparation: false,
                 includeTrace: true,
                 includeLinger: true,
                 run: .init(
-                    bodySHA256: "7f46b0c185e2d3d14b70cf7cb92f2dba544192d1fcf1c9ae8eccfdeb238bf64b",
-                    provenanceSHA256: "2cf79eb777b3d32796c25d1f07a075e27745ab2c5a3dea8ec80667351f2d4483"
+                    bodySHA256: "1c404f02cec0755956ab465f1f8fce87014707729359302967ea5769b6da0fcc",
+                    provenanceSHA256: "de97c70d6e44615c0afaf1d432c964d4eef51667755b06fa81475765a5b7d4fa"
                 )
             ),
             runtimeAssemblyEvidence: audio24KRuntimeAssemblyEvidence(
@@ -2016,8 +2016,8 @@ enum CAMModuleCompletionMatrix {
         if expectation.request == .traceTextGenerate {
             return "trace.text"
         }
-        if expectation.request == .bakeTextPromptPrefix {
-            return "bake.prompt-prefix"
+        if expectation.request == .prepareTextPromptPrefix {
+            return "prepare.prompt-prefix"
         }
         if expectation.request == .runAudio {
             return "run.audio-24khz"
@@ -2031,8 +2031,8 @@ enum CAMModuleCompletionMatrix {
         if expectation.request == .traceTextSynthesize {
             return "trace.audio-24khz"
         }
-        if expectation.request == .bakeVoiceDefaults {
-            return "bake.voice-defaults"
+        if expectation.request == .prepareVoiceDefaults {
+            return "prepare.voice-defaults"
         }
         return expectation.request.name
     }
@@ -2104,11 +2104,11 @@ enum CAMModuleCompletionMatrix {
         requiredAnyExportFacts: ["run.generate"]
     )
 
-    private static let twoTextBakeRequest = SmeltCAMCapabilityRequest.exactTextToText(
-        name: "bake prompt-prefix with two required text inputs",
+    private static let twoTextPreparationRequest = SmeltCAMCapabilityRequest.exactTextToText(
+        name: "prepare prompt-prefix with two required text inputs",
         requiredTextInputCount: 2,
         requiredInputNames: ["candidate", "context"],
-        requiredAnyExportFacts: ["bake.prompt-prefix"]
+        requiredAnyExportFacts: ["prepare.prompt-prefix"]
     )
 
     private static let tracePackageOpeningSubcommands = [
@@ -2327,7 +2327,7 @@ enum CAMModuleCompletionMatrix {
     ) -> (command: String, subcommand: String, runtimeEventSource: String, deliveryMode: String) {
         let parts = surface.surfaceID.split(separator: ".", maxSplits: 1).map(String.init)
         let surfaceCommand = parts.first ?? surface.surfaceID
-        let command = surfaceCommand == "bake" ? "create" : surfaceCommand
+        let command = surfaceCommand
         let subcommand = parts.count == 2 ? parts[1] : surface.kind.rawValue
         let deliveryMode: String
         switch command {
@@ -2351,7 +2351,7 @@ enum CAMModuleCompletionMatrix {
     }
 
     private static func textSurfaceExpectations(
-        includeBake: Bool,
+        includePreparation: Bool,
         exportGateIDs: [String] = ["startup"],
         releaseGateIDs: [String],
         buildAdapterBoundary: AdapterBoundary = .checkedProjectionProfile,
@@ -2420,15 +2420,14 @@ enum CAMModuleCompletionMatrix {
                 adapterBoundary: inventoryGateAdapterBoundary
             ),
         ]
-        if includeBake {
+        if includePreparation {
             surfaces.insert(
-                commandSurface(
-                    "bake.prompt-prefix",
-                    request: .bakeTextPromptPrefix,
+                preparationSurface(
+                    "prepare.prompt-prefix",
+                    request: .prepareTextPromptPrefix,
                     selectedInputs: ["text[encoding=utf8]"],
                     selectedOutputs: ["text[encoding=utf8]"],
-                    gateIDs: exportGateIDs,
-                    adapterBoundary: commandAdapterBoundary
+                    gateIDs: exportGateIDs
                 ),
                 at: 4
             )
@@ -2497,8 +2496,8 @@ enum CAMModuleCompletionMatrix {
                 adapterBoundary: commandAdapterBoundary
             ),
             commandSurface(
-                "bake.prompt-prefix",
-                request: twoTextBakeRequest,
+                "prepare.prompt-prefix",
+                request: twoTextPreparationRequest,
                 selectedInputs: ["text[encoding=utf8]", "text[encoding=utf8]"],
                 selectedOutputs: ["text[encoding=utf8]"],
                 selectedInputNames: ["candidate", "context"],
@@ -2576,7 +2575,6 @@ enum CAMModuleCompletionMatrix {
         traceAdapterBoundary: AdapterBoundary = .commandAdapter,
         optionalInputAdapterBoundary: AdapterBoundary = .manifestPolicyBridge,
         buildAdapterBoundary: AdapterBoundary = .checkedProjectionProfile,
-        releaseCommandAdapterBoundary: AdapterBoundary = .commandAdapter,
         releaseGateAdapterBoundary: AdapterBoundary = .releaseBucketAdapter,
         releaseVerificationAdapterBoundary: AdapterBoundary = .targetVerifierBucket
     ) -> [SurfaceExpectation] {
@@ -2621,6 +2619,16 @@ enum CAMModuleCompletionMatrix {
                 exportID: "synth",
                 flowID: "synth",
                 adapterBoundary: commandAdapterBoundary
+            ),
+            preparationSurface(
+                "prepare.voice-defaults",
+                request: .prepareVoiceDefaults,
+                selectedInputs: ["text[encoding=utf8]"],
+                selectedOutputs: ["pcm[dtype=f32,rate=24khz]"],
+                selectedInputNames: ["text"],
+                gateIDs: ["startup"],
+                exportID: "synth",
+                flowID: "synth"
             ),
             commandSurface(
                 "trace.audio-24khz",
@@ -2718,6 +2726,35 @@ enum CAMModuleCompletionMatrix {
             requiresReleaseEvidence: requiresReleaseEvidence,
             requiresRuntimeAssembly: requiresRuntimeAssembly,
             adapterBoundary: adapterBoundary
+        )
+    }
+
+    private static func preparationSurface(
+        _ surfaceID: String,
+        request: SmeltCAMCapabilityRequest,
+        selectedInputs: [String],
+        selectedOutputs: [String],
+        selectedInputNames: [String]? = nil,
+        selectedOutputNames: [String]? = nil,
+        gateIDs: [String],
+        exportID: String = "generate",
+        flowID: String = "generate"
+    ) -> SurfaceExpectation {
+        SurfaceExpectation(
+            surfaceID: surfaceID,
+            kind: .preparation,
+            request: request,
+            exportID: exportID,
+            flowID: flowID,
+            selectedInputs: selectedInputs,
+            selectedOutputs: selectedOutputs,
+            selectedInputNames: selectedInputNames ?? (selectedInputs.count == 1 ? ["prompt"] : []),
+            selectedOutputNames: selectedOutputNames ?? (selectedOutputs.first?.hasPrefix("pcm[") == true ? ["audio"] : ["text"]),
+            gateIDs: gateIDs,
+            requiresRuntimeContract: false,
+            requiresReleaseEvidence: false,
+            requiresRuntimeAssembly: false,
+            adapterBoundary: .none
         )
     }
 
@@ -2837,7 +2874,7 @@ enum CAMModuleCompletionMatrix {
     }
 
     private static func textClosedSurfaces(
-        includeBake: Bool,
+        includePreparation: Bool,
         exportGateIDs: [String] = ["startup"],
         releaseGateIDs: [String],
         includeRuntimeSurfaceBlockers: Bool = true,
@@ -2866,12 +2903,12 @@ enum CAMModuleCompletionMatrix {
                 ),
             ]
         }
-        if includeBake && includeRuntimeSurfaceBlockers {
+        if includePreparation && includeRuntimeSurfaceBlockers {
             blockers.append(
                 closedSurface(
-                    "bake.prompt-prefix",
-                    surface: "bake prompt-prefix",
-                    reason: "capability route is not yet cut over for prompt-prefix bake",
+                    "prepare.prompt-prefix",
+                    surface: "prepare prompt-prefix",
+                    reason: "capability route is not yet cut over for prompt-prefix preparation",
                     gateIDs: exportGateIDs
                 )
             )
@@ -3549,9 +3586,9 @@ enum CAMModuleCompletionMatrix {
                 gateIDs: ["startup"]
             ),
             closedSurface(
-                "bake.prompt-prefix",
-                surface: "bake two-text prompt-prefix",
-                reason: "prompt-prefix bake still crosses manifest-policy bridge for two-text review",
+                "prepare.prompt-prefix",
+                surface: "prepare two-text prompt-prefix",
+                reason: "prompt-prefix preparation still crosses manifest-policy bridge for two-text review",
                 gateIDs: ["startup"]
             ),
             closedSurface(
@@ -3615,9 +3652,9 @@ enum CAMModuleCompletionMatrix {
                     gateIDs: ["startup"]
                 ),
                 closedSurface(
-                    "bake.voice-defaults",
-                    surface: "bake voice defaults",
-                    reason: "voice-default bake has CAM text-to-PCM construction but module is not promoted to native command evidence yet",
+                    "prepare.voice-defaults",
+                    surface: "prepare voice defaults",
+                    reason: "voice-default preparation has CAM text-to-PCM construction but module is not promoted to native command evidence yet",
                     gateIDs: ["startup"]
                 ),
                 closedSurface(
@@ -3681,13 +3718,13 @@ enum CAMModuleCompletionMatrix {
 
     private static func textRuntimeContractEvidence(
         exportGateIDs: [String],
-        includeBake: Bool,
+        includePreparation: Bool,
         includeLinger: Bool = false,
         run: RuntimeContractHashes,
         bench: RuntimeContractHashes? = nil,
         serve: RuntimeContractHashes? = nil,
         trace: RuntimeContractHashes? = nil,
-        bake: RuntimeContractHashes? = nil
+        preparation: RuntimeContractHashes? = nil
     ) -> [RuntimeContractExpectation] {
         var evidence = [
             runtimeContractEvidence(
@@ -3719,14 +3756,14 @@ enum CAMModuleCompletionMatrix {
                 hashes: trace ?? run
             ),
         ]
-        if includeBake {
+        if includePreparation {
             evidence.append(
                 runtimeContractEvidence(
-                    surfaceID: "bake.prompt-prefix",
-                    id: "contract-text-bake",
-                    request: .bakeTextPromptPrefix,
+                    surfaceID: "prepare.prompt-prefix",
+                    id: "contract-text-prepare",
+                    request: .prepareTextPromptPrefix,
                     gateIDs: exportGateIDs,
-                    hashes: bake ?? run
+                    hashes: preparation ?? run
                 )
             )
         }
@@ -3746,7 +3783,7 @@ enum CAMModuleCompletionMatrix {
 
     private static func textRuntimeAssemblyEvidence(
         fixture: String,
-        includeBake: Bool = false,
+        includePreparation: Bool = false,
         includeLinger: Bool = false,
         exportGateIDs: [String] = ["startup"]
     ) -> [RuntimeAssemblyExpectation] {
@@ -3768,7 +3805,7 @@ enum CAMModuleCompletionMatrix {
                 flowID: "generate",
                 assemblyPlanKey: "flow-plan-construction",
                 executionBackend: "compiled-metal",
-                artifactRoles: ["baked-inline", "weights"],
+                artifactRoles: ["compiled-inline", "weights"],
                 gateIDs: gateIDs,
                 requiredFeatureSet: featureContract.featureSet,
                 consumedFeatureSet: featureContract.featureSet,
@@ -3791,12 +3828,12 @@ enum CAMModuleCompletionMatrix {
                 gateIDs: exportGateIDs
             ),
         ]
-        if includeBake {
+        if includePreparation {
             rows.insert(
                 evidence(
-                    surfaceID: "bake.prompt-prefix",
-                    evidenceID: "construct-bake",
-                    request: .bakeTextPromptPrefix,
+                    surfaceID: "prepare.prompt-prefix",
+                    evidenceID: "construct-prepare",
+                    request: .prepareTextPromptPrefix,
                     gateIDs: exportGateIDs
                 ),
                 at: 3
@@ -3836,7 +3873,7 @@ enum CAMModuleCompletionMatrix {
                 flowID: "review",
                 assemblyPlanKey: "flow-plan-construction",
                 executionBackend: "compiled-metal",
-                artifactRoles: ["baked-inline", "weights"],
+                artifactRoles: ["compiled-inline", "weights"],
                 gateIDs: ["startup"],
                 requiredFeatureSet: featureContract.featureSet,
                 consumedFeatureSet: featureContract.featureSet,
@@ -3853,9 +3890,9 @@ enum CAMModuleCompletionMatrix {
             evidence(surfaceID: "bench.text", evidenceID: "construct-two-input-bench", request: twoTextBenchRequest),
             evidence(surfaceID: "serve.text", evidenceID: "construct-two-input-serve", request: twoTextServeRequest),
             evidence(
-                surfaceID: "bake.prompt-prefix",
-                evidenceID: "construct-two-input-bake",
-                request: twoTextBakeRequest
+                surfaceID: "prepare.prompt-prefix",
+                evidenceID: "construct-two-input-prepare",
+                request: twoTextPreparationRequest
             ),
             evidence(surfaceID: "trace.text", evidenceID: "construct-two-input-trace", request: twoTextTraceRequest),
         ]
@@ -3877,7 +3914,7 @@ enum CAMModuleCompletionMatrix {
         bench: RuntimeContractHashes? = nil,
         serve: RuntimeContractHashes? = nil,
         trace: RuntimeContractHashes? = nil,
-        bake: RuntimeContractHashes? = nil
+        preparation: RuntimeContractHashes? = nil
     ) -> [RuntimeContractExpectation] {
         var evidence = [
             runtimeContractEvidence(
@@ -3917,13 +3954,13 @@ enum CAMModuleCompletionMatrix {
                 hashes: trace ?? run
             ),
             runtimeContractEvidence(
-                surfaceID: "bake.prompt-prefix",
-                id: "contract-two-input-bake",
-                request: twoTextBakeRequest,
+                surfaceID: "prepare.prompt-prefix",
+                id: "contract-two-input-prepare",
+                request: twoTextPreparationRequest,
                 exportID: "review",
                 flowID: "review",
                 gateIDs: ["startup"],
-                hashes: bake ?? run
+                hashes: preparation ?? run
             ),
         ]
         if includeLinger {
@@ -3947,12 +3984,12 @@ enum CAMModuleCompletionMatrix {
         flowID: String,
         runSurfaceID: String = "run.audio-24khz",
         includeServe: Bool,
-        includeBake: Bool,
+        includePreparation: Bool,
         includeTrace: Bool,
         includeLinger: Bool = false,
         run: RuntimeContractHashes,
         serve: RuntimeContractHashes? = nil,
-        bake: RuntimeContractHashes? = nil,
+        preparation: RuntimeContractHashes? = nil,
         trace: RuntimeContractHashes? = nil
     ) -> [RuntimeContractExpectation] {
         var evidence = [
@@ -3979,16 +4016,16 @@ enum CAMModuleCompletionMatrix {
                 )
             )
         }
-        if includeBake {
+        if includePreparation {
             evidence.append(
                 runtimeContractEvidence(
-                    surfaceID: "bake.voice-defaults",
-                    id: "contract-audio-bake",
-                    request: .bakeVoiceDefaults,
+                    surfaceID: "prepare.voice-defaults",
+                    id: "contract-audio-prepare",
+                    request: .prepareVoiceDefaults,
                     exportID: exportID,
                     flowID: flowID,
                     gateIDs: ["startup"],
-                    hashes: bake ?? run
+                    hashes: preparation ?? run
                 )
             )
         }
@@ -4047,7 +4084,7 @@ enum CAMModuleCompletionMatrix {
                 flowID: flowID,
                 assemblyPlanKey: "flow-plan-construction",
                 executionBackend: "compiled-metal",
-                artifactRoles: ["baked-inline", "sidecar"],
+                artifactRoles: ["compiled-inline", "sidecar"],
                 gateIDs: gateIDs,
                 requiredFeatureSet: featureContract.featureSet,
                 consumedFeatureSet: featureContract.featureSet,
@@ -4119,7 +4156,7 @@ enum CAMModuleCompletionMatrix {
 
     private static func textGenerationExpectations(
         elapsedMs: String,
-        bakePromptPrefix: Bool,
+        preparePromptPrefix: Bool,
         exportGateIDs: [String] = ["startup"],
         includeLinger: Bool = false
     ) -> [CapabilityExpectation] {
@@ -4165,10 +4202,10 @@ enum CAMModuleCompletionMatrix {
                 gatePredicates: []
             ),
         ]
-        if bakePromptPrefix {
+        if preparePromptPrefix {
             expectations.append(
                 CapabilityExpectation(
-                    request: .bakeTextPromptPrefix,
+                    request: .prepareTextPromptPrefix,
                     exportID: "generate",
                     flowID: "generate",
                     selectedInputs: ["text[encoding=utf8]"],
@@ -4229,7 +4266,7 @@ enum CAMModuleCompletionMatrix {
             ),
             expectation(twoTextServeRequest, surfaceID: "serve.text"),
             expectation(twoTextTraceRequest, surfaceID: "trace.text"),
-            expectation(twoTextBakeRequest, surfaceID: "bake.prompt-prefix"),
+            expectation(twoTextPreparationRequest, surfaceID: "prepare.prompt-prefix"),
             expectation(twoTextRunRequest, surfaceID: "linger.text"),
         ]
     }

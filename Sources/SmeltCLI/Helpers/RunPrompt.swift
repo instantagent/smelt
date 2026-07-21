@@ -484,7 +484,7 @@ struct RunContext {
     let construction: CAMTextRuntimeConstruction?
     /// Non-nil when the package takes the SmeltModel.generate path.
     let model: SmeltModel?
-    /// Background-compiled matcher for the package's baked JSON-schema
+    /// Background-compiled matcher for the package's compiled JSON-schema
     /// grammar, if any. The llguidance tokenizer build costs ~0.4s on a 250k
     /// vocab, so it overlaps model init and is joined only when a request
     /// needs the mask. Clones are taken fresh per request (a clone's state is
@@ -519,7 +519,7 @@ struct RunContext {
             }
         }
 
-        /// Prefer the trie baked next to the grammar (a few-ms load) over
+        /// Prefer the trie compiled next to the grammar (a few-ms load) over
         /// re-building it from the vocabulary (~0.4s on a 250k vocab); a
         /// corrupt or stale trie falls back to the full build.
         private static func makeLLGTokenizer(
@@ -537,14 +537,14 @@ struct RunContext {
                         let ms = (CFAbsoluteTimeGetCurrent() - start) * 1000
                         fputs(
                             "startup: \(String(format: "%+7.1fms", ms))  "
-                                + "llg tokenizer from baked trie\n",
+                                + "llg tokenizer from compiled trie\n",
                             stderr
                         )
                     }
                     return llgTokenizer
                 } catch {
                     fputs(
-                        "warning: baked llguidance trie failed to load "
+                        "warning: compiled llguidance trie failed to load "
                             + "(\(error)); rebuilding from vocabulary\n",
                         stderr
                     )
@@ -599,30 +599,30 @@ struct RunContext {
 
         // Start the grammar build before model init so the two overlap.
         var grammarBox: GrammarBox?
-        let baked = SmeltBakedGrammar.load(packagePath: packagePath)
-        if baked == nil, !grammarBindings.isEmpty {
+        let compiledGrammar = try SmeltCompiledGrammar.load(packagePath: packagePath)
+        if compiledGrammar == nil, !grammarBindings.isEmpty {
             throw NSError(
                 domain: "SmeltCLI",
                 code: 1,
                 userInfo: [
                     NSLocalizedDescriptionKey:
-                        "--bind given but the package has no baked grammar"
+                        "--bind given but the package has no compiled grammar"
                 ]
             )
         }
-        if let baked {
+        if let compiledGrammar {
             if useModelGenerate {
                 // Splice runtime bindings into the schema's "$bind:NAME"
                 // slots before the matcher build. Fails closed: unbound
                 // slots and unknown binding names are errors.
                 let jsonSchema = try SmeltGrammarBinding.apply(
-                    bindings: grammarBindings, toJSONSchema: baked.jsonSchema
+                    bindings: grammarBindings, toJSONSchema: compiledGrammar.jsonSchema
                 )
                 grammarBox = GrammarBox(
                     tokenizer: tokenizer,
                     eosTokens: inference.eosTokens,
                     jsonSchema: jsonSchema,
-                    serializedTrie: baked.serializedTrie
+                    serializedTrie: compiledGrammar.serializedTrie
                 )
             } else if !grammarBindings.isEmpty {
                 throw NSError(
@@ -636,7 +636,7 @@ struct RunContext {
                 )
             } else {
                 fputs(
-                    "warning: baked grammar ignored — package uses the "
+                    "warning: compiled grammar ignored — package uses the "
                         + "decode-only path\n",
                     stderr
                 )
@@ -704,18 +704,17 @@ struct RunContext {
                 template: resolvedTemplate
             )
             inputIds = systemIds + inputIds
-        } else if let baked = model?.bakedPrefixTokenIds {
-            // A baked prompt prefix is the package's persona: a bare
-            // `smelt run <name>` runs with it (and reuses its prefill
-            // snapshot, since the request now starts with the baked IDs).
-            // --system/--system-file overrides it; SMELT_NO_BAKED_PREFIX=1
+        } else if let prepared = model?.preparedPrefixTokenIds {
+            // A prepared prompt prefix reuses its compiled prefill snapshot
+            // whenever the request begins with the same exact token IDs.
+            // --system/--system-file overrides it; SMELT_NO_PREPARED_PREFIX=1
             // disables it.
-            inputIds = buildInputIdsApplyingBakedPrefix(
+            inputIds = buildInputIdsApplyingPreparedPrefix(
                 prompt: prompt,
                 tokenizer: tokenizer,
-                unbakedInputIds: inputIds,
-                bakedPrefixTokenIds: baked,
-                continuation: model?.bakedPrefixContinuation,
+                fullInputIds: inputIds,
+                preparedPrefixTokenIds: prepared,
+                continuation: model?.preparedPrefixContinuation,
                 template: resolvedTemplate,
                 thinkingPolicy: thinkingPolicy
             )
@@ -732,7 +731,7 @@ struct RunContext {
                     requested: inputIds.count
                 )
             }
-            // Baked grammar: a fresh matcher clone masks each decode step;
+            // Compiled grammar: a fresh matcher clone masks each decode step;
             // generation stops as soon as the grammar reaches an accepting
             // state (the output is structurally complete). decodeStep
             // evaluates the mask closure between commit and GPU wait, so

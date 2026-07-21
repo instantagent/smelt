@@ -1,21 +1,19 @@
 import Foundation
 
-struct SmeltCopyFileTransform: SmeltFileTransformRuntime {
-    static let registration = SmeltFileTransformRegistration(
+struct SmeltCopyFileTransform: SmeltGraphNodeRuntime {
+  static let registration = SmeltGraphNodeRegistration(
         entrypoint: "artifact.copy",
-        make: { _ in SmeltCopyFileTransform() }
+    make: { SmeltCopyFileTransform() }
     )
 
     func run(
-        inputURL: URL,
-        outputURL: URL,
-        options _: [String: String]
-    ) throws -> SmeltPackageRunResult {
+    inputs: [String: SmeltGraphValue],
+    context: SmeltGraphExecutionContext
+  ) throws -> [String: SmeltGraphValue] {
+    let inputURL = try inputs.required("input", as: URL.self, node: "artifact.copy")
         let data = try Data(contentsOf: inputURL)
-        try data.write(to: outputURL, options: .atomic)
-        return SmeltPackageRunResult(
-            outputURL: outputURL,
-            summary: "Wrote \(data.count) bytes: \(outputURL.path)"
-        )
+    try data.write(to: context.outputURL, options: .atomic)
+    context.setSummary("Wrote \(data.count) bytes: \(context.outputURL.path)")
+    return ["output": .init(context.outputURL)]
     }
 }

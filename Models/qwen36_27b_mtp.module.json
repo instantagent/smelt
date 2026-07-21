@@ -568,7 +568,7 @@
       "annotations" : [
         {
           "key" : "artifact",
-          "value" : "baked-inline"
+          "value" : "compiled-inline"
         },
         {
           "key" : "feedback",

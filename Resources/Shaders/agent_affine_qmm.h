@@ -125,7 +125,10 @@ inline void agent_affine_qmm_fixed_batched_full(
     uint                  simd_lane,
     uint                  simd_group
 ) {
-    static_assert(BATCH_TILE == 16, "qmm full affine path currently expects batch tile 16");
+    static_assert(
+        BATCH_TILE == 8 || BATCH_TILE == 16,
+        "qmm full affine path expects batch tile 8 or 16"
+    );
 
     constexpr ushort BM = BATCH_TILE;
     constexpr ushort BN = 32;
@@ -174,19 +177,24 @@ inline void agent_affine_qmm_fixed_batched_full(
                 pad[7] = half(0.0h);
             }
 
-            const uint wRow = threadIdx >> 2;
-            const uint wQuarter = threadIdx & 3u;
-            const uint colBase = wQuarter * 8;
             const uint groupIdx = kBase / FIXED_GROUP_SIZE;
-            device const uint8_t* wSrc =
-                weights + (rowBase + wRow) * (FIXED_COLS / 2) + (kBase / 2) + (colBase / 2);
-            threadgroup float* wDst = Ws + wRow * BK_PADDED + colBase;
-            agent_dequantize_u4x8_to_float(
-                wSrc,
-                scales[(rowBase + wRow) * NUM_COL_GROUPS + groupIdx],
-                biases[(rowBase + wRow) * NUM_COL_GROUPS + groupIdx],
-                wDst
-            );
+            constexpr uint WEIGHT_LOAD_PASSES = 16 / BATCH_TILE;
+            for (uint pass = 0; pass < WEIGHT_LOAD_PASSES; pass++) {
+                const uint weightThread = threadIdx + pass * BATCH_TILE * 8;
+                const uint wRow = weightThread >> 2;
+                const uint wQuarter = weightThread & 3u;
+                const uint colBase = wQuarter * 8;
+                device const uint8_t* wSrc =
+                    weights + (rowBase + wRow) * (FIXED_COLS / 2)
+                        + (kBase / 2) + (colBase / 2);
+                threadgroup float* wDst = Ws + wRow * BK_PADDED + colBase;
+                agent_dequantize_u4x8_to_float(
+                    wSrc,
+                    scales[(rowBase + wRow) * NUM_COL_GROUPS + groupIdx],
+                    biases[(rowBase + wRow) * NUM_COL_GROUPS + groupIdx],
+                    wDst
+                );
+            }
 
             if (CLEAR_PADDING && threadIdx < BN) {
                 threadgroup float* pad = Ws + threadIdx * BK_PADDED + BK;
@@ -246,19 +254,24 @@ inline void agent_affine_qmm_fixed_batched_full(
                 pad[7] = half(0.0h);
             }
 
-            const uint wRow = threadIdx >> 2;
-            const uint wQuarter = threadIdx & 3u;
-            const uint colBase = wQuarter * 8;
             const uint groupIdx = kBase / FIXED_GROUP_SIZE;
-            device const uint8_t* wSrc =
-                weights + (rowBase + wRow) * (FIXED_COLS / 2) + (kBase / 2) + (colBase / 2);
-            threadgroup float* wDst = Ws + wRow * BK_PADDED + colBase;
-            agent_dequantize_u4x8_to_float(
-                wSrc,
-                scales[(rowBase + wRow) * NUM_COL_GROUPS + groupIdx],
-                biases[(rowBase + wRow) * NUM_COL_GROUPS + groupIdx],
-                wDst
-            );
+            constexpr uint WEIGHT_LOAD_PASSES = 16 / BATCH_TILE;
+            for (uint pass = 0; pass < WEIGHT_LOAD_PASSES; pass++) {
+                const uint weightThread = threadIdx + pass * BATCH_TILE * 8;
+                const uint wRow = weightThread >> 2;
+                const uint wQuarter = weightThread & 3u;
+                const uint colBase = wQuarter * 8;
+                device const uint8_t* wSrc =
+                    weights + (rowBase + wRow) * (FIXED_COLS / 2)
+                        + (kBase / 2) + (colBase / 2);
+                threadgroup float* wDst = Ws + wRow * BK_PADDED + colBase;
+                agent_dequantize_u4x8_to_float(
+                    wSrc,
+                    scales[(rowBase + wRow) * NUM_COL_GROUPS + groupIdx],
+                    biases[(rowBase + wRow) * NUM_COL_GROUPS + groupIdx],
+                    wDst
+                );
+            }
 
             if (CLEAR_PADDING && threadIdx < BN) {
                 threadgroup float* pad = Ws + threadIdx * BK_PADDED + BK;

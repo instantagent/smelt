@@ -115,15 +115,15 @@ package func buildInputIds(
     }
 }
 
-typealias BakedSystemPromptContinuationPlan = SmeltBakedSystemPromptContinuationPlan
+typealias PreparedSystemPromptContinuationPlan = SmeltPreparedSystemPromptContinuationPlan
 
-func bakedSystemPromptContinuationPlan(
+func preparedSystemPromptContinuationPlan(
     tokenizer: SmeltTokenizer,
     template: String,
     thinkingPolicy: SmeltThinkingPolicy
-) throws -> BakedSystemPromptContinuationPlan? {
+) throws -> PreparedSystemPromptContinuationPlan? {
     do {
-        return try SmeltBakedPromptContinuationBuilder.systemPromptPlan(
+        return try SmeltPreparedPromptContinuationBuilder.systemPromptPlan(
             tokenizer: tokenizer,
             template: template,
             thinkingPolicy: thinkingPolicy
@@ -133,41 +133,41 @@ func bakedSystemPromptContinuationPlan(
     }
 }
 
-func buildInputIdsFromBakedContinuation(
+func buildInputIdsFromPreparedContinuation(
     prompt: String,
     tokenizer: SmeltTokenizer,
-    bakedPrefixTokenIds: [Int32],
-    continuation: SmeltBakedPromptContinuation,
+    preparedPrefixTokenIds: [Int32],
+    continuation: SmeltPreparedPromptContinuation,
     template: String,
     thinkingPolicy: SmeltThinkingPolicy
 ) -> [Int32]? {
-    SmeltBakedPromptContinuationBuilder.inputIds(
+    SmeltPreparedPromptContinuationBuilder.inputIds(
         prompt: prompt,
         tokenizer: tokenizer,
-        bakedPrefixTokenIds: bakedPrefixTokenIds,
+        preparedPrefixTokenIds: preparedPrefixTokenIds,
         continuation: continuation,
         template: template,
         thinkingPolicy: thinkingPolicy
     )
 }
 
-package func buildInputIdsApplyingBakedPrefix(
+package func buildInputIdsApplyingPreparedPrefix(
     prompt: String,
     tokenizer: SmeltTokenizer,
-    unbakedInputIds: [Int32],
-    bakedPrefixTokenIds: [Int32],
-    continuation: SmeltBakedPromptContinuation?,
+    fullInputIds: [Int32],
+    preparedPrefixTokenIds: [Int32],
+    continuation: SmeltPreparedPromptContinuation?,
     template: String,
     thinkingPolicy: SmeltThinkingPolicy
 ) -> [Int32] {
-    SmeltBakedPromptContinuationBuilder.inputIds(
+    SmeltPreparedPromptContinuationBuilder.inputIds(
         prompt: prompt,
         tokenizer: tokenizer,
-        bakedPrefixTokenIds: bakedPrefixTokenIds,
+        preparedPrefixTokenIds: preparedPrefixTokenIds,
         continuation: continuation,
         template: template,
         thinkingPolicy: thinkingPolicy,
-        unbakedInputIds: unbakedInputIds
+        fullInputIds: fullInputIds
     )
 }
 
@@ -637,19 +637,19 @@ private func buildChatMLNativeToolInputIds(
 /// turn is intentionally routed through the same continuation builder as
 /// `smelt run --once`, making first-turn token IDs identical. ChatML history then
 /// extends that exact prefix for later interactive turns.
-func buildChatCompletionsInputIdsApplyingBakedPrefix(
+func buildChatCompletionsInputIdsApplyingPreparedPrefix(
     messages: [OpenAIChatMessage],
     tokenizer: SmeltTokenizer,
     template: String,
     thinkingPolicy: SmeltThinkingPolicy,
-    bakedPrefix: SmeltBakedPromptPrefix?,
+    preparedPrefix: SmeltPreparedPromptPrefix?,
     tools: [SmeltToolDescriptor]? = nil,
     toolTranscriptCodec: SmeltNativeToolTranscriptCodec? = nil
 ) throws -> [Int32] {
     let messages = messages.filter {
         !($0.role == .system && ($0.content ?? "").isEmpty)
     }
-    let unbaked = try buildChatCompletionsInputIds(
+    let full = try buildChatCompletionsInputIds(
         messages: messages,
         tokenizer: tokenizer,
         template: template,
@@ -657,24 +657,24 @@ func buildChatCompletionsInputIdsApplyingBakedPrefix(
         tools: tools,
         toolTranscriptCodec: toolTranscriptCodec
     )
-    guard let bakedPrefix else { return unbaked }
+    guard let preparedPrefix else { return full }
     // A real caller-supplied system prompt is an explicit persona override,
     // exactly like `smelt run --system`; do not silently prepend the sealed one.
     guard !messages.contains(where: {
         $0.role == .system && !($0.content ?? "").isEmpty
     }) else {
-        return unbaked
+        return full
     }
 
     if messages.count == 1,
        let first = messages.first,
        first.role == .user {
-        return buildInputIdsApplyingBakedPrefix(
+        return buildInputIdsApplyingPreparedPrefix(
             prompt: first.content ?? "",
             tokenizer: tokenizer,
-            unbakedInputIds: unbaked,
-            bakedPrefixTokenIds: bakedPrefix.tokenIds,
-            continuation: bakedPrefix.continuation,
+            fullInputIds: full,
+            preparedPrefixTokenIds: preparedPrefix.tokenIds,
+            continuation: preparedPrefix.continuation,
             template: template,
             thinkingPolicy: thinkingPolicy
         )
@@ -682,7 +682,7 @@ func buildChatCompletionsInputIdsApplyingBakedPrefix(
 
     guard template == SmeltPromptTemplateName.chatML,
           toolTranscriptCodec == nil,
-          let continuation = bakedPrefix.continuation,
+          let continuation = preparedPrefix.continuation,
           continuation.matches(
             template: template,
             thinkingPolicy: thinkingPolicy
@@ -693,13 +693,13 @@ func buildChatCompletionsInputIdsApplyingBakedPrefix(
     else {
         // A package carrying continuation metadata must match exactly. This is
         // the same safe fallback used by one-shot run on template drift.
-        return bakedPrefix.continuation == nil
-            ? bakedPrefix.tokenIds + unbaked
-            : unbaked
+        return preparedPrefix.continuation == nil
+            ? preparedPrefix.tokenIds + full
+            : full
     }
 
     var toolCallNames: [String: String] = [:]
-    var ids = bakedPrefix.tokenIds
+    var ids = preparedPrefix.tokenIds
     ids += tokenizer.encode(renderToolAwareBody(
         messages[0],
         toolCallNames: &toolCallNames

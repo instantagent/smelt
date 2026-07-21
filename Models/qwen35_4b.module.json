@@ -222,7 +222,7 @@
     }
   ],
   "capabilities" : [
-    "bake.prompt-prefix",
+    "prepare.prompt-prefix",
     "run.generate",
     "run.generate.multimodal"
   ],
@@ -257,7 +257,7 @@
   "exports" : [
     {
       "capabilities" : [
-        "bake.prompt-prefix",
+        "prepare.prompt-prefix",
         "run.generate"
       ],
       "gates" : [
@@ -291,7 +291,7 @@
     },
     {
       "capabilities" : [
-        "bake.prompt-prefix",
+        "prepare.prompt-prefix",
         "run.generate.multimodal"
       ],
       "gates" : [
@@ -1239,7 +1239,7 @@
       "annotations" : [
         {
           "key" : "artifact",
-          "value" : "baked-inline"
+          "value" : "compiled-inline"
         },
         {
           "key" : "feedback",
@@ -1384,7 +1384,7 @@
       "annotations" : [
         {
           "key" : "artifact",
-          "value" : "baked-inline"
+          "value" : "compiled-inline"
         },
         {
           "key" : "feedback",

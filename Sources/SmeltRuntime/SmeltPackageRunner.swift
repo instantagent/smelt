@@ -1,5 +1,5 @@
-import SmeltSchema
 import Foundation
+import SmeltSchema
 
 /// Result of executing a package-authored `smelt run` file transformation.
 public struct SmeltPackageRunResult: Sendable, Equatable {
@@ -14,15 +14,15 @@ public struct SmeltPackageRunResult: Sendable, Equatable {
 
 /// Runtime dispatcher for packages that declare a file-transform run contract.
 ///
-/// The public surface is model-agnostic. Concrete implementations are selected
-/// by the entrypoint in the CAM-resolved flow.
+/// The public surface is model-agnostic. CAM selects and orders reusable node
+/// entrypoints; the executor supplies dataflow values across their typed ports.
 public final class SmeltPackageRunner {
     private struct Header: Decodable {
         let run: SmeltPackageRunContract?
     }
 
     public let contract: SmeltPackageRunContract
-    private let implementation: any SmeltFileTransformRuntime
+  private let executor: SmeltGraphExecutor
 
     public static func declaredContract(packagePath: String) throws -> SmeltPackageRunContract? {
         let header = try loadHeader(packagePath: packagePath)
@@ -38,9 +38,11 @@ public final class SmeltPackageRunner {
         try contract.validate()
         self.contract = contract
         let packageURL = URL(fileURLWithPath: packagePath, isDirectory: true)
-        guard let capabilities = try SmeltCAMPackageCapabilities.loadIfPresent(
+    guard
+      let capabilities = try SmeltCAMPackageCapabilities.loadIfPresent(
             packageURL: packageURL
-        ) else {
+      )
+    else {
             throw SmeltPackageRunnerError.missingModuleDescriptor
         }
         let request = SmeltCAMCapabilityRequest.runFileTransform(
@@ -57,21 +59,18 @@ public final class SmeltPackageRunner {
             )
         }
         let graph = try capabilities.executionGraph(for: decision)
-        let calls = graph.phases.flatMap(\.calls).filter {
-            $0.entrypoint == contract.entrypoint
-        }
-        guard calls.count == 1,
-              calls[0].callType == "node",
-              let nodeID = calls[0].nodeID,
-              graph.nodes.contains(where: {
-                  $0.nodeID == nodeID && $0.implementation == "native"
+    let calledNodeIDs = Set(graph.phases.flatMap(\.calls).compactMap(\.nodeID))
+    guard !calledNodeIDs.isEmpty,
+      graph.nodes.filter({ calledNodeIDs.contains($0.nodeID) }).allSatisfy({
+        $0.implementation == "native" || $0.implementation == "adapter"
               })
         else {
             throw SmeltPackageRunnerError.entrypointNotSelected(contract.entrypoint)
         }
-        implementation = try SmeltBuiltInFileTransforms.registry.make(
-            entrypoint: contract.entrypoint,
-            packagePath: packagePath
+    executor = SmeltGraphExecutor(
+      packagePath: packagePath,
+      graph: graph,
+      registry: SmeltBuiltInGraphNodes.registry
         )
     }
 
@@ -87,7 +86,7 @@ public final class SmeltPackageRunner {
         }
         let options = try resolvedOptions(suppliedOptions)
 
-        return try implementation.run(
+    return try executor.run(
             inputURL: inputURL,
             outputURL: outputURL,
             options: options
@@ -109,7 +108,8 @@ public final class SmeltPackageRunner {
         for flag in supplied.keys where declarations[flag] == nil {
             throw SmeltPackageRunnerError.unknownOption(flag)
         }
-        var resolved = Dictionary(uniqueKeysWithValues: contract.options.compactMap { option in
+    var resolved = Dictionary(
+      uniqueKeysWithValues: contract.options.compactMap { option in
             option.defaultValue.map { (option.flag, $0) }
         })
         for (flag, value) in supplied {

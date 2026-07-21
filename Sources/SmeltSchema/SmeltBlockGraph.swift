@@ -62,19 +62,19 @@ public struct SmeltBlockGraph: Codable, Sendable, Equatable {
 
     /// HOW a block's compiled compute is delivered — orthogonal to `impl`, so the
     /// graph is an honest map of what actually runs (and, for distribution, what is a
-    /// SEPARABLE shippable artifact). `bakedInline` = a baked dispatch table in the
+    /// SEPARABLE shippable artifact). `compiledInline` = a compiled dispatch table in the
     /// MAIN package (the text trunk's `dispatches.bin`) — part of the whole package, not
-    /// separable. `bakedSidecar` = a baked table in its OWN sidecar SUBDIR with its own
+    /// separable. `compiledSidecar` = a compiled table in its OWN sidecar SUBDIR with its own
     /// manifest, sharing the parent `weights.bin`/`model.metallib` (the talker `trunk/`)
     /// — independently shippable. `runtimeEmit` = the emitter runs IN the runtime per
-    /// request, a shape-variant block (the codec), NOT a baked artifact. `internalSidecar`
+    /// request, a shape-variant block (the codec), NOT a compiled artifact. `internalSidecar`
     /// = a `.native` head wrapper that drives a compiled internal transformer in a sidecar
     /// subdir (the MTP head → `trunk-mtp/`). nil = no compiled artifact (a plain hand
     /// `.native` block). Like `impl`, DECLARATIVE today — it makes the graph honest,
     /// nothing branches on it yet.
     public enum CompiledDelivery: String, Codable, Sendable {
-        case bakedInline = "baked-inline"
-        case bakedSidecar = "baked-sidecar"
+        case compiledInline = "compiled-inline"
+        case compiledSidecar = "compiled-sidecar"
         case runtimeEmit = "runtime-emit"
         case internalSidecar = "internal-sidecar"
     }
@@ -275,7 +275,7 @@ public struct SmeltBlockGraph: Codable, Sendable, Equatable {
               inputs: [.tokens], output: .logits,
               feedback: .tokens,
               state: [.kvCache],
-              compiledDelivery: .bakedInline),
+              compiledDelivery: .compiledInline),
         Block(name: "text-head", role: .head, impl: .native,
               inputs: [.logits], output: .text,
               state: [.sampler]),
@@ -314,7 +314,7 @@ public struct SmeltBlockGraph: Codable, Sendable, Equatable {
     /// The Qwen3-TTS pipeline for a bf16 build (B3.2c/d, 1a-ii): `qwen3TTS` with the
     /// tts-frontend promoted to `.compiled`/`.runtimeEmit` (its gather→project→merge is a
     /// Qwen3TTSFrontEndEmitter record table run through the generic SmeltCodecRecordRunner,
-    /// byte-identical to the host path), the talker promoted to `.compiled`/`.bakedSidecar`
+    /// byte-identical to the host path), the talker promoted to `.compiled`/`.compiledSidecar`
     /// (its embeddings→hidden dispatch tables live in the `trunk/` sidecar, sharing package
     /// weights), and the MTP head annotated `.internalSidecar` (it stays a `.native` head
     /// wrapping a compiled internal transformer in `trunk-mtp/`). The codec-decoder is
@@ -325,7 +325,7 @@ public struct SmeltBlockGraph: Codable, Sendable, Equatable {
     /// `qwen3TTSCompiledTrunkNativeFrontEnd`); f32/f16 keep `qwen3TTS` (all native).
     public static let qwen3TTSCompiledTalker = qwen3TTS
         .replacing("tts-frontend") { $0.realized(.compiled, delivery: .runtimeEmit) }
-        .replacing("talker") { $0.realized(.compiled, delivery: .bakedSidecar) }
+        .replacing("talker") { $0.realized(.compiled, delivery: .compiledSidecar) }
         .replacing("mtp-head") { $0.realized(.native, delivery: .internalSidecar) }
 
     /// A u4 build (Phase 3): the talker + MTP trunks compile (their unfused u4 route lives in
@@ -335,7 +335,7 @@ public struct SmeltBlockGraph: Codable, Sendable, Equatable {
     /// the front-end promotion: an HONEST graph for u4 (compiled trunks, native front-end),
     /// not the bf16 graph's compiled-front-end claim.
     public static let qwen3TTSCompiledTrunkNativeFrontEnd = qwen3TTS
-        .replacing("talker") { $0.realized(.compiled, delivery: .bakedSidecar) }
+        .replacing("talker") { $0.realized(.compiled, delivery: .compiledSidecar) }
         .replacing("mtp-head") { $0.realized(.native, delivery: .internalSidecar) }
 
     /// Standalone Qwen3-TTS codec decoder block package: RVQ codec frames in,

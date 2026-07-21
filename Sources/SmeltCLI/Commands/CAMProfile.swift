@@ -1,19 +1,19 @@
 import Foundation
 import SmeltSchema
 
-func runCAMProfileCommand() {
+func runCAMProfileCommand(_ args: [String]) {
     guard args.count == 3 || args.count == 5,
           !args[2].hasPrefix("-"),
           args.count == 3 || args[3] == "--model-name" && !args[4].isEmpty
     else {
-        fputs("Usage: smelt module-profile <performance-gate> [--model-name <model-name>]\n", stderr)
+        fputs("Usage: smelt lab package-profile <performance-gate> [--model-name <model-name>]\n", stderr)
         exit(1)
     }
 
     let gate = args[2]
     let modelName = args.count == 5 ? args[4] : nil
     guard SmeltPackagePerformanceGateID.known.contains(gate) else {
-        fputs("smelt module-profile: unknown performance gate '\(gate)'\n", stderr)
+        fputs("smelt lab package-profile: unknown performance gate '\(gate)'\n", stderr)
         exit(1)
     }
 

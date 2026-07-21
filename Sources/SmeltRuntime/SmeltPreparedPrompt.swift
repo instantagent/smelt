@@ -63,7 +63,7 @@ public enum SmeltPreparedPromptError: Error, CustomStringConvertible, Equatable 
 /// adapter-specific runtime paths. Selection is by contract ID when supplied,
 /// then by longest exact token prefix.
 public struct SmeltPreparedPromptSet: Sendable {
-    public static let fileName = SmeltBakeArtifacts.preparedPromptsMeta
+    public static let fileName = SmeltPreparedArtifacts.promptsMetadata
 
     struct Meta: Codable {
         let version: Int

@@ -122,12 +122,19 @@ private func describeCAMPorts(_ ports: [SmeltCAMPackageDescriptor.Port]) -> Stri
 /// argument at args[2], or the current working directory. Smelt deliberately
 /// does not resolve installed Smelt names.
 func resolvePackagePath(usage: [String]) -> (path: String, promptStartIndex: Int) {
-    let packageFlag = parseArg("--package")
+    resolvePackagePath(arguments: args, usage: usage)
+}
+
+func resolvePackagePath(
+    arguments: [String],
+    usage: [String]
+) -> (path: String, promptStartIndex: Int) {
+    let packageFlag = parseArg(arguments, "--package")
     if !packageFlag.isEmpty {
         return (packageFlag, 2)
     }
-    if args.count >= 3, isPackagePath(args[2]) {
-        return (args[2], 3)
+    if arguments.count >= 3, isPackagePath(arguments[2]) {
+        return (arguments[2], 3)
     }
     if let inferred = inferPackagePathFromCWD() {
         return (inferred, 2)
@@ -164,16 +171,17 @@ func printKernelProfileTable(
     }
     rows.sort { $0.avgUs > $1.avgUs }
 
-    let header = "  \("Kernel".padding(toLength: 28, withPad: " ", startingAt: 0)) #disp    GPU µs    % total"
+    let nameWidth = max(28, rows.map(\.name.count).max() ?? 0)
+    let header = "  \("Kernel".padding(toLength: nameWidth, withPad: " ", startingAt: 0)) #disp    GPU µs    % total"
     fputs(header + "\n", stderr)
-    fputs("  " + String(repeating: "─", count: 62) + "\n", stderr)
+    fputs("  " + String(repeating: "─", count: nameWidth + 34) + "\n", stderr)
     for r in rows {
         let bar = String(repeating: "█", count: max(0, Int(r.pct / 2.5)))
-        let name = r.name.padding(toLength: 28, withPad: " ", startingAt: 0)
+        let name = r.name.padding(toLength: nameWidth, withPad: " ", startingAt: 0)
         let line = "  \(name) \(String(format: "%5d", r.dispatches)) \(String(format: "%9.0f", r.avgUs)) \(String(format: "%7.1f", r.pct))%  \(bar)"
         fputs(line + "\n", stderr)
     }
-    fputs("  " + String(repeating: "─", count: 62) + "\n", stderr)
-    fputs("  TOTAL\(String(repeating: " ", count: 28)) \(String(format: "%9.0f", grandTotal)) µs\n", stderr)
-    fputs("  \(String(repeating: " ", count: 35)) \(String(format: "%9.1f", grandTotal / 1_000)) \(perTokenUnits)\n", stderr)
+    fputs("  " + String(repeating: "─", count: nameWidth + 34) + "\n", stderr)
+    fputs("  TOTAL\(String(repeating: " ", count: nameWidth)) \(String(format: "%9.0f", grandTotal)) µs\n", stderr)
+    fputs("  \(String(repeating: " ", count: nameWidth + 7)) \(String(format: "%9.1f", grandTotal / 1_000)) \(perTokenUnits)\n", stderr)
 }

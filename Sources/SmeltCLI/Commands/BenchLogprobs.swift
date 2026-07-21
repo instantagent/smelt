@@ -2,9 +2,9 @@ import Foundation
 import SmeltRuntime
 import SmeltServe
 
-func runBenchLogprobsCommand() {
-    let (packagePath, _) = resolvePackagePath(usage: [
-        "Usage: smelt bench-logprobs <model.smeltpkg>",
+func runBenchLogprobsCommand(_ args: [String]) {
+    let (packagePath, _) = resolvePackagePath(arguments: args, usage: [
+        "Usage: smelt lab bench logprobs <model.smeltpkg>",
         "       [--prompt-tokens N (default 150)]",
         "       [--iters N (default 5)]",
         "       [--topk N (default 1)]\n",
@@ -12,12 +12,12 @@ func runBenchLogprobsCommand() {
     let construction = requireCAMTextRuntimePlanOrExit(
         packagePath: packagePath,
         request: .benchPrefillLogprobs,
-        verb: "bench-logprobs"
+        verb: "lab bench logprobs"
     )
 
-    let promptTokens = Int(parseArg("--prompt-tokens", default: "150")) ?? 150
-    let iters = Int(parseArg("--iters", default: "5")) ?? 5
-    let topK = Int(parseArg("--topk", default: "1")) ?? 1
+    let promptTokens = Int(parseArg(args, "--prompt-tokens", default: "150")) ?? 150
+    let iters = Int(parseArg(args, "--iters", default: "5")) ?? 5
+    let topK = Int(parseArg(args, "--topk", default: "1")) ?? 1
 
     do {
         try runBenchLogprobs(

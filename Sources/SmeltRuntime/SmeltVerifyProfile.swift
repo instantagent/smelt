@@ -1,8 +1,9 @@
-// Per-dispatch GPU timing for the verify pass, gated on
-// SMELT_PROFILE_VERIFY=<csv_path>. One-shot capture on the first
-// prefillVerifyArgmax call, then transitions to .completed. Optional
-// SMELT_PROFILE_VERIFY_MATCH=<csv_substrings> samples only matching
-// pipeline names so large generated tables fit Metal's counter limit.
+// Per-dispatch GPU timing for the verify pass, armed explicitly by
+// SmeltRuntime.armVerifyArgmaxProfile or through the legacy
+// SMELT_PROFILE_VERIFY=<csv_path> environment hook. One-shot capture on the
+// first prefillVerifyArgmax call, then transitions to .completed. Optional
+// pipeline-name filters keep large generated tables inside Metal's counter
+// limit.
 
 import Foundation
 import Metal
@@ -86,14 +87,11 @@ extension SmeltRuntime {
             verifyProfile = .disabled
             return nil
         }
-        let pipelineNameMatches = ProcessInfo.processInfo.environment[
-            "SMELT_PROFILE_VERIFY_MATCH"
-        ]?.split(separator: ",").map(String.init).filter { !$0.isEmpty } ?? []
         let ctx = SmeltVerifyProfileContext(
             buffer: buf,
             outputPath: path,
             maxDispatches: maxDispatches,
-            pipelineNameMatches: pipelineNameMatches
+            pipelineNameMatches: verifyProfilePipelineMatches
         )
         verifyProfile = .pending(ctx)
         return ctx

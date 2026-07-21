@@ -7,7 +7,7 @@
 // or unreachable, the client falls back to an inline run.
 //
 // The socket name keys on the package's resolved path, context limit, and the
-// manifest + baked-prefix mtimes — rebuilding or re-baking a package routes
+// manifest + prepared-artifact mtimes — rebuilding a package routes
 // around any still-running stale worker.
 //
 // Protocol: one JSON request line, client half-closes, worker replies with one
@@ -125,7 +125,7 @@ private func fnv1a64Hex(_ s: String) -> String {
 }
 
 private func fileMTime(_ path: String) -> Int {
-    // Nanosecond precision (APFS): a re-bake landing in the same second as
+    // Nanosecond precision (APFS): a rebuild landing in the same second as
     // the file it replaces must still rotate the socket key.
     let attrs = try? FileManager.default.attributesOfItem(atPath: path)
     let date = attrs?[.modificationDate] as? Date
@@ -151,10 +151,9 @@ func lingerSocketPath(
         resolved,
         String(contextLimit ?? -1),
         String(fileMTime("\(resolved)/manifest.json")),
-        String(fileMTime("\(resolved)/\(SmeltBakeArtifacts.prefixMeta)")),
-        String(fileMTime("\(resolved)/\(SmeltBakeArtifacts.grammarMeta)")),
+        String(fileMTime("\(resolved)/\(SmeltPreparedArtifacts.prefixMetadata)")),
+        String(fileMTime("\(resolved)/\(SmeltPreparedArtifacts.grammarMetadata)")),
         String(fileMTime("\(resolved)/\(SmeltPackageInterface.fileName)")),
-        String(fileMTime("\(resolved)/\(SmeltBakeManifest.fileName)")),
         bindingsKey,
     ]
     if let camIdentity {

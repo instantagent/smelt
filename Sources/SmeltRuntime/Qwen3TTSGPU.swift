@@ -24,7 +24,7 @@ public final class Qwen3TTSGPU {
     public let tokenizer: SmeltTokenizer?
     public let frontEndConfig: Qwen3TTSFrontEnd.Config?
     /// The prepared voice defaults (`voice.json`): package defaults
-    /// for speaker / language / instruct / streaming schedule. nil when nothing was baked.
+    /// for speaker / language / instruct / streaming schedule. nil when none were prepared.
     public let voice: Qwen3TTSVoice?
 
     private let pipelinesByName: [String: MTLComputePipelineState]
@@ -93,13 +93,6 @@ public final class Qwen3TTSGPU {
         guard manifest.pageSize > 0, manifest.pageSize % hostPage == 0 else {
             throw LoadError.pageSizeMismatch(manifest: manifest.pageSize, host: hostPage)
         }
-
-        // Bake honesty for the TTS root package. Qwen3TTSGPU opens the package
-        // directly (not via SmeltRuntime.init), and its inner SmeltRuntime opens
-        // only the trunk sidecar sub-path — so the root baked.json (declaring
-        // voice/args) would otherwise be unenforced.
-        try SmeltBakeManifest.enforce(
-            packagePath: packagePath, ignoring: SmeltBakeManifest.ignoredFromEnv())
 
         // A bundled tokenizer makes this a text→24 kHz package; load it from the package dir.
         // The four files are copied in by Qwen3TTSPackageBuilder; require the full set or none.

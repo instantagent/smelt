@@ -136,7 +136,7 @@ if camel is not None and snake is not None and camel != snake:
 print(camel if camel is not None else snake or "")
 PY
   )
-  local profile_args=(module-profile text.decode-prefill-startup)
+  local profile_args=(lab package-profile text.decode-prefill-startup)
   if [[ -n "$model_name" ]]; then
     profile_args+=(--model-name "$model_name")
   fi
@@ -520,7 +520,7 @@ else
   agent_cmd=(swift run -c release smelt)
 fi
 
-bench_args=(bench "$pkg_path" --iterations "$decode_iterations" --warmup "$decode_warmup")
+bench_args=(lab bench decode "$pkg_path" --iterations "$decode_iterations" --warmup "$decode_warmup")
 if [[ -n "$decode_fixed_position" ]]; then
   bench_args+=(--fixed-position "$decode_fixed_position")
 fi
@@ -612,7 +612,7 @@ fi
 IFS=',' read -r -a token_counts <<< "$prefill_tokens"
 prefill_metric_lines=()
 for tokens in "${token_counts[@]}"; do
-  prefill_args=(prefill-bench "$pkg_path" --tokens "$tokens" --iterations "$prefill_iterations" --warmup "$prefill_warmup")
+  prefill_args=(lab bench prefill "$pkg_path" --tokens "$tokens" --iterations "$prefill_iterations" --warmup "$prefill_warmup")
   min_tok_s=$(lookup_threshold "$min_prefill_tps" "$tokens" || true)
   max_p95_ms=$(lookup_threshold "$max_prefill_p95_ms" "$tokens" || true)
   if [[ -n "$min_tok_s" ]]; then

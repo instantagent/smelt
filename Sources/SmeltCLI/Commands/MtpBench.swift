@@ -8,8 +8,8 @@
 // `runtime.decodeStep` body runs to completion here.
 //
 // Usage:
-//   smelt mtp-bench <target.smeltpkg> <drafter.smeltpkg>
-//   smelt mtp-bench <target.smeltpkg> --suffix-only
+//   smelt lab bench speculative <target.smeltpkg> <drafter.smeltpkg>
+//   smelt lab bench speculative <target.smeltpkg> --suffix-only
 //     [--K N] [--measure-tokens N] [--prompt-file FILE]
 //     [--prompt STRING] [--skip-plain] [--suffix-max-n N]
 
@@ -18,14 +18,14 @@ import SmeltRuntime
 import SmeltServe
 import SmeltSchema
 
-func runMtpBenchCommand() {
-    let usage = "Usage: smelt mtp-bench <target.smeltpkg> (<drafter.smeltpkg> | --suffix-only) [--K N] [--measure-tokens N] [--prompt STRING | --prompt-file FILE] [--skip-plain] [--no-stop-at-eot] [--temperature T --seed N] [--suffix-max-n N]\n"
+func runMtpBenchCommand(_ args: [String]) {
+    let usage = "Usage: smelt lab bench speculative <target.smeltpkg> (<drafter.smeltpkg> | --suffix-only) [--K N] [--measure-tokens N] [--prompt STRING | --prompt-file FILE] [--skip-plain] [--no-stop-at-eot] [--temperature T --seed N] [--suffix-max-n N]\n"
     guard args.count >= 4 else {
         fputs(usage, stderr)
         exit(1)
     }
     let targetPkg = args[2]
-    let suffixOnly = hasArg("--suffix-only")
+    let suffixOnly = hasArg(args, "--suffix-only")
     let drafterPkg: String?
     if suffixOnly {
         drafterPkg = nil
@@ -38,19 +38,19 @@ func runMtpBenchCommand() {
     let targetConstruction = requireCAMTextRuntimePlanOrExit(
         packagePath: targetPkg,
         request: .mtpBenchTarget,
-        verb: "mtp-bench",
+        verb: "lab bench speculative",
         requireAuthoredInventory: true
     )
 
     do {
-        let K = try parsePositiveIntArg("--K") ?? SmeltSpeculativeRuntime.defaultK
-        let suffixMaxN = try parsePositiveIntArg("--suffix-max-n") ?? 4
-        let measureTokens = try parsePositiveIntArg("--measure-tokens") ?? 60
-        let promptOverride = parseArg("--prompt").nilIfEmpty
-        let promptFile = parseArg("--prompt-file").nilIfEmpty
-        let skipPlain = hasArg("--skip-plain")
-        let stopAtEOT = !hasArg("--no-stop-at-eot")
-        let selectionMode = try parseMtpSelectionMode()
+        let K = try parsePositiveIntArg(args, "--K") ?? SmeltSpeculativeRuntime.defaultK
+        let suffixMaxN = try parsePositiveIntArg(args, "--suffix-max-n") ?? 4
+        let measureTokens = try parsePositiveIntArg(args, "--measure-tokens") ?? 60
+        let promptOverride = parseArg(args, "--prompt").nilIfEmpty
+        let promptFile = parseArg(args, "--prompt-file").nilIfEmpty
+        let skipPlain = hasArg(args, "--skip-plain")
+        let stopAtEOT = !hasArg(args, "--no-stop-at-eot")
+        let selectionMode = try parseMtpSelectionMode(args)
 
         try runMtpBench(
             targetConstruction: targetConstruction,
@@ -62,7 +62,8 @@ func runMtpBenchCommand() {
             promptFile: promptFile,
             skipPlain: skipPlain,
             stopAtEOT: stopAtEOT,
-            selectionMode: selectionMode
+            selectionMode: selectionMode,
+            arguments: args
         )
     } catch {
         fputs("mtp-bench failed: \(error)\n", stderr)
@@ -70,14 +71,14 @@ func runMtpBenchCommand() {
     }
 }
 
-private func parseMtpSelectionMode() throws -> SmeltSelectionMode {
-    guard let temp = try parseNonNegativeDoubleArg("--temperature") else {
+private func parseMtpSelectionMode(_ args: [String]) throws -> SmeltSelectionMode {
+    guard let temp = try parseNonNegativeDoubleArg(args, "--temperature") else {
         return .argmax
     }
     guard temp.isFinite, temp > 0 else {
         return .argmax
     }
-    let seedRaw = parseArg("--seed")
+    let seedRaw = parseArg(args, "--seed")
     guard !seedRaw.isEmpty else {
         throw NSError(
             domain: "SmeltCLI", code: 1,
@@ -109,7 +110,8 @@ private func runMtpBench(
     promptFile: String?,
     skipPlain: Bool,
     stopAtEOT: Bool,
-    selectionMode: SmeltSelectionMode
+    selectionMode: SmeltSelectionMode,
+    arguments args: [String]
 ) throws {
     let stride = K + 1
     guard measureTokens % stride == 0 else {
@@ -367,7 +369,7 @@ private func runMtpBench(
     if let suffix = runtime.drafter as? SmeltSuffixLookupDrafter {
         print("  suffix:       hits=\(suffix.hits) misses=\(suffix.misses) "
             + "last-n=\(suffix.lastNeedleLength.map(String.init) ?? "none")")
-        if hasArg("--suffix-debug"), !suffix.lastCandidates.isEmpty {
+        if hasArg(args, "--suffix-debug"), !suffix.lastCandidates.isEmpty {
             print("  suffix draft: \(suffix.lastCandidates.map(String.init).joined(separator: ","))")
         }
     }

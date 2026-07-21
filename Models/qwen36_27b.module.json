@@ -119,7 +119,7 @@
     }
   ],
   "capabilities" : [
-    "bake.prompt-prefix",
+    "prepare.prompt-prefix",
     "run.generate"
   ],
   "compile" : [
@@ -145,7 +145,7 @@
   "exports" : [
     {
       "capabilities" : [
-        "bake.prompt-prefix",
+        "prepare.prompt-prefix",
         "run.generate"
       ],
       "gates" : [
@@ -610,7 +610,7 @@
       "annotations" : [
         {
           "key" : "artifact",
-          "value" : "baked-inline"
+          "value" : "compiled-inline"
         },
         {
           "key" : "feedback",

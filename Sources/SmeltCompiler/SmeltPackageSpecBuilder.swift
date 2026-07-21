@@ -367,7 +367,7 @@ public enum SmeltPackageSpecBuilder {
             sourceRoot: sourceRoot
         )
         try validateManifestAgreement(spec: spec, plan: plan, sourceRoot: sourceRoot)
-        try validateBakeAgreement(plan: plan, sourceRoot: sourceRoot)
+        try validatePackageInterface(sourceRoot: sourceRoot)
         let sourcePayloadSHA256 = try sourcePayloadDigest(
             packageFiles: sourcePackageFiles,
             sourceRoot: sourceRoot
@@ -1332,66 +1332,23 @@ public enum SmeltPackageSpecBuilder {
         }
     }
 
-    private static func validateBakeAgreement(
-        plan: SmeltPackageResolvedPlan,
-        sourceRoot: URL
-    ) throws {
-        guard let expected = plan.bake else { return }
-        let loaded: SmeltBakeManifest
+    private static func validatePackageInterface(sourceRoot: URL) throws {
         do {
-            guard let marker = try SmeltBakeManifest.load(packagePath: sourceRoot.path) else {
-                throw SmeltPackageSpecBuilderError.sourceArtifactMissing(
-                    sourceRoot.appendingPathComponent(SmeltBakeManifest.fileName).path
-                )
-            }
-            loaded = marker
-            try SmeltBakeManifest.enforce(packagePath: sourceRoot.path, ignoring: [])
-        } catch let error as SmeltPackageSpecBuilderError {
-            throw error
+            guard let interface = try SmeltPackageInterface.load(
+                packagePath: sourceRoot.path
+            ) else { return }
+            let manifestData = try Data(
+                contentsOf: sourceRoot.appendingPathComponent("manifest.json")
+            )
+            let context = try SmeltPackageInterface.packageValidationContext(
+                manifestData: manifestData
+            )
+            try interface.validate(packageContext: context)
         } catch {
             throw SmeltPackageSpecBuilderError.malformed(
-                "\(SmeltBakeManifest.fileName) cannot be validated for package-spec preflight: \(error)"
+                "args.json cannot be validated for package-spec preflight: \(error)"
             )
         }
-
-        let expectedManifest = canonicalBakeManifest(from: expected)
-        guard canonicalBakeManifest(loaded) == expectedManifest else {
-            throw SmeltPackageSpecBuilderError.malformed(
-                "\(SmeltBakeManifest.fileName) disagrees with package spec bake_manifest"
-            )
-        }
-    }
-
-    private static func canonicalBakeManifest(
-        from plan: SmeltPackageResolvedPlan.BakePlan
-    ) -> SmeltBakeManifest {
-        canonicalBakeManifest(SmeltBakeManifest(
-            version: plan.version,
-            sealed: plan.sealed.map {
-                SmeltBakeManifest.Sealed(
-                    kind: $0.kind,
-                    required: $0.required,
-                    perf: $0.perf
-                )
-            }
-        ))
-    }
-
-    private static func canonicalBakeManifest(
-        _ manifest: SmeltBakeManifest
-    ) -> SmeltBakeManifest {
-        SmeltBakeManifest(
-            version: manifest.version,
-            sealed: manifest.sealed
-                .map {
-                    SmeltBakeManifest.Sealed(
-                        kind: $0.kind,
-                        required: $0.required.sorted(),
-                        perf: $0.perf.sorted()
-                    )
-                }
-                .sorted { $0.kind.rawValue < $1.kind.rawValue }
-        )
     }
 
     private static func sha256Hex(ofFileAt path: String) throws -> String {

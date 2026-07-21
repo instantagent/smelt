@@ -194,13 +194,13 @@ package struct CAMTextRuntimeConstruction: Sendable {
     }
 
     package func resolveTemplate(cliOverride: String?) throws -> String {
-        let baked = executionPlan.promptTemplate
-        if let cliOverride, !cliOverride.isEmpty, cliOverride != baked {
+        let packaged = executionPlan.promptTemplate
+        if let cliOverride, !cliOverride.isEmpty, cliOverride != packaged {
             throw CAMTextConstructionError.unsupported(
                 "CAM text routes do not accept template overrides"
             )
         }
-        return baked
+        return packaged
     }
 
     package func effectiveMaxTokens(_ requested: Int) -> Int {

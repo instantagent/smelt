@@ -1,7 +1,7 @@
 // Gates for allowedTokenMask on the plain SmeltModel.generate paths (the
-// surface `smelt run` uses for baked grammars): a JSON-schema matcher must
+// surface `smelt run` uses for compiled grammars): a JSON-schema matcher must
 // constrain output to parseable, schema-shaped JSON, including through the
-// baked-prefix restore path. Gated on a locally built package.
+// prepared-prefix restore path. Gated on a locally built package.
 
 import Foundation
 import Testing

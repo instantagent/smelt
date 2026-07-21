@@ -27,7 +27,7 @@ func runCAMTextToPCMRunCommand(
         "  --linger N      leave a warm runtime behind for N idle seconds; repeat\n",
         "                  invocations skip the model load (warm first audio)\n",
         "  --seed N        deterministic sampling; --greedy disables sampling (debug)\n",
-        "  --first/max-chunk  streaming schedule in 80ms frames (default baked voice, else 1/1\n",
+        "  --first/max-chunk  streaming schedule in 80ms frames (voice defaults, else 1/1\n",
         "                     = minimum-latency zero-buffer; use 4/4 for long-form throughput)\n",
         "  --help          this text plus the package's declared flags; `--` ends flags\n"
     ]
@@ -88,7 +88,7 @@ func runCAMTextToPCMRunCommand(
         let voice = try construction.load24KVoiceDefaults()
         // One precedence chain for every voice field:
         //   explicit flag (built-in XOR declared — both is a conflict)
-        //   > baked voice.json > args.json default > built-in default.
+        //   > prepared voice.json > args.json default > built-in default.
         let merge = CAMTextToPCMArgMerge(
             interface: interface,
             scanned: scanned,
@@ -100,7 +100,7 @@ func runCAMTextToPCMRunCommand(
         // Strict numeric flags: a malformed or non-positive value is a CLI error, not a
         // silent fall-through to the default (which would later abort on a runtime
         // precondition). The merged schedule is re-checked below because a hand-edited
-        // voice.json or args.json can carry invalid values bake never saw.
+        // voice.json or args.json can carry invalid values from external tooling.
         // Chunk-schedule defaults come from the manifest's declared loop
         // (one truth — B2.2); pre-stamping packages keep the old 1/1.
         let declaredChunks = try construction.declared24KChunkSchedule()
@@ -112,7 +112,7 @@ func runCAMTextToPCMRunCommand(
             ?? max(firstChunk, declaredChunks?.max ?? 1)
         maxFrames = try merge.int("max-frames", "--max-frames", voice?.maxFrames) ?? 256
         guard firstChunk >= 1, maxChunk >= firstChunk, maxFrames >= 1 else {
-            fputs("smelt run: need 1 <= first-chunk (\(firstChunk)) <= max-chunk (\(maxChunk)) and max-frames (\(maxFrames)) >= 1 (check baked voice.json/args.json)\n", stderr)
+            fputs("smelt run: need 1 <= first-chunk (\(firstChunk)) <= max-chunk (\(maxChunk)) and max-frames (\(maxFrames)) >= 1 (check voice.json/args.json)\n", stderr)
             exit(1)
         }
         // Resolve the names against the package's tables now — an unknown
@@ -266,7 +266,7 @@ final class CAMTextToPCMRunOutputSink {
     }
 }
 
-/// Per-target merge of explicit flags (built-in or declared), the baked
+/// Per-target merge of explicit flags (built-in or declared), prepared
 /// voice, and declared defaults, with conflicts rejected at equal precedence.
 struct CAMTextToPCMArgMerge {
     let interface: SmeltPackageInterface?
@@ -304,7 +304,7 @@ struct CAMTextToPCMArgMerge {
     }
 
     func string(
-        _ target: String, _ builtinFlag: String, _ baked: String?
+        _ target: String, _ builtinFlag: String, _ prepared: String?
     ) throws -> String? {
         let builtin = parseArg(builtinFlag).nilIfEmpty
         let (explicit, fallback) = declaredValues(target)
@@ -314,13 +314,13 @@ struct CAMTextToPCMArgMerge {
         )
         if let builtin { return builtin }
         if case .string(let s)? = explicit { return s }
-        if let baked { return baked }
+        if let prepared { return prepared }
         if case .string(let s)? = fallback { return s }
         return nil
     }
 
     func int(
-        _ target: String, _ builtinFlag: String, _ baked: Int?
+        _ target: String, _ builtinFlag: String, _ prepared: Int?
     ) throws -> Int? {
         let raw = parseArg(builtinFlag)
         var builtin: Int?
@@ -339,7 +339,7 @@ struct CAMTextToPCMArgMerge {
         )
         if let builtin { return builtin }
         if case .int(let v)? = explicit { return v }
-        if let baked { return baked }
+        if let prepared { return prepared }
         if case .int(let v)? = fallback { return v }
         return nil
     }

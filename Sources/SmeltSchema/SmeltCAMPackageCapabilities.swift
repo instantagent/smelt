@@ -92,6 +92,7 @@ public struct SmeltCAMCapabilityRequest: Sendable, Equatable {
             case any
             case containsTerm(String)
             case prefillGPUBatch
+            case prefillVerifyArgmaxGPUBatch
             case prefillAllLogitsGPUBatch
         }
 
@@ -138,6 +139,18 @@ public struct SmeltCAMCapabilityRequest: Sendable, Equatable {
                 return Int(parts[3])
             }
             return nil
+        }
+
+        public static func prefillVerifyArgmaxGPUBatchSize(_ value: String) -> Int? {
+            let parts = value.split { $0 == " " || $0 == "\t" || $0 == "\n" }.map(String.init)
+            guard parts.count >= 4,
+                  parts[0] == "metal",
+                  parts[1] == "verify-argmax",
+                  parts[2] == "batch"
+            else {
+                return nil
+            }
+            return Int(parts[3])
         }
     }
 
@@ -426,6 +439,28 @@ public struct SmeltCAMCapabilityRequest: Sendable, Equatable {
         ]
     )
 
+    public static let profileVerifyArgmax = SmeltCAMCapabilityRequest(
+        name: "profile verify argmax",
+        requiredInputShapes: [.textUTF8],
+        requiredOutputShapes: [.textUTF8],
+        requiredAnyExportFacts: ["run.generate"],
+        requiredPackageFiles: ["prefill_verify_argmax_dispatches.bin"],
+        requiredCompileRequirements: [
+            .init(key: "prefill", valueShape: .prefillVerifyArgmaxGPUBatch),
+        ]
+    )
+
+    public static let inspectVerifyArgmaxDispatchTable = SmeltCAMCapabilityRequest(
+        name: "inspect verify argmax dispatch table",
+        requiredInputShapes: [.textUTF8],
+        requiredOutputShapes: [.textUTF8],
+        requiredAnyExportFacts: ["run.generate"],
+        requiredPackageFiles: ["prefill_verify_argmax_dispatches.bin"],
+        requiredCompileRequirements: [
+            .init(key: "prefill", valueShape: .prefillVerifyArgmaxGPUBatch),
+        ]
+    )
+
     public static let profileDecodeKernels = SmeltCAMCapabilityRequest(
         name: "profile decode kernels",
         requiredInputShapes: [.textUTF8],
@@ -473,18 +508,18 @@ public struct SmeltCAMCapabilityRequest: Sendable, Equatable {
         requiredGateObservations: [SmeltCAMCapabilityRequest.firstAudio24KObservation]
     )
 
-    public static let bakeTextPromptPrefix = SmeltCAMCapabilityRequest(
-        name: "bake text prompt-prefix",
+    public static let prepareTextPromptPrefix = SmeltCAMCapabilityRequest(
+        name: "prepare text prompt-prefix",
         requiredInputShapes: [.textUTF8],
         requiredOutputShapes: [.textUTF8],
-        requiredAnyExportFacts: ["bake.prompt-prefix"]
+        requiredAnyExportFacts: ["prepare.prompt-prefix"]
     )
 
-    public static let bakeVoiceDefaults = SmeltCAMCapabilityRequest(
-        name: "bake voice defaults",
+    public static let prepareVoiceDefaults = SmeltCAMCapabilityRequest(
+        name: "prepare voice defaults",
         requiredInputShapes: [.textUTF8],
         requiredOutputShapes: [SmeltCAMCapabilityRequest.voiceDefaultsOutputShape],
-        requiredAnyExportFacts: ["bake.voice-defaults"]
+        requiredAnyExportFacts: ["prepare.voice-defaults"]
     )
 
     public static let traceTextGenerate = SmeltCAMCapabilityRequest(
@@ -537,9 +572,11 @@ public struct SmeltCAMCapabilityRequest: Sendable, Equatable {
         name: "inspect prefill dispatch table",
         requiredInputShapes: [.textUTF8],
         requiredOutputShapes: [.textUTF8],
-        requiredAllExportFacts: ["inspect.prefill-dispatch-table"],
+        requiredAnyExportFacts: ["run.generate"],
         requiredPackageFiles: ["prefill_dispatches.bin"],
-        requiredCompileRequirementKeys: ["prefill"]
+        requiredCompileRequirements: [
+            .init(key: "prefill", valueShape: .prefillGPUBatch),
+        ]
     )
 
     public static let benchPrefillLogprobs = SmeltCAMCapabilityRequest(
@@ -2378,6 +2415,8 @@ public struct SmeltCAMPackageCapabilities: Sendable, Equatable {
             return requirementValueContainsTerm(requirement.value, term)
         case .prefillGPUBatch:
             return requirementValueMatchesPrefillGPUBatch(requirement.value)
+        case .prefillVerifyArgmaxGPUBatch:
+            return requirementValueMatchesPrefillVerifyArgmaxGPUBatch(requirement.value)
         case .prefillAllLogitsGPUBatch:
             return requirementValueMatchesPrefillAllLogitsGPUBatch(requirement.value)
         }
@@ -2391,6 +2430,10 @@ public struct SmeltCAMPackageCapabilities: Sendable, Equatable {
 
     private func requirementValueMatchesPrefillGPUBatch(_ value: String) -> Bool {
         SmeltCAMCapabilityRequest.RequirementShape.prefillGPUBatchSize(value) != nil
+    }
+
+    private func requirementValueMatchesPrefillVerifyArgmaxGPUBatch(_ value: String) -> Bool {
+        SmeltCAMCapabilityRequest.RequirementShape.prefillVerifyArgmaxGPUBatchSize(value) != nil
     }
 
     private func requirementValueMatchesPrefillAllLogitsGPUBatch(_ value: String) -> Bool {

@@ -2,8 +2,16 @@ import Foundation
 import SmeltSchema
 
 func parseArg(_ flag: String, default defaultValue: String = "") -> String {
-    if let idx = args.firstIndex(of: flag), idx + 1 < args.count {
-        return args[idx + 1]
+    parseArg(args, flag, default: defaultValue)
+}
+
+func parseArg(
+    _ arguments: [String],
+    _ flag: String,
+    default defaultValue: String = ""
+) -> String {
+    if let idx = arguments.firstIndex(of: flag), idx + 1 < arguments.count {
+        return arguments[idx + 1]
     }
     return defaultValue
 }
@@ -132,6 +140,10 @@ func hasArg(_ flag: String) -> Bool {
     args.contains(flag)
 }
 
+func hasArg(_ arguments: [String], _ flag: String) -> Bool {
+    arguments.contains(flag)
+}
+
 func parseRepeatedArg(_ flag: String) -> [String] {
     var values: [String] = []
     var idx = 0
@@ -202,7 +214,11 @@ func hasAnyArg(_ flags: [String]) -> Bool {
 }
 
 func parsePositiveIntArg(_ flag: String) throws -> Int? {
-    let raw = parseArg(flag)
+    try parsePositiveIntArg(args, flag)
+}
+
+func parsePositiveIntArg(_ arguments: [String], _ flag: String) throws -> Int? {
+    let raw = parseArg(arguments, flag)
     guard !raw.isEmpty else { return nil }
     guard let parsed = Int(raw), parsed > 0 else {
         throw NSError(
@@ -238,7 +254,11 @@ func requirePositiveIntFlag(_ flag: String) -> Int? { requireIntFlag(flag, minim
 func requireNonNegativeIntFlag(_ flag: String) -> Int? { requireIntFlag(flag, minimum: 0) }
 
 func parseNonNegativeDoubleArg(_ flag: String) throws -> Double? {
-    let raw = parseArg(flag)
+    try parseNonNegativeDoubleArg(args, flag)
+}
+
+func parseNonNegativeDoubleArg(_ arguments: [String], _ flag: String) throws -> Double? {
+    let raw = parseArg(arguments, flag)
     guard !raw.isEmpty else { return nil }
     guard let parsed = Double(raw), parsed.isFinite, parsed >= 0 else {
         throw NSError(

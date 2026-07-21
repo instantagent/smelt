@@ -2548,12 +2548,79 @@ struct SmeltFusionPlanner: Sendable {
             )
         }
 
+        var fusedOps: [SmeltIROp] = [.dispatch(fused)]
+        if let batchedFullShape,
+           batchedFullShape.batchTile == 16,
+           let batch8Pipeline = batch8AffineResidualAddPipeline(for: matvec.pipeline),
+           matvec.minSeqLen == nil,
+           matvec.maxSeqLenExclusive == nil,
+           matvec.minPositionPlus1 == nil,
+           matvec.maxPositionPlus1Exclusive == nil
+        {
+            func guardedFused(
+                pipeline: SmeltPipeline,
+                dispatch: SmeltDispatchStyle,
+                dynamicGridH: SmeltDynamicGridDimension,
+                minSeqLen: Int? = nil,
+                maxSeqLenExclusive: Int? = nil,
+                commentSuffix: String
+            ) -> SmeltDispatch {
+                SmeltDispatch(
+                    pipeline: pipeline,
+                    buffers: fusedBuffers,
+                    constants: fusedConstants,
+                    dispatch: dispatch,
+                    comment: fusedComment + commentSuffix,
+                    dynamicGridW: matvec.dynamicGridW,
+                    dynamicGridH: dynamicGridH,
+                    dynamicGridD: matvec.dynamicGridD,
+                    minSeqLen: minSeqLen,
+                    maxSeqLenExclusive: maxSeqLenExclusive
+                )
+            }
+
+            let batch16Below = guardedFused(
+                pipeline: fusedPipeline,
+                dispatch: fusedDispatch,
+                dynamicGridH: .seqLenCeilDiv(16),
+                maxSeqLenExclusive: 8,
+                commentSuffix: " [batch<8,b16]"
+            )
+            let batch8Exact = guardedFused(
+                pipeline: batch8Pipeline,
+                dispatch: .threadgroups(
+                    width: (batchedFullShape.rows + 31) / 32,
+                    height: 1,
+                    depth: 1,
+                    tgWidth: 64,
+                    tgHeight: 1,
+                    tgDepth: 1
+                ),
+                dynamicGridH: .seqLenCeilDiv(8),
+                minSeqLen: 8,
+                maxSeqLenExclusive: 9,
+                commentSuffix: " [batch=8,b8]"
+            )
+            let batch16Above = guardedFused(
+                pipeline: fusedPipeline,
+                dispatch: fusedDispatch,
+                dynamicGridH: .seqLenCeilDiv(16),
+                minSeqLen: 9,
+                commentSuffix: " [batch>=9,b16]"
+            )
+            fusedOps = [
+                .dispatch(batch16Below),
+                .dispatch(batch8Exact),
+                .dispatch(batch16Above),
+            ]
+        }
+
         return SmeltFusionRewrite(
             consumedOpCount: window.distance(
                 from: window.startIndex,
                 to: window.index(after: addIndex)
             ),
-            producedOps: [.dispatch(fused)] + deferredMarkers,
+            producedOps: fusedOps + deferredMarkers,
             kind: specializedFusedPipeline == nil && generatedFusedRoute == nil
                 ? .genericKernel
                 : .specializedKernel,
@@ -2715,6 +2782,17 @@ struct SmeltFusionPlanner: Sendable {
             return .fusedAffineMatvecAddC3072R3072G64BatchedFull
         case .affineMatvecC8192R3072G64BatchedFull:
             return .fusedAffineMatvecAddC8192R3072G64BatchedFull
+        default:
+            return nil
+        }
+    }
+
+    private func batch8AffineResidualAddPipeline(for pipeline: SmeltPipeline) -> SmeltPipeline? {
+        switch pipeline {
+        case .affineMatvecC2048R1024G64BatchedFull:
+            return .fusedAffineMatvecAddC2048R1024G64BatchedFullB8
+        case .affineMatvecC3584R1024G64BatchedFull:
+            return .fusedAffineMatvecAddC3584R1024G64BatchedFullB8
         default:
             return nil
         }

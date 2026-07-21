@@ -365,7 +365,7 @@ final class SmeltTraceReportTests: XCTestCase {
         XCTAssertEqual(report.loop?.emission, "chunked:first=1:max=1:growth=double:via=codec-decoder")
         XCTAssertEqual(report.sidecars.map(\.name), ["trunk", "trunk-mtp"])
         XCTAssertTrue(report.sidecars.allSatisfy(\.exists))
-        XCTAssertEqual(report.blocks.first { $0.name == "talker" }?.route, "compiled:baked-sidecar")
+        XCTAssertEqual(report.blocks.first { $0.name == "talker" }?.route, "compiled:compiled-sidecar")
         XCTAssertEqual(report.blocks.first { $0.name == "mtp-head" }?.route, "native:internal-sidecar")
         XCTAssertFalse(report.hasErrors, report.issues.map(\.message).joined(separator: "\n"))
     }
@@ -615,7 +615,7 @@ final class SmeltTraceReportTests: XCTestCase {
         XCTAssertTrue(expected.capture.eventsCaptured)
         XCTAssertTrue(expected.contract.events.contains {
             $0.kind == "block" && $0.phase == "per-step:decode" && $0.block == "trunk"
-                && $0.route == "compiled:baked-inline"
+                && $0.route == "compiled:compiled-inline"
         })
     }
 
@@ -1317,7 +1317,7 @@ final class SmeltTraceReportTests: XCTestCase {
                 index: 1,
                 phase: "per-step:decode",
                 block: "trunk",
-                route: "compiled:baked-inline",
+                route: "compiled:compiled-inline",
                 step: 0,
                 witness: "ok"
             ),
@@ -1357,7 +1357,7 @@ final class SmeltTraceReportTests: XCTestCase {
                 index: 1,
                 phase: "per-step:decode",
                 block: "trunk",
-                route: "compiled:baked-inline",
+                route: "compiled:compiled-inline",
                 step: 0,
                 witness: "ok"
             ),

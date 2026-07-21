@@ -74,7 +74,7 @@ public final class SmeltLLGuidanceTokenizer: @unchecked Sendable {
 
     /// `buildSlicer: true` enables llguidance's slicer optimization
     /// (precomputed vocabulary partitions; ~20x cheaper per-step masks at
-    /// ~0.65s build cost on a 250k vocab). Bake uses it so the built
+    /// ~0.65s build cost on a 250k vocab). Preparation uses it so the built
     /// slicer ships in `serializedTrie()`; runtime callers leave it off —
     /// `SMELT_LLG_SLICER=1` forces it on for A/B runs.
     public init(
@@ -112,7 +112,7 @@ public final class SmeltLLGuidanceTokenizer: @unchecked Sendable {
         // Disable the slicer optimization (empty argv-style array) unless
         // requested: its default partitions cost ~0.65s to precompute over
         // a 250k vocab at tokenizer build, which dominates constrained-
-        // decoding cold start. Bake requests it (and serializes the built
+        // decoding cold start. Package preparation requests it (and serializes the built
         // slicer); SMELT_LLG_SLICER=1 forces it for runtime A/B runs.
         let useSlicer = buildSlicer
             || ProcessInfo.processInfo.environment["SMELT_LLG_SLICER"] == "1"
@@ -149,7 +149,7 @@ public final class SmeltLLGuidanceTokenizer: @unchecked Sendable {
     }
 
     /// Reconstruct a tokenizer from trie bytes captured by
-    /// `serializedTrie()` (typically `baked_grammar.trie` in a package).
+    /// `serializedTrie()` (typically `compiled_grammar.trie` in a package).
     /// Skips the ~0.4s trie build over the vocabulary; the bytes already
     /// carry the vocabulary and EOS tokens. Corrupt bytes throw — callers
     /// fall back to the from-vocabulary init.

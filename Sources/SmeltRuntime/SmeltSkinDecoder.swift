@@ -46,12 +46,18 @@ public struct SmeltSkinWeights: Sendable, Equatable {
     }
 }
 
+struct SmeltGPUSkinField {
+  let vertexCount: Int
+  let jointCount: Int
+  let jointMajorWeights: MTLBuffer
+}
+
 struct SmeltSkinDecoderKernelPolicy: Sendable, Equatable {
     static let optimized = SmeltSkinDecoderKernelPolicy(
         maximumDenseRowsPerThreadgroup: 8,
         fuseDenseEpilogue: true,
         selfAttentionQueryTile: 1,
-        crossAttentionQueryTile: 8
+        crossAttentionQueryTile: 16
     )
 
     let maximumDenseRowsPerThreadgroup: Int
@@ -87,8 +93,8 @@ struct SmeltSkinDecoderKernelPolicy: Sendable, Equatable {
             "self-attention query tile must be 1 or 8"
         )
         precondition(
-            [1, 8].contains(crossAttentionQueryTile),
-            "cross-attention query tile must be 1 or 8"
+            [1, 8, 16].contains(crossAttentionQueryTile),
+            "cross-attention query tile must be 1, 8, or 16"
         )
         self.maximumDenseRowsPerThreadgroup = maximumDenseRowsPerThreadgroup
         self.fuseDenseEpilogue = fuseDenseEpilogue
@@ -106,12 +112,13 @@ public final class SmeltSkinDecoder {
     private static let headDimension = 64
     private static let mlpWidth = 3_072
     private static let decoderPrefix = "vae.model.decoder"
-    private static let fullQueryChunk = 512
+  private static let fullQueryChunk = 2_048
 
     private struct PreparedCrossQuery {
         let source: MTLBuffer
         let rawQuery: MTLBuffer
         let rows: Int
+    let rowOffset: Int
     }
 
     private struct PreparedCrossData {
@@ -119,6 +126,23 @@ public final class SmeltSkinDecoder {
         let value: MTLBuffer
         let rows: Int
     }
+
+  private struct CrossDataWorkspace {
+    let normalized: MTLBuffer
+    let rawKey: MTLBuffer
+    let rawValue: MTLBuffer
+    let key: MTLBuffer
+    let value: MTLBuffer
+    let unused: MTLBuffer
+  }
+
+  private struct JointWorkspace {
+    let levels: MTLBuffer
+    let combined: MTLBuffer
+    let selfBlock: SelfBlockWorkspace
+    let crossData: CrossDataWorkspace
+    let cross: CrossWorkspace
+  }
 
     private struct PreparedLatentCache {
         let buffer: MTLBuffer
@@ -169,7 +193,7 @@ public final class SmeltSkinDecoder {
         case residualAdd = 2
     }
 
-    private let artifact: SmeltRigArtifact
+  private let artifact: SmeltComponentArtifact
     private let device: MTLDevice
     private let queue: MTLCommandQueue
     private let pipelines: [String: MTLComputePipelineState]
@@ -179,7 +203,7 @@ public final class SmeltSkinDecoder {
     private var weightBuffers: [String: MTLBuffer] = [:]
 
     public convenience init(
-        artifact: SmeltRigArtifact,
+    artifact: SmeltComponentArtifact,
         device: MTLDevice? = nil
     ) throws {
         try self.init(
@@ -190,7 +214,7 @@ public final class SmeltSkinDecoder {
     }
 
     init(
-        artifact: SmeltRigArtifact,
+    artifact: SmeltComponentArtifact,
         device: MTLDevice? = nil,
         kernelPolicy: SmeltSkinDecoderKernelPolicy
     ) throws {
@@ -208,9 +232,11 @@ public final class SmeltSkinDecoder {
             "dense_bf16w_f32_rows4",
             "dense_bf16w_f32_rows8",
             "dense_bf16w_f32_rows8_epilogue",
+            "dense_bf16w_f32_rows8_cols2_epilogue",
             "repack_concatenated_head_parts_f32",
             "noncausal_attention_f32",
             "noncausal_attention_q8_f32",
+            "noncausal_attention_q16_f32",
             "add_rows_f32",
             "gelu_f32",
             "fsq_base8x5_decode_f32",
@@ -344,48 +370,185 @@ public final class SmeltSkinDecoder {
     }
 
     /// Decodes multiple joints and returns `[vertex, joint]` row-major weights.
-    /// The correctness route deliberately executes each joint independently so
-    /// every per-joint reduction is byte-identical to `decode`.
+  /// Prepared queries and GPU output storage are shared, but each joint must
+  /// complete before its scratch workspace is reused. This preserves the
+  /// per-joint bits produced by `decode` across long asynchronous workloads.
     public func decodeJoints(
         indicesByJoint: [[UInt32]],
         conditionTokens: [Float],
         pointNormals: [Float]
     ) throws -> SmeltSkinWeights {
+    let field = try decodeJointField(
+      indicesByJoint: indicesByJoint,
+      conditionTokens: conditionTokens,
+      pointNormals: pointNormals
+    )
+    let probabilities = read(
+      field.jointMajorWeights,
+      count: field.vertexCount * field.jointCount
+    )
+    var values = [Float](repeating: 0, count: probabilities.count)
+    for joint in 0..<field.jointCount {
+      for vertex in 0..<field.vertexCount {
+        values[vertex * field.jointCount + joint] =
+          probabilities[joint * field.vertexCount + vertex]
+      }
+    }
+    return SmeltSkinWeights(
+      vertexCount: field.vertexCount,
+      jointCount: field.jointCount,
+      values: values
+    )
+  }
+
+  func decodeJointField(
+    indicesByJoint: [[UInt32]],
+    conditionTokens: [Float],
+    pointNormals: [Float]
+  ) throws -> SmeltGPUSkinField {
         guard !indicesByJoint.isEmpty else {
             throw SmeltSkinDecoderError.invalidJointCount(0)
         }
+    guard indicesByJoint.allSatisfy({ $0.count == 4 }) else {
+      throw SmeltSkinDecoderError.invalidIndices
+    }
+    guard conditionTokens.count == 384 * Self.latentWidth else {
+      throw SmeltSkinDecoderError.invalidConditionCount(conditionTokens.count)
+    }
         try validatePointNormals(pointNormals)
         let vertexCount = pointNormals.count / 6
         let jointCount = indicesByJoint.count
         let queries = try prepareCrossQueries(pointNormals: pointNormals)
-        let workspace = try makeCrossWorkspace(
-            rows: queries.map(\.rows).max() ?? 0
+    let tokens = conditionTokens.count / Self.latentWidth + 4
+    let workspace = try makeJointWorkspace(
+      tokens: tokens,
+      maximumQueryRows: queries.map(\.rows).max() ?? 0,
+      conditionTokens: conditionTokens
+    )
+    let jointMajor = try buffer(
+      count: vertexCount * jointCount,
+      label: "skinning.vae.decoder.joint-major-probabilities"
         )
-        let maximumTokens =
-            conditionTokens.count / Self.latentWidth
-            + (indicesByJoint.map(\.count).max() ?? 0)
-        let selfWorkspace = try makeSelfBlockWorkspace(tokens: maximumTokens)
-        var values = [Float](repeating: 0, count: vertexCount * jointCount)
         for (joint, indices) in indicesByJoint.enumerated() {
-            let probabilities = try autoreleasepool {
-                try decode(
+      let (commandBuffer, encoder) = try commandBufferAndEncoder()
+      try encodeJoint(
+        encoder,
                     indices: indices,
-                    conditionTokens: conditionTokens,
                     preparedQueries: queries,
                     workspace: workspace,
-                    selfWorkspace: selfWorkspace,
+        output: jointMajor,
+        outputRowOffset: joint * vertexCount,
                     jointOrdinal: joint
                 )
-            }
-            for vertex in 0..<vertexCount {
-                values[vertex * jointCount + joint] = probabilities[vertex]
+      encoder.endEncoding()
+      commandBuffer.commit()
+      commandBuffer.waitUntilCompleted()
+      if let error = commandBuffer.error {
+        throw SmeltSkinDecoderError.gpuExecutionFailed("\(error)")
             }
         }
-        return SmeltSkinWeights(
+    return SmeltGPUSkinField(
             vertexCount: vertexCount,
             jointCount: jointCount,
-            values: values
+      jointMajorWeights: jointMajor
+    )
+  }
+
+  private func makeJointWorkspace(
+    tokens: Int,
+    maximumQueryRows: Int,
+    conditionTokens: [Float]
+  ) throws -> JointWorkspace {
+    var combined = [Float](repeating: 0, count: 4 * Self.latentWidth)
+    combined.append(contentsOf: conditionTokens)
+    return try JointWorkspace(
+      levels: buffer(count: 4 * 5, label: "skinning.vae.decoder.fsq-levels"),
+      combined: buffer(combined, label: "skinning.vae.decoder.combined-latents"),
+      selfBlock: makeSelfBlockWorkspace(tokens: tokens),
+      crossData: makeCrossDataWorkspace(tokens: tokens),
+      cross: makeCrossWorkspace(rows: maximumQueryRows)
+    )
+  }
+
+  private func encodeJoint(
+    _ encoder: MTLComputeCommandEncoder,
+    indices: [UInt32],
+    preparedQueries: [PreparedCrossQuery],
+    workspace: JointWorkspace,
+    output: MTLBuffer,
+    outputRowOffset: Int,
+    jointOrdinal _: Int
+  ) throws {
+    guard indices.count == 4, indices.allSatisfy({ $0 < 32_768 }) else {
+      throw SmeltSkinDecoderError.invalidIndices
+    }
+    let tokens = 388
+    encoder.setComputePipelineState(try pipeline("fsq_base8x5_decode_f32"))
+    indices.withUnsafeBytes { bytes in
+      if let baseAddress = bytes.baseAddress {
+        encoder.setBytes(baseAddress, length: bytes.count, index: 0)
+      }
+    }
+    encoder.setBuffer(workspace.levels, offset: 0, index: 1)
+    var indexCount = UInt32(indices.count)
+    encoder.setBytes(&indexCount, length: 4, index: 2)
+    encoder.dispatchThreads(
+      MTLSize(width: indices.count, height: 1, depth: 1),
+      threadsPerThreadgroup: MTLSize(width: indices.count, height: 1, depth: 1)
+    )
+    try encodeDense(
+      encoder,
+      input: workspace.levels,
+      output: workspace.combined,
+      rows: indices.count,
+      inputDimension: 5,
+      outputDimension: Self.latentWidth,
+      weight: "vae.model.FSQ.project_out.weight",
+      bias: "vae.model.FSQ.project_out.bias"
+    )
+
+    var hidden = workspace.selfBlock.outputA
+    try encodeDense(
+      encoder,
+      input: workspace.combined,
+      output: hidden,
+      rows: tokens,
+      inputDimension: Self.latentWidth,
+      outputDimension: Self.width,
+      weight: "vae.model.post_quant.weight",
+      bias: "vae.model.post_quant.bias"
         )
+    for layer in 0..<10 {
+      let next =
+        layer.isMultiple(of: 2)
+        ? workspace.selfBlock.outputB
+        : workspace.selfBlock.outputA
+      try encodeTransformerSelfBlock(
+        encoder,
+        input: hidden,
+        output: next,
+        tokens: tokens,
+        prefix: "\(Self.decoderPrefix).blocks.\(layer)",
+        workspace: workspace.selfBlock
+      )
+      hidden = next
+    }
+    let crossData = try encodePreparedCrossData(
+      encoder,
+      input: hidden,
+      tokens: tokens,
+      workspace: workspace.crossData
+    )
+    for query in preparedQueries {
+      try encodePreparedCross(
+        encoder,
+        query: query,
+        data: crossData,
+        workspace: workspace.cross,
+        probabilities: output,
+        probabilityRowOffset: outputRowOffset + query.rowOffset
+      )
+    }
     }
 
     private func captureCrossAttentionInputsIfRequested(
@@ -440,11 +603,11 @@ public final class SmeltSkinDecoder {
 
     private static func makeAttentionCaptureRequest() -> AttentionCaptureRequest? {
         let environment = ProcessInfo.processInfo.environment
-        guard let directory = environment["SMELT_RIG_ATTENTION_CAPTURE"],
+    guard let directory = environment["SMELT_SKINNING_ATTENTION_CAPTURE"],
             !directory.isEmpty,
-            let jointText = environment["SMELT_RIG_ATTENTION_CAPTURE_JOINT"],
+      let jointText = environment["SMELT_SKINNING_ATTENTION_CAPTURE_JOINT"],
             let joint = Int(jointText),
-            let chunkText = environment["SMELT_RIG_ATTENTION_CAPTURE_CHUNK"],
+      let chunkText = environment["SMELT_SKINNING_ATTENTION_CAPTURE_CHUNK"],
             let chunk = Int(chunkText)
         else {
             return nil
@@ -486,7 +649,7 @@ public final class SmeltSkinDecoder {
             outputDimension: Self.width,
             weight: "vae.model.post_quant.weight",
             bias: "vae.model.post_quant.bias",
-            label: "rig.vae.decoder.post-quant"
+      label: "skinning.vae.decoder.post-quant"
         )
         let postQuantOutput = hidden
         var layers: [[Float]] = []
@@ -524,7 +687,7 @@ public final class SmeltSkinDecoder {
         let tokens = combined.count / Self.latentWidth
         let combinedBuffer = try buffer(
             combined,
-            label: "rig.vae.decoder.post-quant.input"
+      label: "skinning.vae.decoder.post-quant.input"
         )
         var hidden = workspace.outputA
         let (commandBuffer, encoder) = try commandBufferAndEncoder()
@@ -556,14 +719,14 @@ public final class SmeltSkinDecoder {
     }
 
     private func decodeFSQ(indices: [UInt32]) throws -> [Float] {
-        let input = try uintBuffer(indices, label: "rig.vae.decoder.fsq-indices")
+    let input = try uintBuffer(indices, label: "skinning.vae.decoder.fsq-indices")
         let levels = try buffer(
             count: indices.count * 5,
-            label: "rig.vae.decoder.fsq-levels"
+      label: "skinning.vae.decoder.fsq-levels"
         )
         let output = try buffer(
             count: indices.count * Self.latentWidth,
-            label: "rig.vae.decoder.fsq-codes"
+      label: "skinning.vae.decoder.fsq-codes"
         )
         let (commandBuffer, encoder) = try commandBufferAndEncoder()
         encoder.setComputePipelineState(try pipeline("fsq_base8x5_decode_f32"))
@@ -598,13 +761,13 @@ public final class SmeltSkinDecoder {
         let roundedPointNormals = pointNormals.map(Self.widenedBF16)
         let input = try buffer(
             roundedPointNormals,
-            label: "rig.vae.decoder.point-normals"
+      label: "skinning.vae.decoder.point-normals"
         )
-        let fourier = try buffer(count: rows * 51, label: "rig.vae.decoder.pmpe")
-        let features = try buffer(count: rows * 54, label: "rig.vae.decoder.features")
+    let fourier = try buffer(count: rows * 51, label: "skinning.vae.decoder.pmpe")
+    let features = try buffer(count: rows * 54, label: "skinning.vae.decoder.features")
         let projected = try buffer(
             count: rows * Self.width,
-            label: "rig.vae.decoder.projected-queries"
+      label: "skinning.vae.decoder.projected-queries"
         )
         let (commandBuffer, encoder) = try commandBufferAndEncoder()
         encoder.setComputePipelineState(try pipeline("pmpe_bf16_semantics_f32"))
@@ -685,7 +848,7 @@ public final class SmeltSkinDecoder {
                         epsilon: 1e-5,
                         weight: "\(Self.decoderPrefix).blocks.10.norm2.weight",
                         bias: "\(Self.decoderPrefix).blocks.10.norm2.bias",
-                        label: "rig.vae.decoder.cross-query-norm"
+            label: "skinning.vae.decoder.cross-query-norm"
                     )
                     let rawQuery = try dense(
                         input: normalized,
@@ -694,18 +857,19 @@ public final class SmeltSkinDecoder {
                         outputDimension: Self.width,
                         weight: "\(Self.decoderPrefix).blocks.10.attn2.to_q.weight",
                         bias: nil,
-                        label: "rig.vae.decoder.cross-query"
+            label: "skinning.vae.decoder.cross-query"
                     )
                     return PreparedCrossQuery(
                         source: try buffer(
                             source,
-                            label: "rig.vae.decoder.prepared-cross-source"
+              label: "skinning.vae.decoder.prepared-cross-source"
                         ),
                         rawQuery: try buffer(
                             rawQuery,
-                            label: "rig.vae.decoder.prepared-cross-query"
+              label: "skinning.vae.decoder.prepared-cross-query"
                         ),
-                        rows: count
+            rows: count,
+            rowOffset: start
                     )
                 }
             )
@@ -724,20 +888,40 @@ public final class SmeltSkinDecoder {
         else {
             throw SmeltSkinDecoderError.invalidDataCount(count)
         }
-        let normalized = try buffer(
-            count: count,
-            label: "rig.vae.decoder.cross-data-norm"
-        )
-        let rawKey = try buffer(count: count, label: "rig.vae.decoder.raw-k")
-        let rawValue = try buffer(count: count, label: "rig.vae.decoder.raw-v")
-        let key = try buffer(count: count, label: "rig.vae.decoder.k")
-        let value = try buffer(count: count, label: "rig.vae.decoder.v")
-        let unused = try buffer(count: count, label: "rig.vae.decoder.unused")
+    let workspace = try makeCrossDataWorkspace(tokens: tokens)
         let (commandBuffer, encoder) = try commandBufferAndEncoder()
+    let result = try encodePreparedCrossData(
+      encoder,
+      input: input,
+      tokens: tokens,
+      workspace: workspace
+    )
+    try finish(commandBuffer: commandBuffer, encoder: encoder)
+    return result
+  }
+
+  private func makeCrossDataWorkspace(tokens: Int) throws -> CrossDataWorkspace {
+    let count = tokens * Self.width
+    return try CrossDataWorkspace(
+      normalized: buffer(count: count, label: "skinning.vae.decoder.cross-data-norm"),
+      rawKey: buffer(count: count, label: "skinning.vae.decoder.raw-k"),
+      rawValue: buffer(count: count, label: "skinning.vae.decoder.raw-v"),
+      key: buffer(count: count, label: "skinning.vae.decoder.k"),
+      value: buffer(count: count, label: "skinning.vae.decoder.v"),
+      unused: buffer(count: count, label: "skinning.vae.decoder.unused")
+    )
+  }
+
+  private func encodePreparedCrossData(
+    _ encoder: MTLComputeCommandEncoder,
+    input: MTLBuffer,
+    tokens: Int,
+    workspace: CrossDataWorkspace
+  ) throws -> PreparedCrossData {
         try encodeLayerNorm(
             encoder,
             input: input,
-            output: normalized,
+      output: workspace.normalized,
             rows: tokens,
             epsilon: 1e-6,
             weight: "\(Self.decoderPrefix).blocks.10.attn2.norm_cross.weight",
@@ -745,8 +929,8 @@ public final class SmeltSkinDecoder {
         )
         try encodeDense(
             encoder,
-            input: normalized,
-            output: rawKey,
+      input: workspace.normalized,
+      output: workspace.rawKey,
             rows: tokens,
             inputDimension: Self.width,
             outputDimension: Self.width,
@@ -755,8 +939,8 @@ public final class SmeltSkinDecoder {
         )
         try encodeDense(
             encoder,
-            input: normalized,
-            output: rawValue,
+      input: workspace.normalized,
+      output: workspace.rawValue,
             rows: tokens,
             inputDimension: Self.width,
             outputDimension: Self.width,
@@ -765,15 +949,14 @@ public final class SmeltSkinDecoder {
         )
         try encodeRepack(
             encoder,
-            inputs: (rawKey, rawValue, rawValue),
-            outputs: (key, value, unused),
+      inputs: (workspace.rawKey, workspace.rawValue, workspace.rawValue),
+      outputs: (workspace.key, workspace.value, workspace.unused),
             tokens: tokens,
             parts: 2
         )
-        try finish(commandBuffer: commandBuffer, encoder: encoder)
         return PreparedCrossData(
-            key: key,
-            value: value,
+      key: workspace.key,
+      value: workspace.value,
             rows: tokens
         )
     }
@@ -783,6 +966,27 @@ public final class SmeltSkinDecoder {
         data: PreparedCrossData,
         workspace: CrossWorkspace
     ) throws -> [Float] {
+    let (commandBuffer, encoder) = try commandBufferAndEncoder()
+    try encodePreparedCross(
+      encoder,
+      query: query,
+      data: data,
+      workspace: workspace,
+      probabilities: workspace.probabilities,
+      probabilityRowOffset: 0
+    )
+    try finish(commandBuffer: commandBuffer, encoder: encoder)
+    return read(workspace.probabilities, count: query.rows)
+  }
+
+  private func encodePreparedCross(
+    _ encoder: MTLComputeCommandEncoder,
+    query: PreparedCrossQuery,
+    data: PreparedCrossData,
+    workspace: CrossWorkspace,
+    probabilities: MTLBuffer,
+    probabilityRowOffset: Int
+  ) throws {
         let inputCount = query.rows * Self.width
         let dataCount = data.rows * Self.width
         guard query.rows > 0,
@@ -802,12 +1006,11 @@ public final class SmeltSkinDecoder {
         guard workspace.attended.length >= inputCount * MemoryLayout<Float>.stride,
             workspace.expandedMLP.length
                 >= tokens * Self.mlpWidth * MemoryLayout<Float>.stride,
-            workspace.probabilities.length
-                >= tokens * MemoryLayout<Float>.stride
+      probabilities.length
+        >= (probabilityRowOffset + tokens) * MemoryLayout<Float>.stride
         else {
             throw SmeltSkinDecoderError.invalidInputCount(inputCount)
         }
-        let (commandBuffer, encoder) = try commandBufferAndEncoder()
         try encodeAttention(
             encoder,
             query: query.rawQuery,
@@ -888,7 +1091,11 @@ public final class SmeltSkinDecoder {
         )
         encoder.setComputePipelineState(try pipeline("sigmoid_f32"))
         encoder.setBuffer(workspace.rawLogits, offset: 0, index: 0)
-        encoder.setBuffer(workspace.probabilities, offset: 0, index: 1)
+    encoder.setBuffer(
+      probabilities,
+      offset: probabilityRowOffset * MemoryLayout<Float>.stride,
+      index: 1
+    )
         var probabilityCount = UInt32(tokens)
         encoder.setBytes(&probabilityCount, length: 4, index: 2)
         encoder.dispatchThreads(
@@ -899,8 +1106,6 @@ public final class SmeltSkinDecoder {
                 depth: 1
             )
         )
-        try finish(commandBuffer: commandBuffer, encoder: encoder)
-        return read(workspace.probabilities, count: tokens)
     }
 
     private func makeCrossWorkspace(rows: Int) throws -> CrossWorkspace {
@@ -912,47 +1117,47 @@ public final class SmeltSkinDecoder {
         return try CrossWorkspace(
             attended: buffer(
                 count: hiddenCount,
-                label: "rig.vae.decoder.attended"
+        label: "skinning.vae.decoder.attended"
             ),
             projectedAttention: buffer(
                 count: hiddenCount,
-                label: "rig.vae.decoder.attention-projection"
+        label: "skinning.vae.decoder.attention-projection"
             ),
             attentionResidual: buffer(
                 count: hiddenCount,
-                label: "rig.vae.decoder.attention-residual"
+        label: "skinning.vae.decoder.attention-residual"
             ),
             normalizedMLP: buffer(
                 count: hiddenCount,
-                label: "rig.vae.decoder.norm-mlp"
+        label: "skinning.vae.decoder.norm-mlp"
             ),
             expandedMLP: buffer(
                 count: expandedCount,
-                label: "rig.vae.decoder.mlp-expanded"
+        label: "skinning.vae.decoder.mlp-expanded"
             ),
             activatedMLP: buffer(
                 count: expandedCount,
-                label: "rig.vae.decoder.mlp-gelu"
+        label: "skinning.vae.decoder.mlp-gelu"
             ),
             projectedMLP: buffer(
                 count: hiddenCount,
-                label: "rig.vae.decoder.mlp-projection"
+        label: "skinning.vae.decoder.mlp-projection"
             ),
             output: buffer(
                 count: hiddenCount,
-                label: "rig.vae.decoder.block.output"
+        label: "skinning.vae.decoder.block.output"
             ),
             normalizedOutput: buffer(
                 count: hiddenCount,
-                label: "rig.vae.decoder.finish-norm"
+        label: "skinning.vae.decoder.finish-norm"
             ),
             rawLogits: buffer(
                 count: rows,
-                label: "rig.vae.decoder.raw-logits"
+        label: "skinning.vae.decoder.raw-logits"
             ),
             probabilities: buffer(
                 count: rows,
-                label: "rig.vae.decoder.probabilities"
+        label: "skinning.vae.decoder.probabilities"
             )
         )
     }
@@ -968,67 +1173,67 @@ public final class SmeltSkinDecoder {
         return try SelfBlockWorkspace(
             normalizedQuery: buffer(
                 count: hiddenCount,
-                label: "rig.vae.decoder.norm-q"
+        label: "skinning.vae.decoder.norm-q"
             ),
             rawQuery: buffer(
                 count: hiddenCount,
-                label: "rig.vae.decoder.raw-q"
+        label: "skinning.vae.decoder.raw-q"
             ),
             rawKey: buffer(
                 count: hiddenCount,
-                label: "rig.vae.decoder.raw-k"
+        label: "skinning.vae.decoder.raw-k"
             ),
             rawValue: buffer(
                 count: hiddenCount,
-                label: "rig.vae.decoder.raw-v"
+        label: "skinning.vae.decoder.raw-v"
             ),
             query: buffer(
                 count: hiddenCount,
-                label: "rig.vae.decoder.q"
+        label: "skinning.vae.decoder.q"
             ),
             key: buffer(
                 count: hiddenCount,
-                label: "rig.vae.decoder.k"
+        label: "skinning.vae.decoder.k"
             ),
             value: buffer(
                 count: hiddenCount,
-                label: "rig.vae.decoder.v"
+        label: "skinning.vae.decoder.v"
             ),
             attended: buffer(
                 count: hiddenCount,
-                label: "rig.vae.decoder.attended"
+        label: "skinning.vae.decoder.attended"
             ),
             projectedAttention: buffer(
                 count: hiddenCount,
-                label: "rig.vae.decoder.attention-projection"
+        label: "skinning.vae.decoder.attention-projection"
             ),
             attentionResidual: buffer(
                 count: hiddenCount,
-                label: "rig.vae.decoder.attention-residual"
+        label: "skinning.vae.decoder.attention-residual"
             ),
             normalizedMLP: buffer(
                 count: hiddenCount,
-                label: "rig.vae.decoder.norm-mlp"
+        label: "skinning.vae.decoder.norm-mlp"
             ),
             expandedMLP: buffer(
                 count: expandedCount,
-                label: "rig.vae.decoder.mlp-expanded"
+        label: "skinning.vae.decoder.mlp-expanded"
             ),
             activatedMLP: buffer(
                 count: expandedCount,
-                label: "rig.vae.decoder.mlp-gelu"
+        label: "skinning.vae.decoder.mlp-gelu"
             ),
             projectedMLP: buffer(
                 count: hiddenCount,
-                label: "rig.vae.decoder.mlp-projection"
+        label: "skinning.vae.decoder.mlp-projection"
             ),
             outputA: buffer(
                 count: hiddenCount,
-                label: "rig.vae.decoder.block.output-a"
+        label: "skinning.vae.decoder.block.output-a"
             ),
             outputB: buffer(
                 count: hiddenCount,
-                label: "rig.vae.decoder.block.output-b"
+        label: "skinning.vae.decoder.block.output-b"
             )
         )
     }
@@ -1064,6 +1269,27 @@ public final class SmeltSkinDecoder {
         prefix: String,
         workspace: SelfBlockWorkspace
     ) throws -> MTLBuffer {
+    let (commandBuffer, encoder) = try commandBufferAndEncoder()
+    try encodeTransformerSelfBlock(
+      encoder,
+      input: input,
+      output: output,
+      tokens: tokens,
+      prefix: prefix,
+      workspace: workspace
+    )
+    try finish(commandBuffer: commandBuffer, encoder: encoder)
+    return output
+  }
+
+  private func encodeTransformerSelfBlock(
+    _ encoder: MTLComputeCommandEncoder,
+    input: MTLBuffer,
+    output: MTLBuffer,
+    tokens: Int,
+    prefix: String,
+    workspace: SelfBlockWorkspace
+  ) throws {
         let count = tokens * Self.width
         guard tokens > 0,
             input.length >= count * MemoryLayout<Float>.stride
@@ -1093,7 +1319,6 @@ public final class SmeltSkinDecoder {
         let expandedMLP = workspace.expandedMLP
         let activatedMLP = workspace.activatedMLP
         let projectedMLP = workspace.projectedMLP
-        let (commandBuffer, encoder) = try commandBufferAndEncoder()
         try encodeLayerNorm(
             encoder,
             input: input,
@@ -1199,8 +1424,6 @@ public final class SmeltSkinDecoder {
             bias: "\(prefix).ff.net.2.bias",
             epilogue: .residualAdd
         )
-        try finish(commandBuffer: commandBuffer, encoder: encoder)
-        return output
     }
 
     private func transformerBlock(
@@ -1225,46 +1448,46 @@ public final class SmeltSkinDecoder {
         let cross = data != nil
         let tokens = input.count / Self.width
         let dataTokens = (data?.count ?? input.count) / Self.width
-        let source = try buffer(input, label: "rig.vae.decoder.block.input")
+    let source = try buffer(input, label: "skinning.vae.decoder.block.input")
         let attentionData =
             try data.map {
-                try buffer($0, label: "rig.vae.decoder.block.data")
+        try buffer($0, label: "skinning.vae.decoder.block.data")
             } ?? source
-        let normalizedQuery = try buffer(count: input.count, label: "rig.vae.decoder.norm-q")
+    let normalizedQuery = try buffer(count: input.count, label: "skinning.vae.decoder.norm-q")
         let normalizedData = try buffer(
             count: dataTokens * Self.width,
-            label: "rig.vae.decoder.norm-data"
-        )
-        let rawQuery = try buffer(count: input.count, label: "rig.vae.decoder.raw-q")
-        let rawKey = try buffer(count: dataTokens * Self.width, label: "rig.vae.decoder.raw-k")
-        let rawValue = try buffer(count: dataTokens * Self.width, label: "rig.vae.decoder.raw-v")
-        let query = try buffer(count: input.count, label: "rig.vae.decoder.q")
-        let key = try buffer(count: dataTokens * Self.width, label: "rig.vae.decoder.k")
-        let value = try buffer(count: dataTokens * Self.width, label: "rig.vae.decoder.v")
+      label: "skinning.vae.decoder.norm-data"
+    )
+    let rawQuery = try buffer(count: input.count, label: "skinning.vae.decoder.raw-q")
+    let rawKey = try buffer(count: dataTokens * Self.width, label: "skinning.vae.decoder.raw-k")
+    let rawValue = try buffer(count: dataTokens * Self.width, label: "skinning.vae.decoder.raw-v")
+    let query = try buffer(count: input.count, label: "skinning.vae.decoder.q")
+    let key = try buffer(count: dataTokens * Self.width, label: "skinning.vae.decoder.k")
+    let value = try buffer(count: dataTokens * Self.width, label: "skinning.vae.decoder.v")
         let unused = try buffer(
             count: max(input.count, dataTokens * Self.width),
-            label: "rig.vae.decoder.unused"
+      label: "skinning.vae.decoder.unused"
         )
-        let attended = try buffer(count: input.count, label: "rig.vae.decoder.attended")
+    let attended = try buffer(count: input.count, label: "skinning.vae.decoder.attended")
         let projectedAttention = try buffer(
             count: input.count,
-            label: "rig.vae.decoder.attention-projection"
+      label: "skinning.vae.decoder.attention-projection"
         )
         let attentionResidual = try buffer(
             count: input.count,
-            label: "rig.vae.decoder.attention-residual"
+      label: "skinning.vae.decoder.attention-residual"
         )
-        let normalizedMLP = try buffer(count: input.count, label: "rig.vae.decoder.norm-mlp")
+    let normalizedMLP = try buffer(count: input.count, label: "skinning.vae.decoder.norm-mlp")
         let expandedMLP = try buffer(
             count: tokens * Self.mlpWidth,
-            label: "rig.vae.decoder.mlp-expanded"
+      label: "skinning.vae.decoder.mlp-expanded"
         )
         let activatedMLP = try buffer(
             count: tokens * Self.mlpWidth,
-            label: "rig.vae.decoder.mlp-gelu"
+      label: "skinning.vae.decoder.mlp-gelu"
         )
-        let projectedMLP = try buffer(count: input.count, label: "rig.vae.decoder.mlp-projection")
-        let output = try buffer(count: input.count, label: "rig.vae.decoder.block.output")
+    let projectedMLP = try buffer(count: input.count, label: "skinning.vae.decoder.mlp-projection")
+    let output = try buffer(count: input.count, label: "skinning.vae.decoder.block.output")
         let (commandBuffer, encoder) = try commandBufferAndEncoder()
 
         try encodeLayerNorm(
@@ -1417,10 +1640,10 @@ public final class SmeltSkinDecoder {
         probabilities: [Float]
     ) {
         let tokens = input.count / Self.width
-        let source = try buffer(input, label: "rig.vae.decoder.finish-input")
-        let normalized = try buffer(count: input.count, label: "rig.vae.decoder.finish-norm")
-        let raw = try buffer(count: tokens, label: "rig.vae.decoder.raw-logits")
-        let probabilities = try buffer(count: tokens, label: "rig.vae.decoder.probabilities")
+    let source = try buffer(input, label: "skinning.vae.decoder.finish-input")
+    let normalized = try buffer(count: input.count, label: "skinning.vae.decoder.finish-norm")
+    let raw = try buffer(count: tokens, label: "skinning.vae.decoder.raw-logits")
+    let probabilities = try buffer(count: tokens, label: "skinning.vae.decoder.probabilities")
         let (commandBuffer, encoder) = try commandBufferAndEncoder()
         try encodeLayerNorm(
             encoder,
@@ -1627,8 +1850,13 @@ public final class SmeltSkinDecoder {
         let weight = try weightBuffer(weight)
         let biasBuffer = try bias.map(weightBuffer) ?? weight
         let residualBuffer = residual ?? input
+        let outputColumnsPerThreadgroup = inputDimension >= 2_048 ? 2 : 1
+        let densePipeline =
+            outputColumnsPerThreadgroup == 2
+            ? "dense_bf16w_f32_rows8_cols2_epilogue"
+            : "dense_bf16w_f32_rows8_epilogue"
         encoder.setComputePipelineState(
-            try pipeline("dense_bf16w_f32_rows8_epilogue")
+            try pipeline(densePipeline)
         )
         encoder.setBuffer(input, offset: 0, index: 0)
         encoder.setBuffer(weight, offset: 0, index: 1)
@@ -1647,7 +1875,8 @@ public final class SmeltSkinDecoder {
         encoder.setBytes(&epilogue, length: 4, index: 9)
         encoder.dispatchThreadgroups(
             MTLSize(
-                width: Int(outputDimension),
+                width: (Int(outputDimension) + outputColumnsPerThreadgroup - 1)
+                    / outputColumnsPerThreadgroup,
                 height: (Int(rows) + 7) / 8,
                 depth: 1
             ),
@@ -1695,7 +1924,7 @@ public final class SmeltSkinDecoder {
     ) throws {
         let tiledQueryTokens =
             queryTile >= 8 && Self.headDimension <= 64
-            ? queryTokens - queryTokens % 8
+            ? queryTokens - queryTokens % queryTile
             : 0
         if tiledQueryTokens > 0 {
             try encodeAttentionDispatch(
@@ -1707,7 +1936,7 @@ public final class SmeltSkinDecoder {
                 queryOffset: 0,
                 queryTokens: tiledQueryTokens,
                 dataTokens: dataTokens,
-                tiled: true
+                queryTile: queryTile
             )
         }
         if tiledQueryTokens < queryTokens {
@@ -1720,7 +1949,7 @@ public final class SmeltSkinDecoder {
                 queryOffset: tiledQueryTokens,
                 queryTokens: queryTokens - tiledQueryTokens,
                 dataTokens: dataTokens,
-                tiled: false
+                queryTile: 1
             )
         }
     }
@@ -1734,15 +1963,14 @@ public final class SmeltSkinDecoder {
         queryOffset: Int,
         queryTokens: Int,
         dataTokens: Int,
-        tiled: Bool
+        queryTile: Int
     ) throws {
-        encoder.setComputePipelineState(
-            try pipeline(
-                tiled
-                    ? "noncausal_attention_q8_f32"
-                    : "noncausal_attention_f32"
-            )
-        )
+        let pipelineName = switch queryTile {
+        case 16: "noncausal_attention_q16_f32"
+        case 8: "noncausal_attention_q8_f32"
+        default: "noncausal_attention_f32"
+        }
+        encoder.setComputePipelineState(try pipeline(pipelineName))
         let byteOffset = queryOffset * Self.width * MemoryLayout<Float>.stride
         encoder.setBuffer(query, offset: byteOffset, index: 0)
         encoder.setBuffer(key, offset: 0, index: 1)
@@ -1758,14 +1986,12 @@ public final class SmeltSkinDecoder {
         encoder.setBytes(&headDimension, length: 4, index: 7)
         encoder.dispatchThreadgroups(
             MTLSize(
-                width: tiled
-                    ? (Int(queryTokens) + 7) / 8
-                    : Int(queryTokens),
+                width: (Int(queryTokens) + queryTile - 1) / queryTile,
                 height: Self.heads,
                 depth: 1
             ),
             threadsPerThreadgroup: MTLSize(
-                width: tiled ? 256 : 32,
+                width: queryTile * 32,
                 height: 1,
                 depth: 1
             )

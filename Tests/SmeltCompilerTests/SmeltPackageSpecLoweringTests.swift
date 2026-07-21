@@ -21,7 +21,7 @@ import Testing
             #expect(signature.architecture == architecture)
             #expect(signature.blockRoutes == [
                 "tokenizer:native:none",
-                "trunk:compiled:baked-inline",
+                "trunk:compiled:compiled-inline",
                 "text-head:native:none",
             ])
             #expect(signature.setupPhases == ["prefill:trunk,text-head"])
@@ -586,7 +586,7 @@ import Testing
         ])
         #expect(plan.runtime.routes.map(\.signature) == [
             "tts-frontend:compiled:runtime-emit",
-            "talker:compiled:baked-sidecar",
+            "talker:compiled:compiled-sidecar",
             "codec-head:native:none",
             "mtp-head:native:internal-sidecar",
             "codec-decoder:compiled:runtime-emit",
@@ -637,7 +637,7 @@ import Testing
         #expect(plan.tensors.count == specs.count)
         #expect(plan.architectureConfigSignature.contains("\"sidecars\":[\"trunk\",\"trunk-mtp\"]"))
         #expect(plan.signature.lines.contains("validation-structure-required-pipeline:qwen_kernel"))
-        #expect(plan.signature.lines.contains("validation-structure-required-route:talker:compiled:baked-sidecar"))
+        #expect(plan.signature.lines.contains("validation-structure-required-route:talker:compiled:compiled-sidecar"))
         let expectedTotalBytes = Qwen3TTSPackageBuilder.planLayout(
             specs.sorted { $0.name < $1.name },
             pageSize: 16
@@ -985,7 +985,7 @@ private enum Qwen35TextLegacyParityOracle {
 
         try require(package.routes == [
             "tokenizer:native:none",
-            "trunk:compiled:baked-inline",
+            "trunk:compiled:compiled-inline",
             "text-head:native:none",
         ], "legacy package routes drifted")
         try require(package.setupPhases == ["prefill:trunk,text-head"], "legacy setup phase drifted")
@@ -1028,7 +1028,7 @@ private enum Qwen35TextLegacyParityOracle {
         try require(cam.schemaVersion == SmeltCAMIR.currentSchemaVersion, "schema version drifted")
         try require(cam.module.id == "qwen35_text", "module id must be qwen35_text")
         try require(cam.imports.isEmpty, "qwen35_text parity does not allow imports")
-        try require(cam.capabilities == ["bake.prompt-prefix", "run.generate"], "capabilities drifted")
+        try require(cam.capabilities == ["prepare.prompt-prefix", "run.generate"], "capabilities drifted")
         try require(cam.backendConstraints == [.init("target", "metal")], "backend constraints drifted")
         try require(cam.sourceQuantization.isEmpty, "source quantization is not part of this bridge")
         try require(cam.artifacts.isEmpty, "artifact roles are not part of this bridge")
@@ -1064,7 +1064,7 @@ private enum Qwen35TextLegacyParityOracle {
                 id: "generate",
                 inputs: [.init(name: "prompt", type: .init("text", attributes: ["encoding": "utf8"]))],
                 outputs: [.init(name: "text", type: .init("text", attributes: ["encoding": "utf8"]))],
-                capabilities: ["bake.prompt-prefix", "run.generate"],
+                capabilities: ["prepare.prompt-prefix", "run.generate"],
                 gates: ["startup"]
             ),
         ], "export ABI drifted")
@@ -1137,7 +1137,7 @@ private enum Qwen35TextLegacyParityOracle {
             inputs: ["tokens"],
             outputs: ["hidden"],
             annotations: [
-                "artifact=baked-inline",
+                "artifact=compiled-inline",
                 "feedback=tokens",
                 "state=kv-cache,conv-state,rec-state",
             ]

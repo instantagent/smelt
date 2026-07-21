@@ -3,14 +3,14 @@ import Foundation
 import SmeltRuntime
 import SmeltSchema
 
-func runTraceCommand() {
+func runTraceCommand(_ args: [String]) {
     let usage = """
-    Usage: smelt trace inspect <model.smeltpkg> [--json] [--hash-large-artifacts]
-           smelt trace record <model.smeltpkg> [--output trace.smttrace] [--events events.json] [--case-text TEXT] [--json] [--hash-large-artifacts]
-           smelt trace compare <expected.smttrace> <actual.smttrace> [--json]
-           smelt trace verify <model.smeltpkg> [--golden trace.smttrace] [--events events.json] [--case-text TEXT] [--json] [--hash-large-artifacts]
-           smelt trace replay <model.smeltpkg> <trace.smttrace> [--events events.json] [--case-text TEXT] [--json] [--hash-large-artifacts]
-           smelt trace suite <suite.json> [--package model.smeltpkg] [--update] [--json] [--hash-large-artifacts]
+    Usage: smelt lab trace inspect <model.smeltpkg> [--json] [--hash-large-artifacts]
+           smelt lab trace record <model.smeltpkg> [--output trace.smttrace] [--events events.json] [--case-text TEXT] [--json] [--hash-large-artifacts]
+           smelt lab trace compare <expected.smttrace> <actual.smttrace> [--json]
+           smelt lab trace verify <model.smeltpkg> [--golden trace.smttrace] [--events events.json] [--case-text TEXT] [--json] [--hash-large-artifacts]
+           smelt lab trace replay <model.smeltpkg> <trace.smttrace> [--events events.json] [--case-text TEXT] [--json] [--hash-large-artifacts]
+           smelt lab trace suite <suite.json> [--package model.smeltpkg] [--update] [--json] [--hash-large-artifacts]
        Case options:
            --case-max-steps N
            TTS only: --case-language LANG --case-instruct TEXT --case-speaker TEXT
@@ -52,84 +52,84 @@ func runTraceCommand() {
             idx += 1
         case "--package":
             guard idx + 1 < args.count else {
-                fputs("smelt trace: --package requires a path\n", stderr)
+                fputs("smelt lab trace: --package requires a path\n", stderr)
                 exit(1)
             }
             packagePath = args[idx + 1]
             idx += 2
         case "--output":
             guard idx + 1 < args.count else {
-                fputs("smelt trace: --output requires a path\n", stderr)
+                fputs("smelt lab trace: --output requires a path\n", stderr)
                 exit(1)
             }
             outputPath = args[idx + 1]
             idx += 2
         case "--golden":
             guard idx + 1 < args.count else {
-                fputs("smelt trace: --golden requires a path\n", stderr)
+                fputs("smelt lab trace: --golden requires a path\n", stderr)
                 exit(1)
             }
             goldenPath = args[idx + 1]
             idx += 2
         case "--events":
             guard idx + 1 < args.count else {
-                fputs("smelt trace: --events requires a path\n", stderr)
+                fputs("smelt lab trace: --events requires a path\n", stderr)
                 exit(1)
             }
             eventsPath = args[idx + 1]
             idx += 2
         case "--case-text":
             guard idx + 1 < args.count else {
-                fputs("smelt trace: --case-text requires text\n", stderr)
+                fputs("smelt lab trace: --case-text requires text\n", stderr)
                 exit(1)
             }
             caseText = args[idx + 1]
             idx += 2
         case "--case-language":
             guard idx + 1 < args.count else {
-                fputs("smelt trace: --case-language requires a value\n", stderr)
+                fputs("smelt lab trace: --case-language requires a value\n", stderr)
                 exit(1)
             }
             caseLanguage = args[idx + 1]
             idx += 2
         case "--case-instruct":
             guard idx + 1 < args.count else {
-                fputs("smelt trace: --case-instruct requires text\n", stderr)
+                fputs("smelt lab trace: --case-instruct requires text\n", stderr)
                 exit(1)
             }
             caseInstruct = args[idx + 1]
             idx += 2
         case "--case-speaker":
             guard idx + 1 < args.count else {
-                fputs("smelt trace: --case-speaker requires text\n", stderr)
+                fputs("smelt lab trace: --case-speaker requires text\n", stderr)
                 exit(1)
             }
             caseSpeaker = args[idx + 1]
             idx += 2
         case "--case-max-steps":
             guard idx + 1 < args.count, let parsed = Int(args[idx + 1]), parsed > 0 else {
-                fputs("smelt trace: --case-max-steps requires a positive integer\n", stderr)
+                fputs("smelt lab trace: --case-max-steps requires a positive integer\n", stderr)
                 exit(1)
             }
             caseMaxSteps = parsed
             idx += 2
         case "--case-first-chunk":
             guard idx + 1 < args.count, let parsed = Int(args[idx + 1]), parsed > 0 else {
-                fputs("smelt trace: --case-first-chunk requires a positive integer\n", stderr)
+                fputs("smelt lab trace: --case-first-chunk requires a positive integer\n", stderr)
                 exit(1)
             }
             caseFirstChunk = parsed
             idx += 2
         case "--case-max-chunk":
             guard idx + 1 < args.count, let parsed = Int(args[idx + 1]), parsed > 0 else {
-                fputs("smelt trace: --case-max-chunk requires a positive integer\n", stderr)
+                fputs("smelt lab trace: --case-max-chunk requires a positive integer\n", stderr)
                 exit(1)
             }
             caseMaxChunk = parsed
             idx += 2
         case "--case-seed":
             guard idx + 1 < args.count, let parsed = UInt64(args[idx + 1]) else {
-                fputs("smelt trace: --case-seed requires an unsigned integer\n", stderr)
+                fputs("smelt lab trace: --case-seed requires an unsigned integer\n", stderr)
                 exit(1)
             }
             caseSeed = parsed
@@ -145,7 +145,7 @@ func runTraceCommand() {
             return
         default:
             if arg.hasPrefix("--") {
-                fputs("smelt trace: unknown option \(arg)\n", stderr)
+                fputs("smelt lab trace: unknown option \(arg)\n", stderr)
                 exit(1)
             }
             positional.append(arg)
@@ -171,7 +171,7 @@ func runTraceCommand() {
             let resolvedPackagePath = try resolveTracePackagePath(packagePath, positional, usage: usage)
             _ = requireCAMPackageCapabilitiesOrExit(
                 packagePath: resolvedPackagePath,
-                verb: "trace"
+                verb: "lab trace"
             )
             let report = try SmeltTrace.inspect(packagePath: resolvedPackagePath, options: inspectOptions)
             if emitJSON {
@@ -186,7 +186,7 @@ func runTraceCommand() {
             let resolvedPackagePath = try resolveTracePackagePath(packagePath, positional, usage: usage)
             let capabilities = requireCAMPackageCapabilitiesOrExit(
                 packagePath: resolvedPackagePath,
-                verb: "trace"
+                verb: "lab trace"
             )
             let runtimeEvents = try resolveRuntimeEvents(
                 packagePath: resolvedPackagePath,
@@ -236,7 +236,7 @@ func runTraceCommand() {
             let resolvedPackagePath = try resolveTracePackagePath(packagePath, positional, usage: usage)
             let capabilities = requireCAMPackageCapabilitiesOrExit(
                 packagePath: resolvedPackagePath,
-                verb: "trace"
+                verb: "lab trace"
             )
             if let goldenPath {
                 let runtimeEvents = try resolveRuntimeEvents(
@@ -286,7 +286,7 @@ func runTraceCommand() {
             let tracePath = goldenPath ?? positional.dropFirst().first!
             let capabilities = requireCAMPackageCapabilitiesOrExit(
                 packagePath: resolvedPackagePath,
-                verb: "trace"
+                verb: "lab trace"
             )
             let explicitRuntimeEvents = eventsPath != nil || runtimeCase != nil
                 ? try resolveRuntimeEvents(
@@ -342,7 +342,7 @@ func runTraceCommand() {
             exit(1)
         }
     } catch {
-        fputs("smelt trace: \(error)\n", stderr)
+        fputs("smelt lab trace: \(error)\n", stderr)
         exit(1)
     }
 }
@@ -447,7 +447,7 @@ private struct CAMTraceTextRoute {
         resolveCAMRuntimeRouteOrExit(
             capabilities: capabilities,
             decision: decision,
-            verb: "trace"
+            verb: "lab trace"
         )
     }
 }
@@ -470,7 +470,7 @@ private func captureCAMRuntimeEvents(
                 packagePath: packagePath,
                 capabilities: capabilities,
                 decision: route.decision,
-                verb: "trace"
+                verb: "lab trace"
             )
             let report = try SmeltTrace.inspect(packagePath: packagePath)
             return SmeltTraceCAMRoute.events(
@@ -492,7 +492,7 @@ private func captureCAMRuntimeEvents(
                     packagePath: packagePath,
                     capabilities: capabilities,
                     decision: route.decision,
-                    verb: "trace"
+                    verb: "lab trace"
                 )
                 let report = try SmeltTrace.inspect(packagePath: packagePath)
                 return SmeltTraceCAMRoute.events(
@@ -529,13 +529,13 @@ private func resolveCAMTraceTextRouteOrExit(
         return CAMTraceTextRoute(decision: audio)
     case (.some(let text), .some(let audio)):
         fputs(
-            "smelt trace: CAM --case-text is ambiguous: "
+            "smelt lab trace: CAM --case-text is ambiguous: "
                 + "\(describeCAMDecision(text)) and \(describeCAMDecision(audio))\n",
             stderr
         )
         exit(1)
     case (nil, nil):
-        fputs("smelt trace: no CAM export satisfies trace text request\n", stderr)
+        fputs("smelt lab trace: no CAM export satisfies trace text request\n", stderr)
         exit(1)
     }
 }
@@ -549,7 +549,7 @@ private func resolveOptionalCAMTraceDecision(
     } catch SmeltCAMPackageCapabilitiesError.noMatchingExport {
         return nil
     } catch {
-        fputs("smelt trace: \(error)\n", stderr)
+        fputs("smelt lab trace: \(error)\n", stderr)
         exit(1)
     }
 }
@@ -676,7 +676,7 @@ private func captureTextToPCMTraceRuntimeEvents(
         witness: "textSHA256=\(sha256Hex(Data(runtimeCase.text.utf8)))"
     )
 
-    let runtime = try construction.make24KRuntime(verb: "trace")
+    let runtime = try construction.make24KRuntime(verb: "lab trace")
     var chunkCount = 0
     var sampleCount = 0
     try runtime.generateStreaming(
@@ -980,7 +980,7 @@ private func preflightTraceSuitePackages(
             suiteBaseURL: suiteBaseURL,
             packageOverride: packageOverride
         )
-        _ = requireCAMPackageCapabilitiesOrExit(packagePath: package, verb: "trace")
+        _ = requireCAMPackageCapabilitiesOrExit(packagePath: package, verb: "lab trace")
     }
 }
 
@@ -1018,7 +1018,7 @@ private func runTraceSuiteCase(
         )
         let capabilities = requireCAMPackageCapabilitiesOrExit(
             packagePath: package,
-            verb: "trace"
+            verb: "lab trace"
         )
         let eventsPath = testCase.events.map {
             resolveSuitePath($0, relativeTo: suiteBaseURL)
@@ -1163,7 +1163,7 @@ private func printJSON<T: Encodable>(_ value: T) throws {
 }
 
 private func printTraceReport(_ report: SmeltTraceReport) {
-    print("smelt trace")
+    print("smelt lab trace")
     print("package: \(report.packagePath)")
     print("kind: \(report.packageKind)")
     if let modelName = report.modelName {

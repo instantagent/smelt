@@ -4,7 +4,7 @@ import Testing
 
 @Suite("Smelt noncausal-attention shape")
 struct SmeltNoncausalAttentionShapeTests {
-    @Test("Production TokenRig orientations are representable")
+  @Test("Production SkinTokens orientations are representable")
     func productionOrientationsAreRepresentable() throws {
         let orientations = [
             (512, 54_000, 8, 64),

@@ -90,7 +90,8 @@ final class DenseBF16WeightKernelTests: XCTestCase {
         rows: Int,
         outDim: Int,
         inDim: Int,
-        epilogue: UInt32
+        epilogue: UInt32,
+        outputColumnsPerThreadgroup: Int = 1
     ) {
         encoder.setComputePipelineState(pipeline)
         encoder.setBuffer(input, offset: 0, index: 0)
@@ -110,7 +111,8 @@ final class DenseBF16WeightKernelTests: XCTestCase {
         encoder.setBytes(&epilogue, length: 4, index: 9)
         encoder.dispatchThreadgroups(
             MTLSize(
-                width: Int(outDim),
+                width: (Int(outDim) + outputColumnsPerThreadgroup - 1)
+                    / outputColumnsPerThreadgroup,
                 height: (Int(rows) + 7) / 8,
                 depth: 1
             ),
@@ -429,6 +431,87 @@ final class DenseBF16WeightKernelTests: XCTestCase {
                     actualAddValues[index].bitPattern,
                     expectedAddValues[index].bitPattern,
                     "add K=\(inDim) index=\(index)"
+                )
+            }
+        }
+    }
+
+    func testOutputColumnTileEpiloguesAreBitExact() throws {
+        let rows8 = try pipeline(
+            "neural_primitives_f32.metal",
+            "dense_bf16w_f32_rows8_epilogue"
+        )
+        let columns2 = try pipeline(
+            "neural_primitives_f32.metal",
+            "dense_bf16w_f32_rows8_cols2_epilogue"
+        )
+        let rows = 17
+        let outDim = 15
+        let inDim = 3_072
+        let outputCount = rows * outDim
+        let input = try makeSharedBuffer(
+            device: device,
+            fixture(count: rows * inDim, seed: 1_101)
+        )
+        let weight = try makeSharedBuffer(
+            device: device,
+            fixture(count: outDim * inDim, seed: 1_201).map(bf16)
+        )
+        let bias = try makeSharedBuffer(
+            device: device,
+            fixture(count: outDim, seed: 1_301).map(bf16)
+        )
+        let residual = try makeSharedBuffer(
+            device: device,
+            fixture(count: outputCount, seed: 1_401)
+        )
+        for epilogue: UInt32 in [1, 2] {
+            let expected = try makeSharedBuffer(
+                device: device,
+                count: outputCount,
+                of: Float.self
+            )
+            let actual = try makeSharedBuffer(
+                device: device,
+                count: outputCount,
+                of: Float.self
+            )
+            try runOnGPU(queue: queue) { encoder in
+                encodeEpilogue(
+                    encoder,
+                    pipeline: rows8,
+                    input: input,
+                    weight: weight,
+                    bias: bias,
+                    residual: residual,
+                    output: expected,
+                    rows: rows,
+                    outDim: outDim,
+                    inDim: inDim,
+                    epilogue: epilogue
+                )
+                encodeEpilogue(
+                    encoder,
+                    pipeline: columns2,
+                    input: input,
+                    weight: weight,
+                    bias: bias,
+                    residual: residual,
+                    output: actual,
+                    rows: rows,
+                    outDim: outDim,
+                    inDim: inDim,
+                    epilogue: epilogue,
+                    outputColumnsPerThreadgroup: 2
+                )
+            }
+            let expectedValues = read(expected, count: outputCount)
+            let actualValues = read(actual, count: outputCount)
+            for index in 0..<outputCount {
+                XCTAssertEqual(
+                    actualValues[index].bitPattern,
+                    expectedValues[index].bitPattern,
+                    "epilogue=\(epilogue) index=\(index)"
                 )
             }
         }

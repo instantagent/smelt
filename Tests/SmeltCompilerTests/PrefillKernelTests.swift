@@ -10234,46 +10234,72 @@ final class PrefillKernelTests: XCTestCase {
         )
         try XCTSkipIf(addPipeline == nil, "Could not compile elementwise_add")
 
-        let cases: [(rows: Int, cols: Int, staged: String, fused: String)] = [
+        let cases: [(
+            rows: Int,
+            cols: Int,
+            staged: String,
+            fused: String,
+            batchSize: Int,
+            batchTile: Int,
+            tgWidth: Int
+        )] = [
             (
                 1024, 2048,
                 "affine_matvec_c2048_r1024_g64_batched_full",
-                "fused_affine_matvec_add_c2048_r1024_g64_batched_full"
+                "fused_affine_matvec_add_c2048_r1024_g64_batched_full",
+                19, 16, 128
             ),
             (
                 1024, 3584,
                 "affine_matvec_c3584_r1024_g64_batched_full",
-                "fused_affine_matvec_add_c3584_r1024_g64_batched_full"
+                "fused_affine_matvec_add_c3584_r1024_g64_batched_full",
+                19, 16, 128
+            ),
+            (
+                1024, 2048,
+                "affine_matvec_c2048_r1024_g64_batched_full",
+                "fused_affine_matvec_add_c2048_r1024_g64_batched_full_b8",
+                8, 8, 64
+            ),
+            (
+                1024, 3584,
+                "affine_matvec_c3584_r1024_g64_batched_full",
+                "fused_affine_matvec_add_c3584_r1024_g64_batched_full_b8",
+                8, 8, 64
             ),
             (
                 2048, 2048,
                 "affine_matvec_c2048_r2048_g64_batched_full",
-                "fused_affine_matvec_add_c2048_r2048_g64_batched_full"
+                "fused_affine_matvec_add_c2048_r2048_g64_batched_full",
+                19, 16, 128
             ),
             (
                 2048, 6144,
                 "affine_matvec_c6144_r2048_g64_batched_full",
-                "fused_affine_matvec_add_c6144_r2048_g64_batched_full"
+                "fused_affine_matvec_add_c6144_r2048_g64_batched_full",
+                19, 16, 128
             ),
             (
                 2048, 8192,
                 "affine_matvec_c8192_r2048_g64_batched_full",
-                "fused_affine_matvec_add_c8192_r2048_g64_batched_full"
+                "fused_affine_matvec_add_c8192_r2048_g64_batched_full",
+                19, 16, 128
             ),
             (
                 2560, 4096,
                 "affine_matvec_c4096_r2560_g64_batched_full",
-                "fused_affine_matvec_add_c4096_r2560_g64_batched_full"
+                "fused_affine_matvec_add_c4096_r2560_g64_batched_full",
+                19, 16, 128
             ),
             (
                 2560, 9216,
                 "affine_matvec_c9216_r2560_g64_batched_full",
-                "fused_affine_matvec_add_c9216_r2560_g64_batched_full"
+                "fused_affine_matvec_add_c9216_r2560_g64_batched_full",
+                19, 16, 128
             ),
         ]
 
-        let batchSize = 19
-        for (rows, cols, stagedName, fusedName) in cases {
+        for (rows, cols, stagedName, fusedName, batchSize, batchTile, tgWidth) in cases {
             let stagedPipeline = makePipeline(
                 shaderFile: "lut_matvec.metal",
                 functionName: stagedName
@@ -10338,14 +10364,18 @@ final class PrefillKernelTests: XCTestCase {
             memset(aliasedMatvecOut.contents(), 0, batchSize * rows * 2)
 
             let rowTile = 32
-            let batchTile = 16
-            let tgWidth = 128
-            let grid = MTLSize(
+            let stagedGrid = MTLSize(
+                width: (rows + rowTile - 1) / rowTile,
+                height: (batchSize + 15) / 16,
+                depth: 1
+            )
+            let stagedThreads = MTLSize(width: 128, height: 1, depth: 1)
+            let fusedGrid = MTLSize(
                 width: (rows + rowTile - 1) / rowTile,
                 height: (batchSize + batchTile - 1) / batchTile,
                 depth: 1
             )
-            let threads = MTLSize(width: tgWidth, height: 1, depth: 1)
+            let fusedThreads = MTLSize(width: tgWidth, height: 1, depth: 1)
 
             let stagedCmdBuf = queue.makeCommandBuffer()!
             let stagedEnc = stagedCmdBuf.makeComputeCommandEncoder()!
@@ -10357,7 +10387,7 @@ final class PrefillKernelTests: XCTestCase {
             stagedEnc.setBuffer(stagedMatvecOut, offset: 0, index: 4)
             var actualBatch = UInt32(batchSize)
             stagedEnc.setBytes(&actualBatch, length: 4, index: 5)
-            stagedEnc.dispatchThreadgroups(grid, threadsPerThreadgroup: threads)
+            stagedEnc.dispatchThreadgroups(stagedGrid, threadsPerThreadgroup: stagedThreads)
             stagedEnc.endEncoding()
 
             let addEnc = stagedCmdBuf.makeComputeCommandEncoder()!
@@ -10387,7 +10417,7 @@ final class PrefillKernelTests: XCTestCase {
             fusedEnc.setBuffer(residualBuf, offset: 0, index: 5)
             fusedEnc.setBuffer(fusedOut, offset: 0, index: 6)
             fusedEnc.setBytes(&actualBatch, length: 4, index: 7)
-            fusedEnc.dispatchThreadgroups(grid, threadsPerThreadgroup: threads)
+            fusedEnc.dispatchThreadgroups(fusedGrid, threadsPerThreadgroup: fusedThreads)
             fusedEnc.endEncoding()
             fusedCmdBuf.commit()
             fusedCmdBuf.waitUntilCompleted()
@@ -10404,7 +10434,7 @@ final class PrefillKernelTests: XCTestCase {
             aliasEnc.setBuffer(aliasedOut, offset: 0, index: 5)
             aliasEnc.setBuffer(aliasedOut, offset: 0, index: 6)
             aliasEnc.setBytes(&actualBatch, length: 4, index: 7)
-            aliasEnc.dispatchThreadgroups(grid, threadsPerThreadgroup: threads)
+            aliasEnc.dispatchThreadgroups(fusedGrid, threadsPerThreadgroup: fusedThreads)
             aliasEnc.endEncoding()
             aliasCmdBuf.commit()
             aliasCmdBuf.waitUntilCompleted()

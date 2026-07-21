@@ -5,13 +5,13 @@ import XCTest
 
 final class SmeltPointProjectionRuntimeTests: XCTestCase {
     func testPackagedPointProjectionsMatchIndependentCPUOracle() throws {
-        guard let packagePath = ProcessInfo.processInfo.environment["SMELT_RIG_PACKAGE"] else {
-            throw XCTSkip("SMELT_RIG_PACKAGE is not set")
+    guard let packagePath = ProcessInfo.processInfo.environment["SMELT_SKINNING_PACKAGE"] else {
+      throw XCTSkip("SMELT_SKINNING_PACKAGE is not set")
         }
         guard MTLCreateSystemDefaultDevice() != nil else {
             throw XCTSkip("No Metal device available")
         }
-        let artifact = try SmeltRigArtifact(path: packagePath, verify: true)
+    let artifact = try SmeltComponentArtifact(path: packagePath, verify: true)
         let runtime = try SmeltPointProjectionRuntime(artifact: artifact)
         let pointNormals: [Float] = [
             -0.875, 0.125, 0.75, 0.25, -0.5, 1,
@@ -45,13 +45,13 @@ final class SmeltPointProjectionRuntimeTests: XCTestCase {
     }
 
     func testPointProjectionPreservesRowsAcrossCommandBufferBoundary() throws {
-        guard let packagePath = ProcessInfo.processInfo.environment["SMELT_RIG_PACKAGE"] else {
-            throw XCTSkip("SMELT_RIG_PACKAGE is not set")
+    guard let packagePath = ProcessInfo.processInfo.environment["SMELT_SKINNING_PACKAGE"] else {
+      throw XCTSkip("SMELT_SKINNING_PACKAGE is not set")
         }
         guard MTLCreateSystemDefaultDevice() != nil else {
             throw XCTSkip("No Metal device available")
         }
-        let artifact = try SmeltRigArtifact(path: packagePath, verify: true)
+    let artifact = try SmeltComponentArtifact(path: packagePath, verify: true)
         let runtime = try SmeltPointProjectionRuntime(artifact: artifact)
         let rowCount = SmeltPointProjectionRuntime.maximumRowsPerCommandBuffer + 1
         var pointNormals = [Float](repeating: 0, count: rowCount * 6)
@@ -95,7 +95,7 @@ final class SmeltPointProjectionRuntimeTests: XCTestCase {
     private func cpuProjection(
         pointNormals: [Float],
         projection: SmeltPointProjection,
-        artifact: SmeltRigArtifact
+    artifact: SmeltComponentArtifact
     ) throws -> [Float] {
         let names: (weight: String, bias: String, output: Int, includePi: Bool, pmpe: Bool)
         switch projection {
@@ -132,7 +132,8 @@ final class SmeltPointProjectionRuntimeTests: XCTestCase {
             var features = xyz
             for coordinate in xyz {
                 for frequencyIndex in 0..<8 {
-                    let frequency = Float(1 << frequencyIndex)
+          let frequency =
+            Float(1 << frequencyIndex)
                         * (names.includePi ? Float.pi : 1)
                     var value = sin(coordinate * frequency)
                     if names.pmpe {
@@ -145,7 +146,8 @@ final class SmeltPointProjectionRuntimeTests: XCTestCase {
             }
             for coordinate in xyz {
                 for frequencyIndex in 0..<8 {
-                    let frequency = Float(1 << frequencyIndex)
+          let frequency =
+            Float(1 << frequencyIndex)
                         * (names.includePi ? Float.pi : 1)
                     var value = cos(coordinate * frequency)
                     if names.pmpe {

@@ -20,19 +20,19 @@ func runCasCommand() {
     let packagePath = args[3]
     let quiet = args.contains("--quiet")
     let minBytes = Int(parseArg("--min-bytes", default: ""))
-        ?? SmeltCAS.defaultMinBytes
+        ?? SmeltPackageStore.defaultBlobAdoptionMinBytes
 
     do {
-        let report: SmeltCAS.Report
+        let report: SmeltPackageBlobReport
         switch subcommand {
         case "adopt":
-            report = try SmeltCAS.adopt(
+            report = try SmeltPackageStore.adoptBlobs(
                 packagePath: packagePath, minBytes: minBytes
             )
         case "restore":
-            report = try SmeltCAS.restore(packagePath: packagePath)
+            report = try SmeltPackageStore.restoreBlobs(packagePath: packagePath)
         case "status":
-            report = try SmeltCAS.status(
+            report = try SmeltPackageStore.blobStatus(
                 packagePath: packagePath, minBytes: minBytes
             )
         default:
@@ -50,8 +50,8 @@ func runCasCommand() {
     }
 }
 
-private func printCasReport(_ report: SmeltCAS.Report, subcommand: String) {
-    fputs("Store: \(SmeltCAS.storeRoot().path)\n", stderr)
+private func printCasReport(_ report: SmeltPackageBlobReport, subcommand: String) {
+    fputs("Store: \(SmeltPackageStore.blobStoreURL().path)\n", stderr)
     var sharedBytes: Int64 = 0
     for file in report.files where file.state != .missing {
         fputs(
@@ -108,7 +108,7 @@ func spawnCasAdoptIfUseful(packagePath: String) {
         var st = stat()
         return lstat("\(packagePath)/\(name)", &st) == 0
             && (st.st_mode & S_IFMT) == S_IFREG
-            && st.st_size >= SmeltCAS.defaultMinBytes
+            && st.st_size >= SmeltPackageStore.defaultBlobAdoptionMinBytes
     }
     guard hasAdoptable else { return }
     guard let exe = Bundle.main.executablePath else { return }

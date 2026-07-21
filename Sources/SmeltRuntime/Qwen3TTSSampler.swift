@@ -39,7 +39,7 @@ public enum Qwen3TTSSampler {
     }
 
     /// How a public generate() call selects its decode policy. `.packageDefault` (the default) follows
-    /// the package's baked generation_config: when `manifest.decode.doSample` it samples with a FRESH
+    /// the package's compiled generation config: when `manifest.decode.doSample` it samples with a FRESH
     /// random seed per call (matching the reference model's unseeded sampling — repeated calls vary),
     /// else greedy. `.sampleSeeded` is the same policy but with a fixed seed — reproducible package
     /// sampling (uses the package's params, unlike `.sample` which carries its own). `.greedy` forces

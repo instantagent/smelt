@@ -135,7 +135,7 @@ import SmeltSchema
             to: package.appendingPathComponent("manifest.json")
         )
         try Data("stale".utf8).write(
-            to: package.appendingPathComponent(SmeltBakeManifest.fileName)
+            to: package.appendingPathComponent("stale.bin")
         )
 
         #expect(throws: SmeltPackageAssemblerError.self) {
@@ -288,7 +288,6 @@ import SmeltSchema
                 ),
                 .init(path: "weights.bin", roles: ["artifact:weights:weights", "declared-output"]),
             ],
-            bake: base.bake,
             policy: base.policy,
             validationParityFixture: base.validationParityFixture,
             validationPerformanceGate: base.validationPerformanceGate,

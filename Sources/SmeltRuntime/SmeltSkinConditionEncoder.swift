@@ -20,13 +20,13 @@ public final class SmeltSkinConditionEncoder {
     private static let mlpWidth = 3_072
     private static let prefix = "vae.model.cond_encoder"
 
-    private let artifact: SmeltRigArtifact
+  private let artifact: SmeltComponentArtifact
     private let device: MTLDevice
     private let queue: MTLCommandQueue
     private let pipelines: [String: MTLComputePipelineState]
     private let attention: SmeltNoncausalAttention
 
-    public init(artifact: SmeltRigArtifact, device: MTLDevice? = nil) throws {
+  public init(artifact: SmeltComponentArtifact, device: MTLDevice? = nil) throws {
         guard let device = device ?? MTLCreateSystemDefaultDevice() else {
             throw SmeltSkinConditionEncoderError.metalUnavailable
         }
@@ -117,56 +117,57 @@ public final class SmeltSkinConditionEncoder {
         let tokens = input.count / Self.width
         let dataTokens = (data?.count ?? input.count) / Self.width
         let prefix = "\(Self.prefix).blocks.\(layer)"
-        let source = try buffer(input, label: "rig.vae.cond.\(layer).input")
-        let attentionData = try data.map {
-            try buffer($0, label: "rig.vae.cond.\(layer).data")
+    let source = try buffer(input, label: "skinning.vae.cond.\(layer).input")
+    let attentionData =
+      try data.map {
+        try buffer($0, label: "skinning.vae.cond.\(layer).data")
         } ?? source
-        let normalizedQuery = try buffer(count: input.count, label: "rig.vae.cond.norm-q")
+    let normalizedQuery = try buffer(count: input.count, label: "skinning.vae.cond.norm-q")
         let normalizedData = try buffer(
             count: dataTokens * Self.width,
-            label: "rig.vae.cond.norm-data"
+      label: "skinning.vae.cond.norm-data"
         )
-        let rawQuery = try buffer(count: input.count, label: "rig.vae.cond.raw-q")
+    let rawQuery = try buffer(count: input.count, label: "skinning.vae.cond.raw-q")
         let rawKey = try buffer(
             count: dataTokens * Self.width,
-            label: "rig.vae.cond.raw-k"
+      label: "skinning.vae.cond.raw-k"
         )
         let rawValue = try buffer(
             count: dataTokens * Self.width,
-            label: "rig.vae.cond.raw-v"
+      label: "skinning.vae.cond.raw-v"
         )
-        let query = try buffer(count: input.count, label: "rig.vae.cond.q")
-        let key = try buffer(count: dataTokens * Self.width, label: "rig.vae.cond.k")
-        let value = try buffer(count: dataTokens * Self.width, label: "rig.vae.cond.v")
+    let query = try buffer(count: input.count, label: "skinning.vae.cond.q")
+    let key = try buffer(count: dataTokens * Self.width, label: "skinning.vae.cond.k")
+    let value = try buffer(count: dataTokens * Self.width, label: "skinning.vae.cond.v")
         let unused = try buffer(
             count: max(input.count, dataTokens * Self.width),
-            label: "rig.vae.cond.unused"
+      label: "skinning.vae.cond.unused"
         )
-        let attended = try buffer(count: input.count, label: "rig.vae.cond.attended")
+    let attended = try buffer(count: input.count, label: "skinning.vae.cond.attended")
         let projectedAttention = try buffer(
             count: input.count,
-            label: "rig.vae.cond.attn-proj"
+      label: "skinning.vae.cond.attn-proj"
         )
         let attentionResidual = try buffer(
             count: input.count,
-            label: "rig.vae.cond.attn-residual"
+      label: "skinning.vae.cond.attn-residual"
         )
-        let normalizedMLP = try buffer(count: input.count, label: "rig.vae.cond.mlp-norm")
+    let normalizedMLP = try buffer(count: input.count, label: "skinning.vae.cond.mlp-norm")
         let expandedMLP = try buffer(
             count: tokens * Self.mlpWidth,
-            label: "rig.vae.cond.mlp-expanded"
+      label: "skinning.vae.cond.mlp-expanded"
         )
         let activatedMLP = try buffer(
             count: tokens * Self.mlpWidth,
-            label: "rig.vae.cond.mlp-gelu"
+      label: "skinning.vae.cond.mlp-gelu"
         )
-        let projectedMLP = try buffer(count: input.count, label: "rig.vae.cond.mlp-proj")
-        let output = try buffer(count: input.count, label: "rig.vae.cond.output")
+    let projectedMLP = try buffer(count: input.count, label: "skinning.vae.cond.mlp-proj")
+    let output = try buffer(count: input.count, label: "skinning.vae.cond.output")
         var commandBuffer = try require(
             queue.makeCommandBuffer(),
             .commandBufferCreationFailed
         )
-        commandBuffer.label = "rig.condition.\(layer).pre-attention"
+    commandBuffer.label = "skinning.condition.\(layer).pre-attention"
         var encoder = try require(
             commandBuffer.makeComputeCommandEncoder(),
             .commandEncoderCreationFailed
@@ -265,13 +266,13 @@ public final class SmeltSkinConditionEncoder {
             keyValueTokens: dataTokens,
             heads: Self.heads,
             headDimension: Self.headDimension,
-            label: "rig.condition.\(layer).attention"
+      label: "skinning.condition.\(layer).attention"
         )
         commandBuffer = try require(
             queue.makeCommandBuffer(),
             .commandBufferCreationFailed
         )
-        commandBuffer.label = "rig.condition.\(layer).post-attention"
+    commandBuffer.label = "skinning.condition.\(layer).post-attention"
         encoder = try require(
             commandBuffer.makeComputeCommandEncoder(),
             .commandEncoderCreationFailed
@@ -345,14 +346,14 @@ public final class SmeltSkinConditionEncoder {
 
     private func finish(input: [Float]) throws -> [Float] {
         let tokens = input.count / Self.width
-        let source = try buffer(input, label: "rig.vae.cond.finish-input")
-        let normalized = try buffer(count: input.count, label: "rig.vae.cond.finish-norm")
-        let output = try buffer(count: tokens * 512, label: "rig.vae.cond.finish-output")
+    let source = try buffer(input, label: "skinning.vae.cond.finish-input")
+    let normalized = try buffer(count: input.count, label: "skinning.vae.cond.finish-norm")
+    let output = try buffer(count: tokens * 512, label: "skinning.vae.cond.finish-output")
         let commandBuffer = try require(
             queue.makeCommandBuffer(),
             .commandBufferCreationFailed
         )
-        commandBuffer.label = "rig.condition.finish"
+    commandBuffer.label = "skinning.condition.finish"
         let encoder = try require(
             commandBuffer.makeComputeCommandEncoder(),
             .commandEncoderCreationFailed
@@ -398,8 +399,10 @@ public final class SmeltSkinConditionEncoder {
     ) throws {
         encoder.setComputePipelineState(try pipeline("layer_norm_rows_bf16w_f32"))
         encoder.setBuffer(input, offset: 0, index: 0)
-        encoder.setBuffer(try artifact.makeWeightBuffer(device: device, tensorNamed: weight), offset: 0, index: 1)
-        encoder.setBuffer(try artifact.makeWeightBuffer(device: device, tensorNamed: bias), offset: 0, index: 2)
+    encoder.setBuffer(
+      try artifact.makeWeightBuffer(device: device, tensorNamed: weight), offset: 0, index: 1)
+    encoder.setBuffer(
+      try artifact.makeWeightBuffer(device: device, tensorNamed: bias), offset: 0, index: 2)
         encoder.setBuffer(output, offset: 0, index: 3)
         var rows = UInt32(rows)
         var dimension = UInt32(Self.width)
@@ -424,7 +427,8 @@ public final class SmeltSkinConditionEncoder {
         bias: String?
     ) throws {
         let weightBuffer = try artifact.makeWeightBuffer(device: device, tensorNamed: weight)
-        let biasBuffer = try bias.map {
+    let biasBuffer =
+      try bias.map {
             try artifact.makeWeightBuffer(device: device, tensorNamed: $0)
         } ?? weightBuffer
         encoder.setComputePipelineState(try pipeline("dense_bf16w_f32"))
@@ -528,10 +532,12 @@ public final class SmeltSkinConditionEncoder {
     }
 
     private func buffer(count: Int, label: String) throws -> MTLBuffer {
-        guard let buffer = device.makeBuffer(
+    guard
+      let buffer = device.makeBuffer(
             length: count * MemoryLayout<Float>.stride,
             options: .storageModeShared
-        ) else {
+      )
+    else {
             throw SmeltSkinConditionEncoderError.bufferCreationFailed(label)
         }
         buffer.label = label

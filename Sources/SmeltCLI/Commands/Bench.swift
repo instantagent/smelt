@@ -1,9 +1,9 @@
 import Foundation
 
-func runBenchCommand() {
+func runBenchCommand(_ args: [String]) {
     guard args.count >= 3 else {
         fputs(
-            "Usage: smelt bench <model.smeltpkg> [--iterations N] [--warmup N] [--fixed-position N] [--positions 0,32,64,...] [--trace-start N --trace-length N] [--min-tps N] [--max-p95-ms N]\n",
+            "Usage: smelt lab bench decode <model.smeltpkg> [--iterations N] [--warmup N] [--fixed-position N] [--positions 0,32,64,...] [--trace-start N --trace-length N] [--min-tps N] [--max-p95-ms N]\n",
             stderr
         )
         exit(1)
@@ -11,19 +11,19 @@ func runBenchCommand() {
     let pkgPath = args[2]
     if args.contains("--gate-qwen35") {
         fputs(
-            "smelt bench: --gate-qwen35 was removed; use module gate contracts or explicit --min-tps/--max-p95-ms\n",
+            "smelt lab bench decode: --gate-qwen35 was removed; use module gate contracts or explicit --min-tps/--max-p95-ms\n",
             stderr
         )
         exit(1)
     }
-    let iterations = Int(parseArg("--iterations", default: "100")) ?? 100
-    let warmupIterations = Int(parseArg("--warmup", default: "5")) ?? 5
-    let fixedPosition = Int32(parseArg("--fixed-position", default: ""))
-    let sweepPositions = parseCSVNonNegativeInts(parseArg("--positions", default: ""))
-    let traceStart = Int32(parseArg("--trace-start", default: ""))
-    let traceLength = Int(parseArg("--trace-length", default: "0")) ?? 0
-    let minTpsArg = Double(parseArg("--min-tps", default: ""))
-    let maxP95MsArg = Double(parseArg("--max-p95-ms", default: ""))
+    let iterations = Int(parseArg(args, "--iterations", default: "100")) ?? 100
+    let warmupIterations = Int(parseArg(args, "--warmup", default: "5")) ?? 5
+    let fixedPosition = Int32(parseArg(args, "--fixed-position", default: ""))
+    let sweepPositions = parseCSVNonNegativeInts(parseArg(args, "--positions", default: ""))
+    let traceStart = Int32(parseArg(args, "--trace-start", default: ""))
+    let traceLength = Int(parseArg(args, "--trace-length", default: "0")) ?? 0
+    let minTpsArg = Double(parseArg(args, "--min-tps", default: ""))
+    let maxP95MsArg = Double(parseArg(args, "--max-p95-ms", default: ""))
 
     let construction = requireBenchTextRuntimePlanOrExit(packagePath: pkgPath)
 

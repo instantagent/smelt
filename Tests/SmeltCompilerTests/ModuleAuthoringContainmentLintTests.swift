@@ -13,7 +13,7 @@ import Testing
 ///       `Sources/SmeltModuleAuthoring/` may import ONLY `SmeltSchema` /
 ///       `SmeltModuleAuthoring` (never the compiler, runtime, Metal, …);
 ///   (b) package edges — NO production target (`SmeltCompiler`, `SmeltRuntime`,
-///       `SmeltCLI`, `SmeltProbe`, `SmeltSchema`) may depend on `SmeltModels`
+///       `SmeltCLI`, `SmeltLab`, `SmeltSchema`) may depend on `SmeltModels`
 ///       or `SmeltModuleAuthoring`. Only test targets and the `smelt-models`
 ///       executable (`SmeltModelsCLI`) may.
 ///
@@ -82,7 +82,7 @@ import Testing
         }
 
         // Sanity: the scan actually saw the production targets it is meant to guard.
-        for name in ["SmeltCompiler", "SmeltRuntime", "SmeltCLI", "SmeltProbe", "SmeltSchema"] {
+        for name in ["SmeltCompiler", "SmeltRuntime", "SmeltCLI", "SmeltLab", "SmeltSchema"] {
             #expect(byName[name] != nil, Comment(rawValue: "manifest scan missed production target \(name)"))
         }
     }

@@ -1,8 +1,9 @@
 import Foundation
-import Testing
-@testable import SmeltCompiler
 import SmeltModels
 import SmeltSchema
+import Testing
+
+@testable import SmeltCompiler
 
 @Suite struct SmeltCAMSourcePackageBuilderTests {
     @Test func validatesCAMSourcePackageBuildArguments() {
@@ -47,7 +48,7 @@ import SmeltSchema
         )
     }
 
-    @Test func requiresWeightsDirForModuleSourcePackageBuild() {
+  @Test func requiresSourceInputForModuleSourcePackageBuild() {
         let command = [
             "smelt",
             "build",
@@ -61,7 +62,7 @@ import SmeltSchema
 
         #expect(
             SmeltCAMSourcePackageBuilder.validateBuildCommandArguments(command)
-                == "missing required option for module source build: --weights-dir"
+        == "missing source input for module source build: pass --weights-dir or --source ID=PATH"
         )
     }
 
@@ -86,7 +87,8 @@ import SmeltSchema
             .deletingLastPathComponent()
             .deletingLastPathComponent()
             .deletingLastPathComponent()
-        let moduleURL = repositoryRoot
+    let moduleURL =
+      repositoryRoot
             .appendingPathComponent("Models/qwen35_text.module.json")
         let module = try SmeltCAMIR.decodeModule(at: moduleURL)
         let packageURL = FileManager.default.temporaryDirectory
@@ -131,7 +133,8 @@ import SmeltSchema
     @Test func bonsaiProjectionBanksOwnTopologyLayoutAndDecodeLowering() throws {
         let module = try #require(SmeltModels.definition(id: "bonsai_27b_binary"))
         let ir = try SmeltCAMCheckedPackageProjector.sourceModelIR(cam: module)
-        #expect(ir.config.projectionBanks.map(\.id) == [
+    #expect(
+      ir.config.projectionBanks.map(\.id) == [
             "attention-input", "attention-output", "delta-input", "delta-output",
             "ffn-input", "ffn-intermediate",
         ])
@@ -329,17 +332,18 @@ import SmeltSchema
                         == UInt16(SmeltPipeline.deltanetRecurrenceMlxDecode.rawValue)
             }.isEmpty
         )
-        let producerIndices = (
-            fusedDeltaProducerIndices
-                + fusedAttentionProducerIndices
-        ).sorted()
+    let producerIndices =
+      (fusedDeltaProducerIndices
+      + fusedAttentionProducerIndices).sorted()
         #expect(zip(producerIndices, outputIndices).allSatisfy { pair in pair.0 < pair.1 })
 
         let bufferPlan = buildBufferPlan(from: ir)
-        let planes = try #require(bufferPlan.slots.first {
+    let planes = try #require(
+      bufferPlan.slots.first {
             $0.index == bufferPlan.projectionActivationPlanesSlot
         })
-        let scales = try #require(bufferPlan.slots.first {
+    let scales = try #require(
+      bufferPlan.slots.first {
             $0.index == bufferPlan.projectionActivationScalesSlot
         })
         #expect(planes.shape == [256, 136, 6, 4])
@@ -348,35 +352,41 @@ import SmeltSchema
         let prefill = try PrefillEmitter.generate(
             ir: ir, compilationPlan: compilationPlan, traceMode: .stripped
         )
-        let batchedBuilders = Set([
+    let batchedBuilders = Set(
+      [
             SmeltPipeline.signedActivationBitplanesI2G128Batched,
             .signedActivationBitplanesI3G128Batched,
             .signedActivationBitplanesI4G128Batched,
             .signedActivationBitplanesI5G128Batched,
             .signedActivationBitplanesI6G128Batched,
         ].map { UInt16($0.rawValue) })
-        let batchedConsumers = Set([
+    let batchedConsumers = Set(
+      [
             SmeltPipeline.signedBinaryBitplaneI2MatvecG128Rows8BatchedB4,
             .signedBinaryBitplaneI3MatvecG128Rows8BatchedB4,
             .signedBinaryBitplaneI4MatvecG128Rows8BatchedB4,
             .signedBinaryBitplaneI5MatvecG128Rows8BatchedB4,
             .signedBinaryBitplaneI6MatvecG128Rows8BatchedB4,
         ].map { UInt16($0.rawValue) })
-        #expect(prefill.dispatchRecords.filter {
+    #expect(
+      prefill.dispatchRecords.filter {
             $0.opKind == SmeltDispatchRecord.opDispatch
                 && batchedBuilders.contains($0.pipeline)
         }.count == 250)
-        #expect(prefill.dispatchRecords.filter {
+    #expect(
+      prefill.dispatchRecords.filter {
             $0.opKind == SmeltDispatchRecord.opDispatch
                 && batchedConsumers.contains($0.pipeline)
         }.count == 484)
         let prefillRecurrencePipeline = UInt16(
             SmeltPipeline.deltanetRecurrenceMlxPrefillD128H48QK16.rawValue)
-        #expect(prefill.dispatchRecords.filter {
+    #expect(
+      prefill.dispatchRecords.filter {
             $0.opKind == SmeltDispatchRecord.opDispatch
                 && $0.pipeline == prefillRecurrencePipeline
         }.count == 48)
-        #expect(prefill.dispatchRecords.filter {
+    #expect(
+      prefill.dispatchRecords.filter {
             $0.opKind == SmeltDispatchRecord.opDispatch
                 && $0.pipeline
                     == UInt16(SmeltPipeline.deltanetRecurrenceMlxPrefill.rawValue)

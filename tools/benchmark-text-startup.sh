@@ -56,7 +56,7 @@ if camel is not None and snake is not None and camel != snake:
 print(camel if camel is not None else snake or "")
 PY
   )
-  local profile_args=(module-profile text.decode-prefill-startup)
+  local profile_args=(lab package-profile text.decode-prefill-startup)
   if [[ -n "$model_name" ]]; then
     profile_args+=(--model-name "$model_name")
   fi

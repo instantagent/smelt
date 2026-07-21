@@ -1,23 +1,23 @@
 import Foundation
 import SmeltRuntime
 
-func runPrefillKernelsCommand() {
+func runPrefillKernelsCommand(_ args: [String]) {
     guard args.count >= 3 else {
-        fputs("Usage: smelt prefill-kernels <model.smeltpkg> [--tokens N] [--iterations N]\n", stderr)
+        fputs("Usage: smelt lab profile prefill <model.smeltpkg> [--tokens N] [--iterations N]\n", stderr)
         exit(1)
     }
     let pkgPath = args[2]
     let construction = requireCAMTextRuntimePlanOrExit(
         packagePath: pkgPath,
         request: .profilePrefillKernels,
-        verb: "prefill-kernels"
+        verb: "lab profile prefill"
     )
-    let numTokens = Int(parseArg("--tokens", default: "16")) ?? 16
-    let iterations = Int(parseArg("--iterations", default: "3")) ?? 3
+    let numTokens = Int(parseArg(args, "--tokens", default: "16")) ?? 16
+    let iterations = Int(parseArg(args, "--iterations", default: "3")) ?? 3
     do {
         try construction.requirePrefillCapacity(tokenCount: numTokens)
     } catch {
-        fputs("smelt prefill-kernels: \(error)\n", stderr)
+        fputs("smelt lab profile prefill: \(error)\n", stderr)
         exit(1)
     }
 

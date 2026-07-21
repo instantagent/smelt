@@ -41,7 +41,7 @@ public func annot(_ key: String, _ value: String) -> IR.Constraint { IR.Constrai
 // with a sampler->trunk feedback edge. Shared by every text-gen LLM fixture;
 // the tokenizer annotations and the trunk `state` value are the only things
 // that vary. The trunk always references a block named "trunk" and carries
-// `artifact baked-inline` + `feedback tokens`. Reproduces exactly the graph the
+// `artifact compiled-inline` + `feedback tokens`. Reproduces exactly the graph the
 // grammar parser lowers from the canonical text-gen `graph:` stanza.
 
 /// Tokenizer annotations for a ChatML prompt format with a preclosed think
@@ -77,7 +77,7 @@ public func llmTextGenNodes(
             inputs: [port("tokens", bareType("tokens"))],
             outputs: [port("hidden", bareType("hidden"))],
             annotations: [
-                annot("artifact", "baked-inline"),
+                annot("artifact", "compiled-inline"),
                 annot("feedback", "tokens"),
                 annot("state", trunkState),
             ]

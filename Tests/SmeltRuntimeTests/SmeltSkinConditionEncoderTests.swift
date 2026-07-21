@@ -6,13 +6,13 @@ import XCTest
 
 final class SmeltSkinConditionEncoderTests: XCTestCase {
     func testReducedConditionEncoderMatchesPinnedTorchFP32Fixture() throws {
-        guard let packagePath = ProcessInfo.processInfo.environment["SMELT_RIG_PACKAGE"] else {
-            throw XCTSkip("SMELT_RIG_PACKAGE is not set")
+    guard let packagePath = ProcessInfo.processInfo.environment["SMELT_SKINNING_PACKAGE"] else {
+      throw XCTSkip("SMELT_SKINNING_PACKAGE is not set")
         }
         guard MTLCreateSystemDefaultDevice() != nil else {
             throw XCTSkip("No Metal device available")
         }
-        let artifact = try SmeltRigArtifact(path: packagePath, verify: true)
+    let artifact = try SmeltComponentArtifact(path: packagePath, verify: true)
         let runtime = try SmeltSkinConditionEncoder(artifact: artifact)
         let query = decode(skinConditionQueryBase64, count: 3 * 768)
         let data = decode(skinConditionDataBase64, count: 5 * 768)
@@ -34,11 +34,11 @@ final class SmeltSkinConditionEncoderTests: XCTestCase {
     }
 
     func testProductionShapeConditionEncoderSmoke() throws {
-        guard ProcessInfo.processInfo.environment["SMELT_RIG_FULL_SMOKE"] == "1" else {
-            throw XCTSkip("SMELT_RIG_FULL_SMOKE is not enabled")
+    guard ProcessInfo.processInfo.environment["SMELT_SKINNING_FULL_SMOKE"] == "1" else {
+      throw XCTSkip("SMELT_SKINNING_FULL_SMOKE is not enabled")
         }
-        guard let packagePath = ProcessInfo.processInfo.environment["SMELT_RIG_PACKAGE"] else {
-            throw XCTSkip("SMELT_RIG_PACKAGE is not set")
+    guard let packagePath = ProcessInfo.processInfo.environment["SMELT_SKINNING_PACKAGE"] else {
+      throw XCTSkip("SMELT_SKINNING_PACKAGE is not set")
         }
         guard MTLCreateSystemDefaultDevice() != nil else {
             throw XCTSkip("No Metal device available")
@@ -52,7 +52,7 @@ final class SmeltSkinConditionEncoderTests: XCTestCase {
             points[index * 6 + 4] = Float((index * 29) % 256 - 128) / 128
             points[index * 6 + 5] = Float((index * 61) % 256 - 128) / 128
         }
-        let artifact = try SmeltRigArtifact(path: packagePath, verify: true)
+    let artifact = try SmeltComponentArtifact(path: packagePath, verify: true)
         let runtime = try SmeltSkinConditionEncoder(artifact: artifact)
         let result = try runtime.encode(pointNormals: points)
         XCTAssertEqual(result.selectedSourceIndices.count, 384)

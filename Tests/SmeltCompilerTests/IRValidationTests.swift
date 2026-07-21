@@ -511,7 +511,7 @@ private func qwen35IR(activationDtype: SmeltDType) -> SmeltModelIR {
             "output": "logits",
             "feedback": "tokens",
             "state": ["kv-cache"],
-            "compiledDelivery": "baked-inline"
+            "compiledDelivery": "compiled-inline"
           },
           {
             "name": "text-head",

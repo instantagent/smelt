@@ -13,11 +13,19 @@ public enum SmeltCAMSourcePackageBuilderError: Error, CustomStringConvertible, E
 }
 
 public enum SmeltCAMSourcePackageBuilder {
+  public struct BuildResult: Sendable, Equatable {
+    public let packagePath: String
+    public let generatedSwiftPath: String?
+    public let metallibPath: String
+    public let manifestPath: String
+  }
+
     public static let buildCommandValueFlags: Set<String> = [
         "--weights-dir",
         "--shader-dir",
         "--output",
         "--trace-mode",
+    "--source",
     ]
 
     public static let buildCommandBoolFlags: Set<String> = [
@@ -30,11 +38,28 @@ public enum SmeltCAMSourcePackageBuilder {
         camPath: String,
         outputDirectory: String,
         weightsDir: String?,
+    sourceOverrides: [String: String] = [:],
         shaderDir: String,
         traceMode: SmeltTraceMode
-    ) throws -> SmeltCompiler.BuildResult {
+  ) throws -> BuildResult {
         let camURL = URL(fileURLWithPath: camPath)
         let cam = try SmeltCAMIR.decodeModule(at: camURL)
+    if cam.run != nil,
+      cam.graphNodes.allSatisfy({ $0.implementation == .native || $0.implementation == .adapter })
+    {
+      let result = try SmeltComponentPackageBuilder.build(
+        module: cam,
+        sourceOverrides: sourceOverrides,
+        shaderDirectory: shaderDir,
+        outputDirectory: outputDirectory
+      )
+      return BuildResult(
+        packagePath: result.packagePath,
+        generatedSwiftPath: nil,
+        metallibPath: result.metallibPath,
+        manifestPath: result.manifestPath
+      )
+    }
         let ir = try SmeltCAMCheckedPackageProjector.sourceModelIR(cam: cam)
         let result = try SmeltCompiler.build(
             ir: ir,
@@ -46,7 +71,12 @@ public enum SmeltCAMSourcePackageBuilder {
             traceMode: traceMode
         )
         try writePackageDescriptor(cam: cam, packagePath: result.packagePath)
-        return result
+    return BuildResult(
+      packagePath: result.packagePath,
+      generatedSwiftPath: result.generatedSwiftPath,
+      metallibPath: result.metallibPath,
+      manifestPath: result.manifestPath
+    )
     }
 
     /// Source-built packages are ordinary module packages at runtime. Emit the
@@ -79,7 +109,7 @@ public enum SmeltCAMSourcePackageBuilder {
                 }
                 return "unexpected argument for module source build: \(flag)"
             }
-            if seenFlags.contains(flag) {
+      if seenFlags.contains(flag), flag != "--source" {
                 return "duplicate option for module source build: \(flag)"
             }
             seenFlags.insert(flag)
@@ -98,11 +128,12 @@ public enum SmeltCAMSourcePackageBuilder {
                 return "missing required option for module source build: \(required)"
             }
         }
-        if seenFlags.contains("--weights-dir") == false {
-            return "missing required option for module source build: --weights-dir"
+    if !seenFlags.contains("--weights-dir"), !seenFlags.contains("--source") {
+      return "missing source input for module source build: pass --weights-dir or --source ID=PATH"
         }
         if let output = values["--output"],
-           URL(fileURLWithPath: output).pathExtension == "smeltpkg" {
+      URL(fileURLWithPath: output).pathExtension == "smeltpkg"
+    {
             return "--output is a parent directory; do not pass a final .smeltpkg package path"
         }
         return nil

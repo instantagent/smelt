@@ -23,13 +23,13 @@ public final class SmeltMeshEncoder {
     private static let mlpWidth = 2_048
     private static let prefix = "mesh_encoder.encoder.cross_attn"
 
-    private let artifact: SmeltRigArtifact
+  private let artifact: SmeltComponentArtifact
     private let device: MTLDevice
     private let queue: MTLCommandQueue
     private let pipelines: [String: MTLComputePipelineState]
     private let attention: SmeltNoncausalAttention
 
-    public init(artifact: SmeltRigArtifact, device: MTLDevice? = nil) throws {
+  public init(artifact: SmeltComponentArtifact, device: MTLDevice? = nil) throws {
         guard let device = device ?? MTLCreateSystemDefaultDevice() else {
             throw SmeltMeshEncoderError.metalUnavailable
         }
@@ -83,43 +83,43 @@ public final class SmeltMeshEncoder {
         }
         let queryTokens = query.count / Self.width
         let dataTokens = data.count / Self.width
-        let queryInput = try buffer(query, label: "rig.mesh.cross.query")
-        let dataInput = try buffer(data, label: "rig.mesh.cross.data")
-        let normalizedQuery = try buffer(count: query.count, label: "rig.mesh.cross.qnorm")
-        let normalizedData = try buffer(count: data.count, label: "rig.mesh.cross.dnorm")
-        let projectedQuery = try buffer(count: query.count, label: "rig.mesh.cross.q")
+    let queryInput = try buffer(query, label: "skinning.mesh.cross.query")
+    let dataInput = try buffer(data, label: "skinning.mesh.cross.data")
+    let normalizedQuery = try buffer(count: query.count, label: "skinning.mesh.cross.qnorm")
+    let normalizedData = try buffer(count: data.count, label: "skinning.mesh.cross.dnorm")
+    let projectedQuery = try buffer(count: query.count, label: "skinning.mesh.cross.q")
         let projectedKV = try buffer(
             count: dataTokens * Self.width * 2,
-            label: "rig.mesh.cross.kv"
+      label: "skinning.mesh.cross.kv"
         )
-        let key = try buffer(count: data.count, label: "rig.mesh.cross.k")
-        let value = try buffer(count: data.count, label: "rig.mesh.cross.v")
-        let attended = try buffer(count: query.count, label: "rig.mesh.cross.attended")
+    let key = try buffer(count: data.count, label: "skinning.mesh.cross.k")
+    let value = try buffer(count: data.count, label: "skinning.mesh.cross.v")
+    let attended = try buffer(count: query.count, label: "skinning.mesh.cross.attended")
         let projectedAttention = try buffer(
             count: query.count,
-            label: "rig.mesh.cross.attn-proj"
+      label: "skinning.mesh.cross.attn-proj"
         )
         let attentionResidual = try buffer(
             count: query.count,
-            label: "rig.mesh.cross.attn-residual"
+      label: "skinning.mesh.cross.attn-residual"
         )
-        let normalizedMLP = try buffer(count: query.count, label: "rig.mesh.cross.mlp-norm")
+    let normalizedMLP = try buffer(count: query.count, label: "skinning.mesh.cross.mlp-norm")
         let expandedMLP = try buffer(
             count: queryTokens * Self.mlpWidth,
-            label: "rig.mesh.cross.mlp-expanded"
+      label: "skinning.mesh.cross.mlp-expanded"
         )
         let activatedMLP = try buffer(
             count: queryTokens * Self.mlpWidth,
-            label: "rig.mesh.cross.mlp-gelu"
+      label: "skinning.mesh.cross.mlp-gelu"
         )
-        let projectedMLP = try buffer(count: query.count, label: "rig.mesh.cross.mlp-proj")
-        let output = try buffer(count: query.count, label: "rig.mesh.cross.output")
+    let projectedMLP = try buffer(count: query.count, label: "skinning.mesh.cross.mlp-proj")
+    let output = try buffer(count: query.count, label: "skinning.mesh.cross.output")
 
         var commandBuffer = try require(
             queue.makeCommandBuffer(),
             .commandBufferCreationFailed
         )
-        commandBuffer.label = "rig.mesh.cross-block.pre-attention"
+    commandBuffer.label = "skinning.mesh.cross-block.pre-attention"
         var encoder = try require(
             commandBuffer.makeComputeCommandEncoder(),
             .commandEncoderCreationFailed
@@ -190,13 +190,13 @@ public final class SmeltMeshEncoder {
             keyValueTokens: dataTokens,
             heads: Self.heads,
             headDimension: Self.headDimension,
-            label: "rig.mesh.cross-block.attention"
+      label: "skinning.mesh.cross-block.attention"
         )
         commandBuffer = try require(
             queue.makeCommandBuffer(),
             .commandBufferCreationFailed
         )
-        commandBuffer.label = "rig.mesh.cross-block.post-attention"
+    commandBuffer.label = "skinning.mesh.cross-block.post-attention"
         encoder = try require(
             commandBuffer.makeComputeCommandEncoder(),
             .commandEncoderCreationFailed
@@ -285,52 +285,52 @@ public final class SmeltMeshEncoder {
         }
         let tokens = input.count / Self.width
         let prefix = "mesh_encoder.encoder.self_attn.resblocks.\(layer)"
-        let source = try buffer(input, label: "rig.mesh.self.\(layer).input")
+    let source = try buffer(input, label: "skinning.mesh.self.\(layer).input")
         let normalizedAttention = try buffer(
             count: input.count,
-            label: "rig.mesh.self.\(layer).attn-norm"
+      label: "skinning.mesh.self.\(layer).attn-norm"
         )
         let combinedQKV = try buffer(
             count: input.count * 3,
-            label: "rig.mesh.self.\(layer).qkv"
+      label: "skinning.mesh.self.\(layer).qkv"
         )
-        let query = try buffer(count: input.count, label: "rig.mesh.self.\(layer).q")
-        let key = try buffer(count: input.count, label: "rig.mesh.self.\(layer).k")
-        let value = try buffer(count: input.count, label: "rig.mesh.self.\(layer).v")
+    let query = try buffer(count: input.count, label: "skinning.mesh.self.\(layer).q")
+    let key = try buffer(count: input.count, label: "skinning.mesh.self.\(layer).k")
+    let value = try buffer(count: input.count, label: "skinning.mesh.self.\(layer).v")
         let attended = try buffer(
             count: input.count,
-            label: "rig.mesh.self.\(layer).attended"
+      label: "skinning.mesh.self.\(layer).attended"
         )
         let projectedAttention = try buffer(
             count: input.count,
-            label: "rig.mesh.self.\(layer).attn-proj"
+      label: "skinning.mesh.self.\(layer).attn-proj"
         )
         let attentionResidual = try buffer(
             count: input.count,
-            label: "rig.mesh.self.\(layer).attn-residual"
+      label: "skinning.mesh.self.\(layer).attn-residual"
         )
         let normalizedMLP = try buffer(
             count: input.count,
-            label: "rig.mesh.self.\(layer).mlp-norm"
+      label: "skinning.mesh.self.\(layer).mlp-norm"
         )
         let expandedMLP = try buffer(
             count: tokens * Self.mlpWidth,
-            label: "rig.mesh.self.\(layer).mlp-expanded"
+      label: "skinning.mesh.self.\(layer).mlp-expanded"
         )
         let activatedMLP = try buffer(
             count: tokens * Self.mlpWidth,
-            label: "rig.mesh.self.\(layer).mlp-gelu"
+      label: "skinning.mesh.self.\(layer).mlp-gelu"
         )
         let projectedMLP = try buffer(
             count: input.count,
-            label: "rig.mesh.self.\(layer).mlp-proj"
+      label: "skinning.mesh.self.\(layer).mlp-proj"
         )
-        let output = try buffer(count: input.count, label: "rig.mesh.self.\(layer).output")
+    let output = try buffer(count: input.count, label: "skinning.mesh.self.\(layer).output")
         let commandBuffer = try require(
             queue.makeCommandBuffer(),
             .commandBufferCreationFailed
         )
-        commandBuffer.label = "rig.mesh.self-block.\(layer)"
+    commandBuffer.label = "skinning.mesh.self-block.\(layer)"
         let encoder = try require(
             commandBuffer.makeComputeCommandEncoder(),
             .commandEncoderCreationFailed
@@ -455,7 +455,7 @@ public final class SmeltMeshEncoder {
         return read(output, count: input.count)
     }
 
-    /// Applies Michelangelo's final LayerNorm and the rig model's 512→896 projection
+  /// Applies Michelangelo's final LayerNorm and the skinning component's 512→896 projection
     /// plus the source-default BF16-epsilon RMSNorm.
     public func finish(input: [Float]) throws -> [Float] {
         guard !input.isEmpty, input.count.isMultiple(of: Self.width) else {
@@ -466,18 +466,18 @@ public final class SmeltMeshEncoder {
         }
         let tokens = input.count / Self.width
         let outputWidth = 896
-        let source = try buffer(input, label: "rig.mesh.finish.input")
-        let normalized = try buffer(count: input.count, label: "rig.mesh.finish.norm")
+    let source = try buffer(input, label: "skinning.mesh.finish.input")
+    let normalized = try buffer(count: input.count, label: "skinning.mesh.finish.norm")
         let projected = try buffer(
             count: tokens * outputWidth,
-            label: "rig.mesh.finish.projected"
+      label: "skinning.mesh.finish.projected"
         )
-        let output = try buffer(count: tokens * outputWidth, label: "rig.mesh.finish.output")
+    let output = try buffer(count: tokens * outputWidth, label: "skinning.mesh.finish.output")
         let commandBuffer = try require(
             queue.makeCommandBuffer(),
             .commandBufferCreationFailed
         )
-        commandBuffer.label = "rig.mesh.finish"
+    commandBuffer.label = "skinning.mesh.finish"
         let encoder = try require(
             commandBuffer.makeComputeCommandEncoder(),
             .commandEncoderCreationFailed
@@ -561,8 +561,10 @@ public final class SmeltMeshEncoder {
     ) throws {
         encoder.setComputePipelineState(try pipeline("layer_norm_rows_bf16w_f32"))
         encoder.setBuffer(input, offset: 0, index: 0)
-        encoder.setBuffer(try artifact.makeWeightBuffer(device: device, tensorNamed: weight), offset: 0, index: 1)
-        encoder.setBuffer(try artifact.makeWeightBuffer(device: device, tensorNamed: bias), offset: 0, index: 2)
+    encoder.setBuffer(
+      try artifact.makeWeightBuffer(device: device, tensorNamed: weight), offset: 0, index: 1)
+    encoder.setBuffer(
+      try artifact.makeWeightBuffer(device: device, tensorNamed: bias), offset: 0, index: 2)
         encoder.setBuffer(output, offset: 0, index: 3)
         var rows = UInt32(rows)
         var dimension = UInt32(Self.width)
@@ -587,7 +589,8 @@ public final class SmeltMeshEncoder {
         bias: String?
     ) throws {
         let weightBuffer = try artifact.makeWeightBuffer(device: device, tensorNamed: weight)
-        let biasBuffer = try bias.map {
+    let biasBuffer =
+      try bias.map {
             try artifact.makeWeightBuffer(device: device, tensorNamed: $0)
         } ?? weightBuffer
         encoder.setComputePipelineState(try pipeline("dense_bf16w_f32"))
@@ -740,10 +743,12 @@ public final class SmeltMeshEncoder {
     }
 
     private func buffer(count: Int, label: String) throws -> MTLBuffer {
-        guard let buffer = device.makeBuffer(
+    guard
+      let buffer = device.makeBuffer(
             length: count * MemoryLayout<Float>.stride,
             options: .storageModeShared
-        ) else {
+      )
+    else {
             throw SmeltMeshEncoderError.bufferCreationFailed(label)
         }
         buffer.label = label

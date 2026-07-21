@@ -107,6 +107,14 @@ final class CAMPackagePlanToolTests: XCTestCase {
                     .path
             )
         )
+        XCTAssertFalse(
+            FileManager.default.fileExists(
+                atPath: fixture.root
+                    .appendingPathComponent("artifacts/qwen35-2b-qmm16x128/Qwen_Qwen3.5-2B-build-source.smeltpkg/module.json")
+                    .path
+            ),
+            "the checked package build regenerates module.json, so it must not remain in the source root"
+        )
     }
 
     func testBuildCamSourcePlanMissingInputNamesCamLocatorAndEnv() throws {
@@ -447,6 +455,7 @@ final class CAMPackagePlanToolTests: XCTestCase {
                 if [[ -n "$out" ]]; then
                   if [[ "$1" == "build" && "$2" == Models/*.module.json && " $* " == *" --module-source-package "* ]]; then
                     mkdir -p "$out/staged.smeltpkg"
+                    printf '%s\\n' '{"generated":"source-build"}' > "$out/staged.smeltpkg/module.json"
                   fi
                 fi
                 """)

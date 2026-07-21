@@ -1,18 +1,18 @@
 import Foundation
 import SmeltRuntime
 
-func runPrefillCommand() {
+func runPrefillCommand(_ args: [String]) {
     guard args.count >= 3 else {
-        fputs("Usage: smelt prefill <model.smeltpkg> [--tokens N]\n", stderr)
+        fputs("Usage: smelt lab prefill <model.smeltpkg> [--tokens N]\n", stderr)
         exit(1)
     }
     let pkgPath = args[2]
     let construction = requireCAMTextRuntimePlanOrExit(
         packagePath: pkgPath,
         request: .prefillParity,
-        verb: "prefill"
+        verb: "lab prefill"
     )
-    let numTokens = Int(parseArg("--tokens", default: "4")) ?? 4
+    let numTokens = Int(parseArg(args, "--tokens", default: "4")) ?? 4
 
     do {
         let tokenIds = (0..<numTokens).map { Int32($0) }

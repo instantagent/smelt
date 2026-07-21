@@ -11,7 +11,7 @@
 //   'S'  stats trailer (JSON, currently empty) — clean completion, then close
 //   'E'  UTF-8 error message — terminal
 //
-// The client resolves every parameter (declared args, baked voice, flags)
+// The client resolves every parameter (declared args, voice defaults, flags)
 // before forwarding; only resolved primitives cross the socket. If a frame
 // write fails (client hung up), the warm runtime cancels generation by returning
 // false from the generateStreaming chunk callback. Requests are sequential.
@@ -43,8 +43,8 @@ private enum CAMTextToPCMWarmFrame {
     static let metadata = UInt8(ascii: "M")
 }
 
-/// Socket key: package identity + rebuild/re-bake markers. Params travel
-/// per-request, but a re-bake still rotates the warm process so nothing read at
+/// Socket key: package identity + rebuild markers. Params travel
+/// per-request, but a rebuild still rotates the warm process so nothing read at
 /// load time (now or later) can go stale.
 func camTextToPCMWarmSocketPath(
     packagePath: String,

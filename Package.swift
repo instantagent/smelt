@@ -58,7 +58,6 @@ let package = Package(
         .library(name: "SmeltModuleAuthoring", targets: ["SmeltModuleAuthoring"]),
         .library(name: "SmeltModels", targets: ["SmeltModels"]),
         .executable(name: "smelt", targets: ["SmeltCLI"]),
-        .executable(name: "smelt-probe", targets: ["SmeltProbe"]),
         .executable(name: "smelt-models", targets: ["SmeltModelsCLI"]),
     ],
     targets: [
@@ -108,13 +107,16 @@ let package = Package(
         ),
         .executableTarget(
             name: "SmeltCLI",
-            dependencies: ["SmeltCompiler", "SmeltRuntime", "SmeltServe", "SmeltSchema"],
+            dependencies: [
+                "SmeltCompiler", "SmeltLab", "SmeltRuntime", "SmeltServe",
+                "SmeltSchema",
+            ],
             path: "Sources/SmeltCLI"
         ),
-        .executableTarget(
-            name: "SmeltProbe",
+        .target(
+            name: "SmeltLab",
             dependencies: ["SmeltCompiler", "SmeltRuntime", "SmeltSchema"],
-            path: "Sources/SmeltProbe"
+            path: "Sources/SmeltLab"
         ),
         .testTarget(
             name: "SmeltSchemaTests",

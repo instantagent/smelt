@@ -40,7 +40,7 @@ else
 fi
 
 for tokens in "${token_counts[@]}"; do
-  output=$("${agent_cmd[@]}" prefill-bench "$pkg_path" --tokens "$tokens" --iterations "$iterations" 2>&1)
+  output=$("${agent_cmd[@]}" lab bench prefill "$pkg_path" --tokens "$tokens" --iterations "$iterations" 2>&1)
   wall_ms=$(printf '%s\n' "$output" | sed -n 's/^  Wall time:    \([0-9.]*\)ms\/prefill.*/\1/p' | tail -n 1)
   tok_s=$(printf '%s\n' "$output" | sed -n 's/^  Tokens\/sec:   \([0-9.]*\)$/\1/p' | tail -n 1)
   if [[ -z "$wall_ms" || -z "$tok_s" ]]; then

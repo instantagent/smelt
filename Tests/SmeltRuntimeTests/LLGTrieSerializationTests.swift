@@ -1,4 +1,4 @@
-// Gates for the serialized llguidance token trie (baked_grammar.trie):
+// Gates for the serialized llguidance token trie (compiled_grammar.trie):
 // a tokenizer reconstructed from serializedTrie() must behave identically
 // to one built from the vocabulary — same vocab/EOS metadata and, through
 // a JSON-schema matcher, identical masks before and after consuming
@@ -26,13 +26,13 @@ private let schema = """
     @Test func serializedTrieMatchesFromVocabularyBuild() throws {
         guard FileManager.default.fileExists(atPath: qwen08bPackage) else { return }
         let tokenizer = try SmeltTokenizer(path: "\(qwen08bPackage)/tokenizer.json")
-        // Bake configuration: slicer built and embedded in the container.
+        // Prepared configuration: slicer built and embedded in the container.
         // The restored tokenizer's masks must equal a plain from-vocabulary
         // build's (the slicer is an optimization, never a semantic change).
-        let baked = try SmeltLLGuidanceTokenizer(
+        let prepared = try SmeltLLGuidanceTokenizer(
             tokenizer: tokenizer, buildSlicer: true
         )
-        let trie = try baked.serializedTrie()
+        let trie = try prepared.serializedTrie()
         let built = try SmeltLLGuidanceTokenizer(tokenizer: tokenizer)
         let restored = try SmeltLLGuidanceTokenizer(
             tokenizer: tokenizer, serializedTrie: trie

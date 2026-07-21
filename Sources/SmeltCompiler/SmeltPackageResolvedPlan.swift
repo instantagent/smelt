@@ -2,7 +2,7 @@
 //
 // A package writer should receive this object, not a loose family-specific pile
 // of inferred defaults. Resolving a CAM spec validates the contract and produces
-// deterministic package inventory, runtime routing, tensor, bake, and policy
+// deterministic package inventory, runtime routing, tensor, and policy
 // summaries without creating directories or touching package files.
 
 import SmeltSchema
@@ -91,18 +91,6 @@ public struct SmeltPackageResolvedPlan: Sendable, Equatable {
         public let calibration: CalibrationPlan?
     }
 
-    public struct BakePlan: Sendable, Equatable {
-        public struct SealedComponent: Sendable, Equatable {
-            public let kind: SmeltBakeManifest.Component
-            public let required: [String]
-            public let perf: [String]
-        }
-
-        public let path: String
-        public let version: Int
-        public let sealed: [SealedComponent]
-    }
-
     public struct TokenizerPlan: Sendable, Equatable {
         public let format: String
         public let files: [String]
@@ -186,7 +174,6 @@ public struct SmeltPackageResolvedPlan: Sendable, Equatable {
     public let tensors: [TensorPlan]
     public let quantization: QuantizationPlan?
     public let packageFiles: [PackageFile]
-    public let bake: BakePlan?
     public let policy: PolicyPlan
     public let validationParityFixture: String?
     public let validationPerformanceGate: String?
@@ -229,7 +216,6 @@ public struct SmeltPackageResolvedPlan: Sendable, Equatable {
                 )
             },
             packageFiles: packageFiles(from: spec),
-            bake: bakePlan(spec.outputFiles.bakeManifest),
             policy: try policyPlan(from: spec),
             validationParityFixture: spec.validation.parityFixture,
             validationPerformanceGate: spec.validation.performanceGate,
@@ -276,15 +262,6 @@ public struct SmeltPackageResolvedPlan: Sendable, Equatable {
             }
         } else {
             lines.append("quantization:none")
-        }
-
-        if let bake {
-            lines.append("bake:\(bake.path):v\(bake.version)")
-            lines += bake.sealed.map {
-                "bake-component:\($0.kind.rawValue):"
-                    + "required=\($0.required.joined(separator: ",")):"
-                    + "perf=\($0.perf.joined(separator: ","))"
-            }
         }
 
         lines += policy.signatureLines
@@ -449,38 +426,8 @@ public struct SmeltPackageResolvedPlan: Sendable, Equatable {
                 add("tokenizer:\(tokenizer.format)", to: file)
             }
         }
-        if let bake = spec.outputFiles.bakeManifest {
-            add("bake-manifest", to: SmeltBakeManifest.fileName)
-            for sealed in bake.sealed {
-                for file in sealed.required {
-                    add("bake:\(sealed.kind.rawValue):required", to: file)
-                }
-                for file in sealed.perf {
-                    add("bake:\(sealed.kind.rawValue):perf", to: file)
-                }
-            }
-        }
-
         return rolesByPath.keys.sorted().map {
             PackageFile(path: $0, roles: rolesByPath[$0]!.sorted())
-        }
-    }
-
-    private static func bakePlan(_ bake: SmeltBakeManifest?) -> BakePlan? {
-        bake.map {
-            BakePlan(
-                path: SmeltBakeManifest.fileName,
-                version: $0.version,
-                sealed: $0.sealed
-                    .map {
-                        BakePlan.SealedComponent(
-                            kind: $0.kind,
-                            required: $0.required.sorted(),
-                            perf: $0.perf.sorted()
-                        )
-                    }
-                    .sorted { $0.kind.rawValue < $1.kind.rawValue }
-            )
         }
     }
 

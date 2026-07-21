@@ -337,6 +337,86 @@ struct FusionPlannerTests {
         #expect(fused.constants.isEmpty)
     }
 
+    @Test("Batched residual-add rewrite uses the measured B8 crossover only at batch eight")
+    func batchedResidualAddRewriteUsesGuardedBatch8Crossover() throws {
+        let rewrite = SmeltFusionPlanner.auto.rewrite(window: [
+            .dispatch(SmeltDispatch(
+                pipeline: .affineMatvecC2048R1024G64BatchedFull,
+                buffers: [
+                    SmeltBufferBinding(slot: 30, offset: 10, index: 0),
+                    SmeltBufferBinding(slot: 30, offset: 20, index: 1),
+                    SmeltBufferBinding(slot: 30, offset: 30, index: 2),
+                    SmeltBufferBinding(slot: 13, index: 3),
+                    SmeltBufferBinding(slot: 14, index: 4),
+                ],
+                constants: [
+                    SmeltConstantBinding(expression: "__seqLen__", type: .uint32, index: 5),
+                ],
+                dispatch: .threadgroups(
+                    width: 32,
+                    height: 16,
+                    depth: 1,
+                    tgWidth: 128,
+                    tgHeight: 1,
+                    tgDepth: 1
+                ),
+                dynamicGridH: .seqLenCeilDiv(16)
+            )),
+            .dispatch(SmeltDispatch(
+                pipeline: .elementwiseAdd,
+                buffers: [
+                    SmeltBufferBinding(variableSlot: "cur", index: 0),
+                    SmeltBufferBinding(slot: 14, index: 1),
+                    SmeltBufferBinding(variableSlot: "alt", index: 2),
+                ],
+                constants: [
+                    SmeltConstantBinding(
+                        expression: "__seqLen__*1024",
+                        type: .uint32,
+                        index: 3
+                    ),
+                ],
+                dispatch: .threads(
+                    width: 1_024,
+                    height: 1,
+                    depth: 1,
+                    tgWidth: 1_024,
+                    tgHeight: 1,
+                    tgDepth: 1
+                ),
+                dynamicGridW: .seqLenMul(1_024)
+            )),
+        ][...])
+
+        let producedOps = try #require(rewrite?.producedOps)
+        let dispatches: [SmeltDispatch] = producedOps.compactMap { op -> SmeltDispatch? in
+            guard case .dispatch(let dispatch) = op else { return nil }
+            return dispatch
+        }
+        #expect(dispatches.count == 3)
+
+        let below = dispatches[0]
+        #expect(below.pipeline == .fusedAffineMatvecAddC2048R1024G64BatchedFull)
+        #expect(below.dynamicGridH == .seqLenCeilDiv(16))
+        #expect(below.minSeqLen == nil)
+        #expect(below.maxSeqLenExclusive == 8)
+        #expect(below.toRecord().tgW == 128)
+
+        let exact = dispatches[1]
+        #expect(exact.pipeline == .fusedAffineMatvecAddC2048R1024G64BatchedFullB8)
+        #expect(exact.dynamicGridH == .seqLenCeilDiv(8))
+        #expect(exact.minSeqLen == 8)
+        #expect(exact.maxSeqLenExclusive == 9)
+        #expect(exact.toRecord().tgW == 64)
+
+        let above = dispatches[2]
+        #expect(above.pipeline == .fusedAffineMatvecAddC2048R1024G64BatchedFull)
+        #expect(above.dynamicGridH == .seqLenCeilDiv(16))
+        #expect(above.minSeqLen == 9)
+        #expect(above.maxSeqLenExclusive == nil)
+        #expect(above.toRecord().tgW == 128)
+    }
+
     @Test("Residual-add rewrite falls back to generic fused matvec-add kernel")
     func residualAddRewriteFallsBackToGenericFusedMatvecAddKernel() {
         let rewrite = SmeltFusionPlanner.auto.rewrite(window: [

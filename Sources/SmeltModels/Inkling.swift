@@ -108,7 +108,7 @@ func inklingMTP() -> SmeltCAMIR {
                 ],
                 outputs: [inklingPort("predicted_hidden", hidden)],
                 annotations: [
-                    inklingAnnotation("artifact", "baked-inline"),
+                    inklingAnnotation("artifact", "compiled-inline"),
                     inklingAnnotation("tag", "multi-token-predictor"),
                 ]
             ),
@@ -561,7 +561,7 @@ private func inklingTrunkNode(id: String, prefill: Bool) -> IR.GraphNode {
         ],
         outputs: [inklingPort("hidden", inklingHiddenType())],
         annotations: [
-            inklingAnnotation("artifact", "baked-inline"),
+            inklingAnnotation("artifact", "compiled-inline"),
             inklingAnnotation("feedback", "tokens"),
             inklingAnnotation("state", "kv-cache,short-convolution-state"),
             inklingAnnotation("tag", "decode-core"),

@@ -261,7 +261,7 @@ func optimizeNextStatus(arguments args: [String]) throws -> Int32 {
 
     let afterReportPath = "\(reportDirectory)/optimizer-report.after.md"
     let afterReport = try runShellLogged(
-        ".build/release/smelt optimizer-report \(shellQuote(packageRelativePath)) --output \(shellQuote(afterReportPath))",
+        ".build/release/smelt lab inspect cost \(shellQuote(packageRelativePath)) --output \(shellQuote(afterReportPath))",
         workingDirectory: worktreePath,
         stdoutPath: "\(reportDirectory)/optimizer-report.stdout.log",
         stderrPath: "\(reportDirectory)/optimizer-report.stderr.log"
@@ -405,7 +405,7 @@ private func parseValue(_ args: [String], _ idx: inout Int, flag: String) throws
 }
 
 private func optimizeNextUsage() -> String {
-    "Usage: smelt optimize-next <model.smeltpkg> --verifier CMD --build-command CMD [--worktree DIR] [--agent-command CMD] [--task-id ID] [--apply-on-pass] [--dry-run] [--no-seed-package] [--force-package-build|--skip-package-build] [--report-dir DIR]"
+    "Usage: smelt lab optimize <model.smeltpkg> --verifier CMD --build-command CMD [--worktree DIR] [--agent-command CMD] [--task-id ID] [--apply-on-pass] [--dry-run] [--no-seed-package] [--force-package-build|--skip-package-build] [--report-dir DIR]"
 }
 
 private func makeOptimizeNextPrompt(
@@ -424,7 +424,7 @@ private func makeOptimizeNextPrompt(
     Package under test: `\(packageRelativePath)`
 
     Required success condition:
-    - The task ID below disappears from a regenerated `smelt optimizer-report`.
+    - The task ID below disappears from a regenerated `smelt lab inspect cost`.
     - The verifier command below passes.
     - Structure gates and performance gates still pass.
 
@@ -433,7 +433,7 @@ private func makeOptimizeNextPrompt(
     - `swift build -c release`
     - package build only if package-affecting inputs changed: `\(buildCommand)`
     - `\(verifierCommand)`
-    - `.build/release/smelt optimizer-report \(packageRelativePath)`
+    - `.build/release/smelt lab inspect cost \(packageRelativePath)`
 
     \(task.markdownCard(priority: taskPriority))
 

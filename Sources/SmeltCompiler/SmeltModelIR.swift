@@ -879,7 +879,7 @@ public struct SmeltInferenceConfig: Sendable {
     public let thinkEndToken: Int32?
     /// Token to inject after </think> during think-skip (typically newline).
     public let thinkSkipSuffix: Int32?
-    /// Chat-template name baked into the package (nil -> raw prompt fallback outside CAM).
+    /// Chat-template name packaged with the model (nil -> raw prompt fallback outside CAM).
     public let chatTemplate: String?
     /// Thinking-channel policy for the chat template.
     /// Nil means unspecified; CAM lowering requires it explicitly.

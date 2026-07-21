@@ -1,4 +1,4 @@
-// NeuralPrimitiveKernelTests — exactness gates for shared rig model
+// NeuralPrimitiveKernelTests — exactness gates for shared skinning component
 // preprocessing and normalization primitives.
 
 import Foundation
@@ -328,7 +328,8 @@ final class NeuralPrimitiveKernelTests: XCTestCase {
                     var cosine = cos(angle)
                     if usePMPE {
                         let fraction = Float(frequencyIndex + 1) / Float(numFreqs)
-                        let phase = (pow(Float(numFreqs), 1 - fraction) + fraction)
+            let phase =
+              (pow(Float(numFreqs), 1 - fraction) + fraction)
                             * (2 * Float.pi)
                         let phaseAngle = x * (0.5 * Float.pi) + phase
                         sine += sin(phaseAngle)

@@ -1,5 +1,6 @@
 import CryptoKit
 import Foundation
+import Metal
 import Testing
 
 @testable import SmeltRuntime
@@ -40,7 +41,8 @@ struct SmeltSkinDecoderTests {
     }
 
     private struct ProductionDecoderFixture {
-        let runtime: SmeltAutoRigRuntime
+    let artifact: SmeltComponentArtifact
+    let decoder: SmeltSkinDecoder
         let pointNormals: [Float]
         let conditionTokens: [Float]
         let jointIndices: [[UInt32]]
@@ -48,19 +50,20 @@ struct SmeltSkinDecoderTests {
 
     private enum DiagnosticError: Error {
         case invalidKernelPolicy(String)
+    case metalUnavailable
     }
 
     @Test("Reduced decoder passes every pinned source boundary")
     func reducedSourceParity() throws {
-        guard let package = ProcessInfo.processInfo.environment["SMELT_RIG_PACKAGE"],
+    guard let package = ProcessInfo.processInfo.environment["SMELT_SKINNING_PACKAGE"],
             let reference = ProcessInfo.processInfo.environment[
-                "SMELT_RIG_SKIN_DECODER_REFERENCE"
+        "SMELT_SKINNING_SKIN_DECODER_REFERENCE"
             ]
         else {
             return
         }
         let manifest = try loadManifest(reference)
-        let artifact = try SmeltRigArtifact(path: package, verify: true)
+    let artifact = try SmeltComponentArtifact(path: package, verify: true)
         let runtime = try SmeltSkinDecoder(artifact: artifact)
         let indices = try verifiedInt32(
             path: reference,
@@ -188,10 +191,10 @@ struct SmeltSkinDecoderTests {
 
     @Test("Production query chunking is byte-identical to the staged route")
     func productionChunkingParity() throws {
-        guard let package = ProcessInfo.processInfo.environment["SMELT_RIG_PACKAGE"] else {
+    guard let package = ProcessInfo.processInfo.environment["SMELT_SKINNING_PACKAGE"] else {
             return
         }
-        let artifact = try SmeltRigArtifact(path: package, verify: true)
+    let artifact = try SmeltComponentArtifact(path: package, verify: true)
         let runtime = try SmeltSkinDecoder(artifact: artifact)
         let condition = (0..<(384 * 512)).map { index in
             widenedBF16(sin(Float(index * 31 + 3) * 0.0017) * 0.19)
@@ -222,12 +225,12 @@ struct SmeltSkinDecoderTests {
 
     @Test("Production 54,000-vertex decoder smoke")
     func productionShapeSmoke() throws {
-        guard ProcessInfo.processInfo.environment["SMELT_RIG_FULL_SMOKE"] == "1",
-            let package = ProcessInfo.processInfo.environment["SMELT_RIG_PACKAGE"]
+    guard ProcessInfo.processInfo.environment["SMELT_SKINNING_FULL_SMOKE"] == "1",
+      let package = ProcessInfo.processInfo.environment["SMELT_SKINNING_PACKAGE"]
         else {
             return
         }
-        let artifact = try SmeltRigArtifact(path: package, verify: true)
+    let artifact = try SmeltComponentArtifact(path: package, verify: true)
         let runtime = try SmeltSkinDecoder(artifact: artifact)
         let condition = (0..<(384 * 512)).map { index in
             widenedBF16(sin(Float(index * 19 + 23) * 0.0013) * 0.17)
@@ -246,10 +249,10 @@ struct SmeltSkinDecoderTests {
 
     @Test("Multi-joint correctness route preserves individual decode bits")
     func multiJointParity() throws {
-        guard let package = ProcessInfo.processInfo.environment["SMELT_RIG_PACKAGE"] else {
+    guard let package = ProcessInfo.processInfo.environment["SMELT_SKINNING_PACKAGE"] else {
             return
         }
-        let artifact = try SmeltRigArtifact(path: package, verify: true)
+    let artifact = try SmeltComponentArtifact(path: package, verify: true)
         let runtime = try SmeltSkinDecoder(artifact: artifact)
         let condition = (0..<(384 * 512)).map { index in
             widenedBF16(sin(Float(index * 7 + 41) * 0.0023) * 0.21)
@@ -290,11 +293,11 @@ struct SmeltSkinDecoderTests {
     func productionDecoderPolicyParity() throws {
         guard
             ProcessInfo.processInfo.environment[
-                "SMELT_RIG_FULL_DECODER_PARITY"
+        "SMELT_SKINNING_FULL_DECODER_PARITY"
             ] == "1",
-            let package = ProcessInfo.processInfo.environment["SMELT_RIG_PACKAGE"],
+      let package = ProcessInfo.processInfo.environment["SMELT_SKINNING_PACKAGE"],
             let fixture = ProcessInfo.processInfo.environment[
-                "SMELT_RIG_GLB_FIXTURE"
+        "SMELT_SKINNING_GLB_FIXTURE"
             ]
         else {
             return
@@ -360,14 +363,14 @@ struct SmeltSkinDecoderTests {
                 )
             ),
         ]
-        let reference = try production.runtime.decoder.decodeJoints(
+    let reference = try production.decoder.decodeJoints(
             indicesByJoint: jointIndices,
             conditionTokens: production.conditionTokens,
             pointNormals: production.pointNormals
         )
         for (name, policy) in policies {
             let decoder = try SmeltSkinDecoder(
-                artifact: production.runtime.artifact,
+        artifact: production.artifact,
                 kernelPolicy: policy
             )
             let actual = try decoder.decodeJoints(
@@ -390,7 +393,7 @@ struct SmeltSkinDecoderTests {
             }
             let firstMismatch = mismatch.firstIndex.map(String.init) ?? "none"
             print(
-                "RIG_DECODER_POLICY_PARITY policy=\(name) "
+        "SKINNING_DECODER_POLICY_PARITY policy=\(name) "
                     + "mismatches=\(mismatch.count) "
                     + "candidateMismatches=\(candidateMismatchCount) "
                     + "first=\(firstMismatch) "
@@ -407,21 +410,21 @@ struct SmeltSkinDecoderTests {
     func productionRepeatedJointStress() throws {
         guard
             ProcessInfo.processInfo.environment[
-                "SMELT_RIG_DECODER_STRESS"
+        "SMELT_SKINNING_DECODER_STRESS"
             ] == "1",
-            let package = ProcessInfo.processInfo.environment["SMELT_RIG_PACKAGE"],
+      let package = ProcessInfo.processInfo.environment["SMELT_SKINNING_PACKAGE"],
             let glb = ProcessInfo.processInfo.environment[
-                "SMELT_RIG_GLB_FIXTURE"
+        "SMELT_SKINNING_GLB_FIXTURE"
             ]
         else {
             return
         }
         let production = try productionDecoderFixture(package: package, glb: glb)
         let environment = ProcessInfo.processInfo.environment
-        let repeatCount = Int(environment["SMELT_RIG_DECODER_STRESS_REPEATS"] ?? "381")
-        let joint = Int(environment["SMELT_RIG_DECODER_STRESS_JOINT"] ?? "11")
+    let repeatCount = Int(environment["SMELT_SKINNING_DECODER_STRESS_REPEATS"] ?? "381")
+    let joint = Int(environment["SMELT_SKINNING_DECODER_STRESS_JOINT"] ?? "11")
         let policyName =
-            environment["SMELT_RIG_DECODER_STRESS_POLICY"]
+      environment["SMELT_SKINNING_DECODER_STRESS_POLICY"]
             ?? "optimized"
         guard let repeatCount, repeatCount > 1,
             let joint, production.jointIndices.indices.contains(joint)
@@ -429,7 +432,7 @@ struct SmeltSkinDecoderTests {
             throw SmeltSkinDecoderError.invalidJointCount(repeatCount ?? 0)
         }
         let decoder = try SmeltSkinDecoder(
-            artifact: production.runtime.artifact,
+      artifact: production.artifact,
             kernelPolicy: try kernelPolicy(named: policyName)
         )
         let actual = try decoder.decodeJoints(
@@ -469,7 +472,7 @@ struct SmeltSkinDecoderTests {
             }
         }
         print(
-            "RIG_DECODER_STRESS policy=\(policyName) "
+      "SKINNING_DECODER_STRESS policy=\(policyName) "
                 + "joint=\(joint) repeats=\(repeatCount) "
                 + "mismatches=\(mismatchCount) "
                 + "firstRepetition=\(firstRepetition.map(String.init) ?? "none") "
@@ -483,21 +486,21 @@ struct SmeltSkinDecoderTests {
     func productionPrefixCycleStress() throws {
         guard
             ProcessInfo.processInfo.environment[
-                "SMELT_RIG_DECODER_PREFIX_STRESS"
+        "SMELT_SKINNING_DECODER_PREFIX_STRESS"
             ] == "1",
-            let package = ProcessInfo.processInfo.environment["SMELT_RIG_PACKAGE"],
+      let package = ProcessInfo.processInfo.environment["SMELT_SKINNING_PACKAGE"],
             let glb = ProcessInfo.processInfo.environment[
-                "SMELT_RIG_GLB_FIXTURE"
+        "SMELT_SKINNING_GLB_FIXTURE"
             ]
         else {
             return
         }
         let production = try productionDecoderFixture(package: package, glb: glb)
         let environment = ProcessInfo.processInfo.environment
-        let cycleCount = Int(environment["SMELT_RIG_DECODER_STRESS_CYCLES"] ?? "32")
-        let prefixCount = Int(environment["SMELT_RIG_DECODER_STRESS_PREFIX"] ?? "12")
+    let cycleCount = Int(environment["SMELT_SKINNING_DECODER_STRESS_CYCLES"] ?? "32")
+    let prefixCount = Int(environment["SMELT_SKINNING_DECODER_STRESS_PREFIX"] ?? "12")
         let policyName =
-            environment["SMELT_RIG_DECODER_STRESS_POLICY"]
+      environment["SMELT_SKINNING_DECODER_STRESS_POLICY"]
             ?? "optimized"
         guard let cycleCount, cycleCount > 1,
             let prefixCount, prefixCount > 0,
@@ -507,7 +510,7 @@ struct SmeltSkinDecoderTests {
         }
         let prefix = Array(production.jointIndices.prefix(prefixCount))
         let decoder = try SmeltSkinDecoder(
-            artifact: production.runtime.artifact,
+      artifact: production.artifact,
             kernelPolicy: try kernelPolicy(named: policyName)
         )
         let actual = try decoder.decodeJoints(
@@ -553,7 +556,7 @@ struct SmeltSkinDecoderTests {
             }
         }
         print(
-            "RIG_DECODER_PREFIX_STRESS policy=\(policyName) "
+      "SKINNING_DECODER_PREFIX_STRESS policy=\(policyName) "
                 + "cycles=\(cycleCount) prefix=\(prefixCount) "
                 + "mismatches=\(mismatchCount) "
                 + "firstCycle=\(firstCycle.map(String.init) ?? "none") "
@@ -568,20 +571,36 @@ struct SmeltSkinDecoderTests {
         package: String,
         glb: String
     ) throws -> ProductionDecoderFixture {
-        let runtime = try SmeltAutoRigRuntime(packagePath: package)
+    guard let device = MTLCreateSystemDefaultDevice() else {
+      throw DiagnosticError.metalUnavailable
+    }
+    let artifact = try SmeltComponentArtifact(path: package, verify: true)
+    let meshEncoder = try SmeltMeshEncoder(artifact: artifact, device: device)
+    let conditionEncoder = try SmeltSkinConditionEncoder(
+      artifact: artifact,
+      device: device
+    )
+    let generator = SmeltSkeletonGenerator(
+      languageModel: try SmeltSkeletonLanguageRuntime(
+        packagePath: package,
+        device: device,
+        verifyPackage: true
+      )
+    )
+    let decoder = try SmeltSkinDecoder(artifact: artifact, device: device)
         let mesh = try SmeltGLB.readMesh(from: URL(fileURLWithPath: glb))
         let sampling = try SmeltMeshGeometry.sample(mesh: mesh, seed: 0)
-        let meshEncoding = try runtime.meshEncoder.encode(
+    let meshEncoding = try meshEncoder.encode(
             pointNormals: sampling.pointNormals
         )
-        let condition = try runtime.conditionEncoder.encode(
+    let condition = try conditionEncoder.encode(
             pointNormals: sampling.pointNormals
         )
-        let generation = try runtime.generator.generate(
+    let generation = try generator.generate(
             meshEmbeddings: meshEncoding.embeddings,
             startTokenIDs: [
-                SmeltRigVocabulary.skeletonBOS,
-                SmeltRigVocabulary.noClass,
+        SmeltSkeletonVocabulary.skeletonBOS,
+        SmeltSkeletonVocabulary.noClass,
             ],
             configuration: .init(
                 policyMode: .validated,
@@ -594,7 +613,8 @@ struct SmeltSkinDecoderTests {
                 == "43e24a52a5ccf2a74deec5c0fd5b1a312672df3c21af954bfc52db8c27711f25"
         )
         return ProductionDecoderFixture(
-            runtime: runtime,
+      artifact: artifact,
+      decoder: decoder,
             pointNormals: sampling.pointNormals,
             conditionTokens: condition.conditionTokens,
             jointIndices: generation.skinCodeIndices.map { indices in
@@ -655,7 +675,7 @@ struct SmeltSkinDecoderTests {
     private func loadManifest(_ path: String) throws -> ReferenceManifest {
         let data = try Data(contentsOf: URL(fileURLWithPath: "\(path)/manifest.json"))
         let manifest = try JSONDecoder().decode(ReferenceManifest.self, from: data)
-        #expect(manifest.schema == "smelt.tokenrig.vae-decoder-reference.v1")
+    #expect(manifest.schema == "smelt.skintokens.decoder-reference.v1")
         #expect(manifest.sourceCommit == "273b691d35989d71cd17ff2895fdc735097b92d1")
         #expect(
             manifest.checkpointSHA256
@@ -755,7 +775,7 @@ struct SmeltSkinDecoderTests {
     ) throws {
         let value = metrics(actual: actual, expected: expected)
         print(
-            "TokenRig VAE \(label): cosine=\(value.cosine) "
+      "SkinTokens decoder \(label): cosine=\(value.cosine) "
                 + "relL2=\(value.relativeL2) "
                 + "maxAbs=\(value.maximumAbsoluteDifference)"
         )
